@@ -17,7 +17,15 @@
     "setup": "npm run setup:frontend && npm run setup:supabase",
     "setup:frontend": "cd frontend && npm install",
     "setup:supabase": "supabase start",
-    "start": "cd frontend && npm run preview"
+    "start": "cd frontend && npm run preview",
+    "deploy": "node scripts/fix-vercel-permanently.cjs && ./dev-workflow.sh deploy",
+    "deploy:force": "vercel --prod --force",
+    "monitor": "./dev-workflow.sh monitor",
+    "debug": "./dev-workflow.sh debug",
+    "vercel:link": "vercel link",
+    "vercel:deploy": "vercel --prod",
+    "vercel:logs": "vercel logs",
+    "health": "curl -s https://document-intelligence-suite.vercel.app/ | grep -o 'assets/index-[^\"]*.js'"
   },
   "keywords": [
     "rag",
