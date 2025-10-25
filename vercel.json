@@ -19,12 +19,8 @@
       "dest": "/api/$1"
     },
     {
-      "src": "/health",
-      "dest": "/frontend/dist/index.html"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/frontend/dist/$1"
+      "dest": "/frontend/dist/index.html"
     }
   ],
   "functions": {

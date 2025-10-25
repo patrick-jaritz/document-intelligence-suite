@@ -255,13 +255,16 @@ export function Home() {
             <div className="flex items-center space-x-6">
               <button
                 onClick={() => navigate('/health')}
-                className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200"
+                className="flex items-center px-6 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors duration-200 font-medium shadow-sm hover:shadow-md"
               >
-                <Activity className="w-4 h-4 mr-2" />
-                System Health
+                <Activity className="w-5 h-5 mr-2" />
+                System Health Dashboard
               </button>
               <span className="text-gray-400">|</span>
               <span>Developed with ❤️ by Patrick</span>
+            </div>
+            <div className="text-xs text-gray-400">
+              Monitor system performance, API usage, and service health
             </div>
           </div>
         </footer>
