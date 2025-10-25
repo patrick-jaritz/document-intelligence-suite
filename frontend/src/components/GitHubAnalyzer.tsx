@@ -171,7 +171,7 @@ export function GitHubAnalyzer() {
     }
   };
 
-  const handleDeleteArchive = async (analysisId: string, e: React.MouseEvent) => {
+  const handleDeleteArchive = async (analysis: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the archive click
     
     if (!confirm('Are you sure you want to remove this analysis from the archive?')) {
@@ -179,13 +179,31 @@ export function GitHubAnalyzer() {
     }
 
     try {
-      // Call delete function or remove from Supabase
-      // For now, just remove from local state
-      setArchivedAnalyses(prev => prev.filter(a => a.id !== analysisId));
-      console.log('Archive item deleted');
+      console.log('🗑️ Deleting analysis:', analysis.repository_url);
+      
+      // Call the delete Edge Function
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-github-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          repository_url: analysis.repository_url,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete');
+      }
+
+      // Remove from local state
+      setArchivedAnalyses(prev => prev.filter(a => a.id !== analysis.id));
+      console.log('✅ Archive item deleted successfully');
     } catch (error) {
       console.error('Failed to delete archive item:', error);
-      alert('Failed to delete archive item');
+      alert(`Failed to delete archive item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -377,7 +395,7 @@ export function GitHubAnalyzer() {
                         </div>
                       </div>
                       <button
-                        onClick={(e) => handleDeleteArchive(analysis.id || idx.toString(), e)}
+                        onClick={(e) => handleDeleteArchive(analysis, e)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                         title="Delete from archive"
                       >
