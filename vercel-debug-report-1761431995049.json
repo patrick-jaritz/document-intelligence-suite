@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-10-25T22:39:55.049Z",
+  "issues": [
+    "Uncommitted changes detected"
+  ],
+  "fixes": [],
+  "logs": [
+    "[2025-10-25T22:39:53.676Z] [VERCEL-DEBUG] [INFO] 🔍 Starting comprehensive Vercel deployment diagnosis...",
+    "[2025-10-25T22:39:53.681Z] [VERCEL-DEBUG] [INFO] 🔍 Checking Git status...",
+    "[2025-10-25T22:39:53.739Z] [VERCEL-DEBUG] [INFO] 📝 Git status: Has uncommitted changes",
+    "[2025-10-25T22:39:53.739Z] [VERCEL-DEBUG] [INFO] 📋 Uncommitted changes:\n?? scripts/debug-vercel-deployment.cjs\n",
+    "[2025-10-25T22:39:53.740Z] [VERCEL-DEBUG] [INFO] 🔍 Checking build artifacts...",
+    "[2025-10-25T22:39:53.740Z] [VERCEL-DEBUG] [INFO] 📁 Build directory contents: 8 files",
+    "[2025-10-25T22:39:53.740Z] [VERCEL-DEBUG] [INFO] 📄 HTML files: ✅ index.html",
+    "[2025-10-25T22:39:53.740Z] [VERCEL-DEBUG] [INFO] 📦 JS files: 0 ()",
+    "[2025-10-25T22:39:53.740Z] [VERCEL-DEBUG] [INFO] 🎨 CSS files: 0 ()",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] 🔢 Asset hashes found: ",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] 🔍 Checking Vercel configuration...",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] ✅ vercel.json found and valid",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] 📦 Builds configured: 2",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO]   Build 1: frontend/package.json -> @vercel/static-build",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO]     Dist dir: frontend/dist",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO]   Build 2: api/**/*.js -> @vercel/node",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] 🛣️ Routes configured: 4",
+    "[2025-10-25T22:39:53.741Z] [VERCEL-DEBUG] [INFO] 🔍 Checking deployment history...",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO] 📚 Recent commits:",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   1. 275b69b 🚀 DEV DEPLOY: 2025-10-25T22:32:44.841Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   2. 2c3e30f 🚀 DEV DEPLOY: 2025-10-25T22:30:05.542Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   3. 8ca129c 🚀 DEV DEPLOY: 2025-10-25T22:27:03.032Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   4. b0d1121 🚀 DEV DEPLOY: 2025-10-25T22:21:22.126Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   5. 8e196aa 🚀 FORCE DEPLOYMENT: Fix health page routing",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   6. 9e83b8d 🚀 DEV DEPLOY: 2025-10-25T22:19:20.691Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   7. 2b5416c 🚀 DEV DEPLOY: 2025-10-25T22:18:53.155Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   8. 2f54e03 🚀 DEV DEPLOY: 2025-10-25T22:18:02.206Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   9. e9de853 🚀 DEV DEPLOY: 2025-10-25T22:17:10.899Z",
+    "[2025-10-25T22:39:53.774Z] [VERCEL-DEBUG] [INFO]   10. b530e21 🚀 DEV DEPLOY: 2025-10-25T22:15:48.094Z",
+    "[2025-10-25T22:39:53.799Z] [VERCEL-DEBUG] [INFO] 🌿 Current branch: main",
+    "[2025-10-25T22:39:53.800Z] [VERCEL-DEBUG] [INFO] 🔍 Checking Vercel deployment status...",
+    "[2025-10-25T22:39:54.550Z] [VERCEL-DEBUG] [INFO] ✅ Vercel CLI available: 48.2.9",
+    "[2025-10-25T22:39:55.049Z] [VERCEL-DEBUG] [INFO] 🌐 Live deployment asset hash: HlcnRfh2",
+    "[2025-10-25T22:39:55.049Z] [VERCEL-DEBUG] [INFO] 🔨 Local build hashes: ",
+    "[2025-10-25T22:39:55.049Z] [VERCEL-DEBUG] [INFO] 📊 Generating comprehensive report..."
+  ],
+  "summary": {
+    "totalIssues": 1,
+    "totalFixes": 0,
+    "status": "NEEDS_ATTENTION"
+  }
+}
