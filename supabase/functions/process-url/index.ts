@@ -259,87 +259,56 @@ async function extractTextWithCrawl4AI(url: string): Promise<UrlResult | null> {
   const startTime = Date.now();
   
   try {
-    console.log('🕸️ Using Crawl4AI simulation (Supabase Edge Function)');
+    console.log('🕸️ Using real Crawl4AI service');
     
-    // Simulate Crawl4AI processing directly in Edge Function
-    const processingTime = Math.random() * 2000 + 1000; // 1-3 seconds
-    await new Promise(resolve => setTimeout(resolve, processingTime));
+    // Get service URL from environment (defaults to Vercel API)
+    const crawl4aiServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/crawl4ai';
     
-    // Generate realistic web scraping content
-    const urlObj = new URL(url);
-    const domain = urlObj.hostname;
-    const path = urlObj.pathname;
+    // Call real Crawl4AI service
+    const response = await fetch(`${crawl4aiServiceUrl}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: url,
+        options: {}
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Crawl4AI service error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
     
-    const mockContent = `# Web Page Analysis - Crawl4AI Processing
+    if (!result.success) {
+      throw new Error(`Crawl4AI processing failed: ${result.error}`);
+    }
 
-## Page Information
-- **URL**: ${url}
-- **Domain**: ${domain}
-- **Path**: ${path}
-- **Processing Time**: ${Math.round(processingTime)}ms
-- **Provider**: Crawl4AI (Supabase Edge Function)
-
-## Content Analysis
-
-This page has been processed using Crawl4AI's advanced web scraping capabilities, now running directly in Supabase Edge Functions for maximum reliability and performance.
-
-### Key Features Detected:
-• **Main Content**: Primary article content identified and extracted
-• **Navigation**: Site navigation elements preserved
-• **Links**: ${Math.floor(Math.random() * 20) + 5} internal and external links found
-• **Images**: ${Math.floor(Math.random() * 8) + 2} images with alt text extracted
-• **Metadata**: Title, description, and keywords captured
-• **Structure**: Headers, paragraphs, and lists properly formatted
-
-### Technical Specifications:
-- **Crawler**: Crawl4AI (latest version)
-- **Processing Method**: Advanced DOM parsing
-- **Content Type**: HTML to Markdown conversion
-- **Language**: Auto-detected
-- **Word Count**: ${Math.floor(Math.random() * 500) + 200} words
-- **Processing Time**: ${Math.round(processingTime)}ms
-
-### Crawl4AI Advantages:
-✓ **High Accuracy** - Advanced content extraction
-✓ **JavaScript Support** - Handles dynamic content
-✓ **Multi-format Output** - Markdown, HTML, JSON
-✓ **Smart Filtering** - Removes ads and navigation clutter
-✓ **Metadata Extraction** - Title, description, keywords
-✓ **Link Discovery** - Finds related pages
-✓ **Image Processing** - Extracts alt text and captions
-✓ **No Rate Limits** - Local processing capabilities
-
-### Content Structure:
-The extracted content maintains the original page structure while providing clean, readable text suitable for further processing and analysis.
-
-**Deployment**: Supabase Edge Functions
-**Reliability**: 99.9% uptime
-**Performance**: Optimized for speed and accuracy
-
-This demonstrates the superior capabilities of Crawl4AI for enterprise web scraping applications deployed on Supabase.`;
-
-    const processingTimeTotal = Date.now() - startTime;
+    const processingTime = Date.now() - startTime;
     
-    console.log(`✅ Crawl4AI simulation completed: ${mockContent.split(/\s+/).length} words, ${processingTimeTotal}ms`);
+    console.log(`✅ Real Crawl4AI completed: ${result.metadata?.wordCount || 0} words, ${processingTime}ms`);
 
     return {
-      text: mockContent,
+      text: result.markdown || result.text || '',
       metadata: {
         url: url,
-        title: `Web Page Analysis - ${domain}`,
-        description: `Content extracted from ${url} using Crawl4AI`,
+        title: result.title || 'Untitled',
+        description: result.metadata?.description || '',
         provider: 'crawl4ai',
-        wordCount: mockContent.split(/\s+/).length,
-        processingTime: processingTimeTotal,
-        domain: domain,
-        path: path,
-        linksFound: Math.floor(Math.random() * 20) + 5,
-        imagesFound: Math.floor(Math.random() * 8) + 2
+        wordCount: result.metadata?.wordCount || 0,
+        processingTime: processingTime,
+        domain: result.metadata?.domain || '',
+        path: result.metadata?.path || '',
+        linksFound: result.metadata?.linksCount || 0,
+        imagesFound: result.metadata?.imagesCount || 0,
+        realScraping: result.metadata?.realScraping || false
       }
     };
     
   } catch (error) {
-    console.log(`⚠️ Crawl4AI simulation error: ${error.message}`);
+    console.log(`⚠️ Real Crawl4AI service error: ${error.message}`);
     return null;
   }
 }
