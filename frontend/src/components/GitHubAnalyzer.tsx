@@ -144,7 +144,7 @@ export function GitHubAnalyzer() {
       console.log('✅ Save result:', saveResult);
       
       if (saveResult.success) {
-        // Add the newly saved analysis to the archive list immediately
+        // Update or add the analysis to the archive list
         const newAnalysis = {
           id: saveResult.id || Date.now().toString(),
           repository_url: result.repository,
@@ -152,11 +152,25 @@ export function GitHubAnalyzer() {
           analysis_data: result.analysis,
           created_at: new Date().toISOString(),
         };
-        setArchivedAnalyses(prev => [newAnalysis, ...prev]);
-        console.log('✅ Analysis added to archive list');
+        
+        // Check if it already exists (update scenario)
+        const isUpdate = archivedAnalyses.some(
+          a => a.repository_url.toLowerCase() === result.repository.toLowerCase()
+        );
+        
+        setArchivedAnalyses(prev => {
+          // Remove old entry if updating
+          const filtered = prev.filter(
+            a => a.repository_url.toLowerCase() !== result.repository.toLowerCase()
+          );
+          // Add new entry at the beginning
+          return [newAnalysis, ...filtered];
+        });
+        
+        console.log(`✅ Analysis ${isUpdate ? 'updated in' : 'added to'} archive list`);
         
         if (showNotification) {
-          alert('✅ Analysis saved to archive!');
+          alert(`✅ Analysis ${isUpdate ? 'updated in' : 'saved to'} archive!`);
         }
         return true;
       } else {
@@ -233,6 +247,32 @@ export function GitHubAnalyzer() {
     if (!isGitHubUrl(urlInput)) {
       setError('Please enter a valid GitHub repository URL');
       return;
+    }
+
+    // Check if repository already exists in archive
+    const existingAnalysis = archivedAnalyses.find(
+      analysis => analysis.repository_url.toLowerCase() === urlInput.toLowerCase()
+    );
+
+    if (existingAnalysis) {
+      const confirmed = confirm(
+        'This repository has already been analyzed and is in your archive. Would you like to analyze it again and update the archive?'
+      );
+      if (!confirmed) {
+        // Just show the existing analysis
+        setAnalysisResult({
+          success: true,
+          repository: existingAnalysis.repository_url,
+          analysis: existingAnalysis.analysis_data,
+          metadata: {
+            analyzedAt: existingAnalysis.created_at,
+            dataSources: ['archive'],
+            confidence: 1,
+          },
+        });
+        setShowArchive(false);
+        return;
+      }
     }
 
     setIsAnalyzing(true);
