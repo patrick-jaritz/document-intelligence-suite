@@ -261,8 +261,8 @@ async function extractTextWithCrawl4AI(url: string): Promise<UrlResult | null> {
   try {
     console.log('🕸️ Using real Crawl4AI service');
     
-    // Get service URL from environment (defaults to local Docker service)
-    const crawl4aiServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'http://localhost:5003';
+    // Get service URL from environment (defaults to Vercel API)
+    const crawl4aiServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/crawl4ai';
     
     // Call real Crawl4AI service
     const response = await fetch(`${crawl4aiServiceUrl}/crawl`, {

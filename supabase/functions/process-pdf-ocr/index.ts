@@ -1161,8 +1161,8 @@ async function callDotsOCRService(base64Data: string, logger?: EdgeLogger): Prom
       dataSize: base64Data.length
     });
 
-    // Get service URL from environment (defaults to local Docker service)
-    const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'http://localhost:5002';
+    // Get service URL from environment (defaults to Vercel API)
+    const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/dots-ocr';
     
     // Call real dots.ocr service
     const response = await fetch(`${dotsOcrServiceUrl}/ocr`, {
@@ -1286,8 +1286,8 @@ async function callPaddleOCRService(base64Data: string, logger?: EdgeLogger): Pr
       dataSize: base64Data.length
     });
 
-    // Get service URL from environment (defaults to local Docker service)
-    const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'http://localhost:5001';
+    // Get service URL from environment (defaults to Vercel API)
+    const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/paddleocr';
     
     // Call real PaddleOCR service
     const response = await fetch(`${paddleOcrServiceUrl}/ocr`, {
