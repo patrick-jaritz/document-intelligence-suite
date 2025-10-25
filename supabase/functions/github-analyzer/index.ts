@@ -87,7 +87,13 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 function isGitHubRepo(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    return urlObj.hostname === 'github.com' && urlObj.pathname.split('/').length >= 3;
+    const pathParts = urlObj.pathname.split('/').filter(part => part);
+    
+    // Must be github.com with at least owner/repo
+    return urlObj.hostname === 'github.com' && 
+           pathParts.length >= 2 && 
+           pathParts[0].length > 0 && 
+           pathParts[1].length > 0;
   } catch {
     return false;
   }
@@ -101,12 +107,15 @@ function extractGitHubInfo(url: string): { owner: string; repo: string } {
   const pathParts = urlObj.pathname.split('/').filter(part => part);
   
   if (pathParts.length < 2) {
-    throw new Error('Invalid GitHub repository URL');
+    throw new Error('Invalid GitHub repository URL. Please provide a URL in the format: https://github.com/owner/repository');
   }
+  
+  // Remove .git suffix if present
+  const repo = pathParts[1].replace(/\.git$/, '');
   
   return {
     owner: pathParts[0],
-    repo: pathParts[1]
+    repo: repo
   };
 }
 
@@ -120,7 +129,13 @@ async function fetchGitHubData(owner: string, repo: string): Promise<GitHubRepoD
     // Fetch repository basic info
     const repoResponse = await fetch(`${baseUrl}`);
     if (!repoResponse.ok) {
-      throw new Error(`GitHub API error: ${repoResponse.status}`);
+      if (repoResponse.status === 404) {
+        throw new Error(`Repository not found: ${owner}/${repo}. Please check that the repository exists and is public, or verify the URL is correct.`);
+      } else if (repoResponse.status === 403) {
+        throw new Error(`Access denied: ${owner}/${repo}. This repository may be private or you may have exceeded GitHub API rate limits.`);
+      } else {
+        throw new Error(`GitHub API error: ${repoResponse.status} - ${repoResponse.statusText}`);
+      }
     }
     const repo = await repoResponse.json();
     

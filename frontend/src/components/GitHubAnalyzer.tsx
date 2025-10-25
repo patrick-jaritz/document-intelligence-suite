@@ -113,7 +113,13 @@ export function GitHubAnalyzer() {
   const isGitHubUrl = (url: string): boolean => {
     try {
       const urlObj = new URL(url);
-      return urlObj.hostname === 'github.com' && urlObj.pathname.split('/').length >= 3;
+      const pathParts = urlObj.pathname.split('/').filter(part => part);
+      
+      // Must be github.com with at least owner/repo
+      return urlObj.hostname === 'github.com' && 
+             pathParts.length >= 2 && 
+             pathParts[0].length > 0 && 
+             pathParts[1].length > 0;
     } catch {
       return false;
     }
@@ -332,7 +338,7 @@ export function GitHubAnalyzer() {
     if (!urlInput.trim()) return;
     
     if (!isGitHubUrl(urlInput)) {
-      setError('Please enter a valid GitHub repository URL');
+      setError('Please enter a valid GitHub repository URL in the format: https://github.com/owner/repository');
       return;
     }
 

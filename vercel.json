@@ -1,11 +1,20 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "framework": "vite",
+  "functions": {
+    "api/paddleocr/ocr.js": {
+      "maxDuration": 30
+    },
+    "api/dots-ocr/ocr.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/api/paddleocr/(.*)",
+      "destination": "/api/paddleocr/ocr"
+    },
+    {
+      "source": "/api/dots-ocr/(.*)",
+      "destination": "/api/dots-ocr/ocr"
     }
   ]
 }

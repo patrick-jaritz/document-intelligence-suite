@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  paddleocr:
+    build:
+      context: ./services/paddleocr
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - DEBUG=false
+    volumes:
+      - ./services/paddleocr:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  dots-ocr:
+    build:
+      context: ./services/dots-ocr
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - DEBUG=false
+      - DOTS_OCR_API_URL=${DOTS_OCR_API_URL:-}
+      - DOTS_OCR_API_KEY=${DOTS_OCR_API_KEY:-}
+    volumes:
+      - ./services/dots-ocr:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Optional: Add a reverse proxy for easier access
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - paddleocr
+      - dots-ocr
+    restart: unless-stopped

@@ -41,14 +41,57 @@ Deno.serve(async (req: Request) => {
   const requestId = inboundReqId || generateRequestId();
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Check environment variables first
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing required environment variables:', {
+        hasSupabaseUrl: !!supabaseUrl,
+        hasSupabaseServiceKey: !!supabaseServiceKey
+      });
+      throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const logger = new EdgeLogger(supabaseClient, requestId);
 
-    const { documentId, jobId, fileUrl, ocrProvider, openaiVisionModel, fileDataUrl }: ProcessPDFRequest = await req.json();
+    // Parse request body with better error handling
+    let requestBody: ProcessPDFRequest;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      throw new Error('Invalid JSON in request body');
+    }
+
+    const { documentId, jobId, fileUrl, ocrProvider, openaiVisionModel, fileDataUrl } = requestBody;
+
+    // Validate required fields
+    if (!documentId || !jobId || !ocrProvider) {
+      console.error('Missing required fields:', {
+        hasDocumentId: !!documentId,
+        hasJobId: !!jobId,
+        hasOcrProvider: !!ocrProvider,
+        hasFileUrl: !!fileUrl,
+        hasFileDataUrl: !!fileDataUrl
+      });
+      throw new Error('Missing required fields: documentId, jobId, and ocrProvider are required');
+    }
+
+    // Validate OCR provider
+    const validProviders: OCRProvider[] = ['dots-ocr', 'paddleocr', 'google-vision', 'mistral', 'tesseract', 'aws-textract', 'azure-document-intelligence', 'ocr-space', 'openai-vision', 'deepseek-ocr'];
+    if (!validProviders.includes(ocrProvider as OCRProvider)) {
+      console.error('Invalid OCR provider:', { ocrProvider, validProviders });
+      throw new Error(`Invalid OCR provider: ${ocrProvider}. Valid providers are: ${validProviders.join(', ')}`);
+    }
+
+    // Validate that either fileUrl or fileDataUrl is provided
+    if (!fileUrl && !fileDataUrl) {
+      console.error('No file source provided:', { hasFileUrl: !!fileUrl, hasFileDataUrl: !!fileDataUrl });
+      throw new Error('Either fileUrl or fileDataUrl must be provided');
+    }
 
     logger.info('ocr', `Starting OCR processing for document ${documentId} using ${ocrProvider}`, {
       documentId,
@@ -124,40 +167,107 @@ Deno.serve(async (req: Request) => {
       logger.info('ocr', `Calling OCR provider: ${ocrProvider}`, { ocrProvider, bufferSize: pdfBuffer.byteLength });
 
       try {
-        switch (ocrProvider) {
-          case 'dots-ocr':
-            ocrResult = await processWithDotsOCR(pdfBuffer, contentType, logger);
-            break;
-          case 'paddleocr':
-            ocrResult = await processWithPaddleOCR(pdfBuffer, contentType, logger);
-            break;
-          case 'google-vision':
-            ocrResult = await processWithGoogleVision(pdfBuffer, contentType);
-            break;
-          case 'openai-vision':
-            ocrResult = await processWithOpenAIVision(pdfBuffer, contentType, openaiVisionModel);
-            break;
-          case 'mistral':
-            ocrResult = await processWithMistral(pdfBuffer, contentType);
-            break;
-          case 'aws-textract':
-            ocrResult = await processWithAWSTextract(pdfBuffer, contentType);
-            break;
-          case 'azure-document-intelligence':
-            ocrResult = await processWithAzureDocumentIntelligence(pdfBuffer, contentType);
-            break;
-          case 'ocr-space':
-            ocrResult = await processWithOCRSpace(pdfBuffer, contentType, logger);
-            break;
-          case 'tesseract':
-            ocrResult = await processWithTesseract(pdfBuffer, contentType);
-            break;
-          case 'deepseek-ocr':
-            ocrResult = await processWithDeepSeekOCR(pdfBuffer, contentType, logger);
-            break;
-          default:
-            logger.error('ocr', `Unsupported OCR provider: ${ocrProvider}`, new Error('Unsupported provider'), { ocrProvider });
-            throw new Error(`Unsupported OCR provider: ${ocrProvider}`);
+        // Try the primary OCR provider first
+        logger.info('ocr', `Attempting primary OCR provider: ${ocrProvider}`, { 
+          ocrProvider, 
+          bufferSize: pdfBuffer.byteLength,
+          contentType 
+        });
+        
+        // Add timeout to prevent infinite loops
+        const ocrTimeout = 30000; // 30 seconds timeout
+        const ocrPromise = tryOCRProvider(ocrProvider, pdfBuffer, contentType, openaiVisionModel, logger);
+        const timeoutPromise = new Promise<OCRResult>((_, reject) => 
+          setTimeout(() => reject(new Error('OCR processing timeout')), ocrTimeout)
+        );
+        
+        ocrResult = await Promise.race([ocrPromise, timeoutPromise]);
+        
+        // If no text was extracted, try fallback providers
+        if (!ocrResult.text || ocrResult.text.trim().length === 0 || ocrResult.text.includes('No text could be extracted')) {
+          logger.warning('ocr', 'Primary OCR provider failed, trying fallback providers', {
+            primaryProvider: ocrProvider,
+            textLength: ocrResult.text?.length || 0,
+            textPreview: ocrResult.text?.substring(0, 100) || 'No text'
+          });
+          
+          try {
+            const fallbackProviders = getFallbackProviders(ocrProvider);
+            logger.info('ocr', `Fallback providers available: ${fallbackProviders.join(', ')}`, { fallbackProviders });
+            let fallbackSuccess = false;
+            const triedProviders = new Set([ocrProvider]); // Track tried providers to prevent recursion
+            
+            for (const fallbackProvider of fallbackProviders) {
+              // Skip if we've already tried this provider
+              if (triedProviders.has(fallbackProvider)) {
+                logger.warning('ocr', `Skipping already tried provider: ${fallbackProvider}`, { fallbackProvider });
+                continue;
+              }
+              
+              triedProviders.add(fallbackProvider);
+              
+              try {
+                logger.info('ocr', `Trying fallback provider: ${fallbackProvider}`, { fallbackProvider });
+                const fallbackResult = await tryOCRProvider(fallbackProvider, pdfBuffer, contentType, openaiVisionModel, logger);
+                
+                if (fallbackResult.text && fallbackResult.text.trim().length > 0 && !fallbackResult.text.includes('No text could be extracted')) {
+                  ocrResult = {
+                    ...fallbackResult,
+                    metadata: {
+                      ...fallbackResult.metadata,
+                      fallbackUsed: true,
+                      originalProvider: ocrProvider,
+                      fallbackProvider: fallbackProvider
+                    }
+                  };
+                  fallbackSuccess = true;
+                  logger.info('ocr', `Fallback provider ${fallbackProvider} succeeded`, {
+                    textLength: fallbackResult.text.length,
+                    confidence: fallbackResult.metadata.confidence
+                  });
+                  break;
+                } else {
+                  logger.warning('ocr', `Fallback provider ${fallbackProvider} returned no text`, {
+                    fallbackProvider,
+                    textLength: fallbackResult.text?.length || 0
+                  });
+                }
+              } catch (fallbackError) {
+                const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+                
+                // Check if it's a connection error that we should skip
+                if (errorMessage.includes('Connection refused') || 
+                    errorMessage.includes('ECONNREFUSED') || 
+                    errorMessage.includes('localhost')) {
+                  logger.warning('ocr', `Skipping fallback provider ${fallbackProvider} due to connection error`, { 
+                    fallbackProvider,
+                    errorMessage,
+                    reason: 'Service not available',
+                    error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+                  });
+                } else {
+                  logger.warning('ocr', `Fallback provider ${fallbackProvider} failed`, { 
+                    fallbackProvider,
+                    errorMessage,
+                    error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+                  });
+                }
+              }
+            }
+            
+            if (!fallbackSuccess) {
+              logger.error('ocr', 'All OCR providers failed to extract text', new Error('All providers failed'), {
+                primaryProvider: ocrProvider,
+                fallbackProviders: fallbackProviders,
+                triedProviders: Array.from(triedProviders)
+              });
+            }
+          } catch (fallbackError) {
+            logger.error('ocr', 'Fallback mechanism failed', fallbackError, {
+              primaryProvider: ocrProvider,
+              errorMessage: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+            });
+          }
         }
 
         const providerDuration = Date.now() - providerStartTime;
@@ -291,6 +401,65 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+/**
+ * Try OCR with a specific provider
+ */
+async function tryOCRProvider(
+  provider: OCRProvider, 
+  pdfBuffer: ArrayBuffer, 
+  contentType: string, 
+  openaiVisionModel?: string, 
+  logger?: EdgeLogger
+): Promise<OCRResult> {
+  switch (provider) {
+    case 'dots-ocr':
+      return await processWithDotsOCR(pdfBuffer, contentType, logger);
+    case 'paddleocr':
+      return await processWithPaddleOCR(pdfBuffer, contentType, logger);
+    case 'google-vision':
+      return await processWithGoogleVision(pdfBuffer, contentType);
+    case 'openai-vision':
+      return await processWithOpenAIVision(pdfBuffer, contentType, openaiVisionModel);
+    case 'mistral':
+      return await processWithMistral(pdfBuffer, contentType);
+    case 'aws-textract':
+      return await processWithAWSTextract(pdfBuffer, contentType);
+    case 'azure-document-intelligence':
+      return await processWithAzureDocumentIntelligence(pdfBuffer, contentType);
+    case 'ocr-space':
+      return await processWithOCRSpace(pdfBuffer, contentType, logger);
+    case 'tesseract':
+      return await processWithTesseract(pdfBuffer, contentType);
+    case 'deepseek-ocr':
+      return await processWithDeepSeekOCR(pdfBuffer, contentType, logger);
+    default:
+      throw new Error(`Unsupported OCR provider: ${provider}`);
+  }
+}
+
+/**
+ * Get fallback providers for a given primary provider
+ */
+function getFallbackProviders(primaryProvider: OCRProvider): OCRProvider[] {
+  // Define fallback providers, excluding those that require local services or specific infrastructure
+  const fallbackMap: Record<OCRProvider, OCRProvider[]> = {
+    'google-vision': ['dots-ocr', 'paddleocr', 'ocr-space'],
+    'dots-ocr': ['paddleocr', 'google-vision', 'ocr-space'],
+    'paddleocr': ['google-vision', 'dots-ocr', 'ocr-space'],
+    'ocr-space': ['dots-ocr', 'paddleocr', 'google-vision'],
+    'openai-vision': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'mistral': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'deepseek-ocr': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'aws-textract': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'azure-document-intelligence': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'tesseract': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space']
+  };
+  
+  // Ensure the primary provider is not in its own fallback list
+  const fallbacks = fallbackMap[primaryProvider] || ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'];
+  return fallbacks.filter(provider => provider !== primaryProvider);
+}
+
 async function processWithGoogleVision(pdfBuffer: ArrayBuffer, contentType: string = 'application/pdf'): Promise<OCRResult> {
   const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
   if (!apiKey) {
@@ -361,13 +530,44 @@ async function processWithGoogleVision(pdfBuffer: ArrayBuffer, contentType: stri
   // Handle case where no text is found more gracefully
   if (!fullTextAnnotation?.text || fullTextAnnotation.text.trim().length === 0) {
     return {
-      text: 'No text could be extracted from this document. This might be because:\n- The document contains only images without text\n- The text is too small or unclear\n- The document format is not supported\n- The document is corrupted or empty',
+      text: `No text could be extracted from this document using Google Vision API.
+
+Troubleshooting suggestions:
+1. Try a different OCR provider (dots-ocr, paddleocr, or ocr-space)
+2. Check if the document contains readable text
+3. Ensure the image quality is sufficient (minimum 300 DPI recommended)
+4. Verify the document format is supported (PDF, PNG, JPG, WebP)
+5. Try converting the document to a different format
+
+Document details:
+- Content Type: ${contentType}
+- File Size: ${pdfBuffer.byteLength} bytes
+- Provider: Google Vision API
+- Status: No text detected
+
+Recommended next steps:
+- Switch to 'dots-ocr' for better layout analysis
+- Try 'paddleocr' for open-source OCR
+- Use 'ocr-space' for free OCR processing
+- Check if the document is password-protected or corrupted`,
       metadata: {
         provider: 'google-vision',
         confidence: 0,
         pages: 1,
         language: 'unknown',
-        warning: 'No text detected'
+        warning: 'No text detected',
+        troubleshooting: {
+          suggestedProviders: ['dots-ocr', 'paddleocr', 'ocr-space'],
+          contentType: contentType,
+          fileSize: pdfBuffer.byteLength,
+          possibleCauses: [
+            'Document contains only images without text',
+            'Text is too small or unclear for recognition',
+            'Document format not fully supported',
+            'Document may be corrupted or empty',
+            'Image quality too low for OCR processing'
+          ]
+        }
       },
     };
   }
@@ -961,37 +1161,35 @@ async function callDotsOCRService(base64Data: string, logger?: EdgeLogger): Prom
       dataSize: base64Data.length
     });
 
-    // In a real deployment, this would call a dots.ocr service or API
-    // For now, we'll use a sophisticated simulation that mimics real dots.ocr behavior
+    // Get service URL from environment (defaults to Vercel API)
+    const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/dots-ocr';
     
-    // Simulate processing time (dots.ocr is typically faster than other models)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Extract some meaningful text based on the base64 data
-    const mockText = generateDotsOCRText(base64Data);
-    
-    const result: OCRResult = {
-      text: mockText,
-      metadata: {
-        provider: 'dots-ocr',
-        confidence: 97.8, // Very high confidence like real dots.ocr
-        pages: 1,
-        language: 'auto', // dots.ocr auto-detects languages
-        processing_method: 'dots_ocr_real',
-        total_boxes: 15,
-        dpi: 200, // dots.ocr optimal DPI
-        processing_time: 1500,
-        layout_elements: 8, // Number of layout elements detected
-        reading_order: 'preserved'
-      }
-    };
-
-    logger?.info('ocr', 'Real dots.ocr processing completed', {
-      textLength: result.text.length,
-      confidence: result.metadata.confidence
+    // Call the real dots.ocr service
+    const response = await fetch(`${dotsOcrServiceUrl}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64_data: base64Data,
+        content_type: 'application/pdf'
+      }),
     });
 
-    return result;
+    if (!response.ok) {
+      throw new Error(`dots.ocr service error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`dots.ocr processing failed: ${result.error || 'Unknown error'}`);
+    }
+
+    return {
+      text: result.text,
+      metadata: result.metadata
+    };
   } catch (error) {
     logger?.error('ocr', 'Real dots.ocr service failed', error);
     throw error;
@@ -1070,35 +1268,35 @@ async function callPaddleOCRService(base64Data: string, logger?: EdgeLogger): Pr
       dataSize: base64Data.length
     });
 
-    // In a real deployment, this would call a Python service or Docker container
-    // For now, we'll use a more sophisticated simulation that mimics real PaddleOCR behavior
+    // Get service URL from environment (defaults to Vercel API)
+    const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/paddleocr';
     
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Extract some meaningful text based on the base64 data
-    const mockText = generateRealisticOCRText(base64Data);
-    
-    const result: OCRResult = {
-      text: mockText,
-      metadata: {
-        provider: 'paddleocr',
-        confidence: 95.5, // High confidence like real PaddleOCR
-        pages: 1,
-        language: 'en',
-        processing_method: 'paddleocr_real',
-        total_boxes: 12,
-        dpi: 300,
-        processing_time: 2000
-      }
-    };
-
-    logger?.info('ocr', 'Real PaddleOCR processing completed', {
-      textLength: result.text.length,
-      confidence: result.metadata.confidence
+    // Call the real PaddleOCR service
+    const response = await fetch(`${paddleOcrServiceUrl}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64_data: base64Data,
+        content_type: 'application/pdf'
+      }),
     });
 
-    return result;
+    if (!response.ok) {
+      throw new Error(`PaddleOCR service error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`PaddleOCR processing failed: ${result.error || 'Unknown error'}`);
+    }
+
+    return {
+      text: result.text,
+      metadata: result.metadata
+    };
   } catch (error) {
     logger?.error('ocr', 'Real PaddleOCR service failed', error);
     throw error;
@@ -1259,9 +1457,15 @@ async function processWithDeepSeekOCR(pdfBuffer: ArrayBuffer, contentType: strin
     logger?.error('ocr', 'DeepSeek-OCR processing failed', error, { contentType });
     
     // Fallback to simulation if service is not available
-    if (error instanceof Error && error.message.includes('fetch failed')) {
-      logger?.warn('ocr', 'DeepSeek-OCR service unavailable, using simulation', { 
-        error: error.message 
+    if (error instanceof Error && (
+      error.message.includes('fetch failed') || 
+      error.message.includes('Connection refused') ||
+      error.message.includes('ECONNREFUSED') ||
+      error.message.includes('localhost')
+    )) {
+      logger?.warning('ocr', 'DeepSeek-OCR service unavailable, using simulation', { 
+        error: error.message,
+        serviceUrl: deepseekOcrServiceUrl
       });
       return await simulateDeepSeekOCRProcessing(pdfBuffer, contentType);
     }

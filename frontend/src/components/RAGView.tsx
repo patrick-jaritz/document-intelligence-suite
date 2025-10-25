@@ -33,6 +33,58 @@ export function RAGView() {
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
   const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
+  const [debugMode, setDebugMode] = useState(false);
+
+  // Enhanced error logging helper
+  const logError = (context: string, error: unknown, additionalInfo?: Record<string, any>) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Always log errors, but use different detail levels
+    if (debugMode) {
+      console.group(`❌ ${context}`);
+      console.error('Error:', errorMessage);
+      if (errorStack) {
+        console.error('Stack:', errorStack);
+      }
+      if (additionalInfo) {
+        console.error('Additional Info:', additionalInfo);
+      }
+      console.groupEnd();
+    } else {
+      console.error(`❌ ${context}:`, errorMessage);
+      if (additionalInfo) {
+        console.error('Details:', additionalInfo);
+      }
+    }
+  };
+
+  // Global error handler for unhandled promise rejections
+  React.useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      logError('Unhandled Promise Rejection', event.reason, {
+        type: 'unhandledRejection',
+        promise: event.promise
+      });
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      logError('Global Error', event.error, {
+        type: 'error',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
+    };
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,23 +114,97 @@ export function RAGView() {
 
       // Step 2: Process with OCR using base64 data
       console.log('🔄 Starting OCR processing...');
-      const ocrResponse = await fetch(`${supabaseUrl}/functions/v1/process-pdf-ocr`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          documentId: documentId,
-          jobId: `job_${Date.now()}`,
-          fileUrl: 'data-url', // Indicate we're using data URL
-          fileDataUrl: fileDataUrl, // Pass the base64 data directly
-          ocrProvider: ocrProvider // Use selected OCR provider
-        }),
+      console.log('OCR Request details:', {
+        documentId,
+        ocrProvider,
+        fileDataUrlLength: fileDataUrl?.length || 0,
+        supabaseUrl,
+        hasApiKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+        fileType: file.type,
+        fileSize: file.size
       });
 
+      if (debugMode) {
+        console.log('🔍 Debug Mode: Full request details', {
+          url: `${supabaseUrl}/functions/v1/process-pdf-ocr`,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20)}...`,
+            'apikey': `${import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20)}...`
+          },
+          body: {
+            documentId,
+            jobId: `job_${Date.now()}`,
+            fileUrl: 'data-url',
+            fileDataUrl: fileDataUrl?.substring(0, 100) + '...',
+            ocrProvider
+          }
+        });
+      }
+
+      let ocrResponse;
+      try {
+        ocrResponse = await fetch(`${supabaseUrl}/functions/v1/process-pdf-ocr`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            documentId: documentId,
+            jobId: `job_${Date.now()}`,
+            fileUrl: 'data-url', // Indicate we're using data URL
+            fileDataUrl: fileDataUrl, // Pass the base64 data directly
+            ocrProvider: ocrProvider // Use selected OCR provider
+          }),
+        });
+      } catch (fetchError) {
+        console.error('❌ OCR Request Failed:', fetchError);
+        console.error('Request details:', {
+          url: `${supabaseUrl}/functions/v1/process-pdf-ocr`,
+          method: 'POST',
+          hasApiKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+          documentId,
+          ocrProvider,
+          fileDataUrlLength: fileDataUrl?.length || 0
+        });
+        throw new Error(`OCR request failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+      }
+
+      console.log('OCR Response status:', ocrResponse.status);
+      console.log('OCR Response headers:', Object.fromEntries(ocrResponse.headers.entries()));
+
       if (!ocrResponse.ok) {
-        throw new Error(`OCR failed: ${ocrResponse.statusText}`);
+        let errorDetails;
+        try {
+          const errorText = await ocrResponse.text();
+          console.error('❌ OCR Error Response:', errorText);
+          
+          // Try to parse as JSON for structured error
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson;
+            console.error('❌ OCR Error Details:', errorJson);
+          } catch {
+            errorDetails = { message: errorText };
+          }
+        } catch (readError) {
+          console.error('❌ Failed to read error response:', readError);
+          errorDetails = { message: 'Failed to read error response' };
+        }
+
+        const errorMessage = errorDetails?.error || errorDetails?.message || `HTTP ${ocrResponse.status}: ${ocrResponse.statusText}`;
+        console.error('❌ OCR Processing Failed:', {
+          status: ocrResponse.status,
+          statusText: ocrResponse.statusText,
+          error: errorMessage,
+          requestId: errorDetails?.requestId,
+          documentId,
+          ocrProvider
+        });
+        
+        throw new Error(`OCR failed: ${errorMessage}`);
       }
 
       const ocrResult = await ocrResponse.json();
@@ -142,7 +268,15 @@ export function RAGView() {
       }]);
 
     } catch (error) {
-      console.error('❌ Document processing failed:', error);
+      logError('Document Processing Failed', error, {
+        documentId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        ocrProvider,
+        supabaseUrl,
+        hasApiKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+      });
       
       // Update document status
       setDocuments(prev => 
@@ -248,7 +382,13 @@ export function RAGView() {
       setUrlInput('');
 
     } catch (error) {
-      console.error('❌ URL processing failed:', error);
+      logError('URL Processing Failed', error, {
+        documentId,
+        url: urlInput,
+        crawlerProvider,
+        supabaseUrl,
+        hasApiKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+      });
       
       // Update document status
       setDocuments(prev => 
@@ -676,6 +816,19 @@ export function RAGView() {
               >
                 <Send className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Debug Mode Toggle */}
+            <div>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={debugMode}
+                  onChange={(e) => setDebugMode(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs font-medium text-gray-700">Debug Mode (Enhanced Error Logging)</span>
+              </label>
             </div>
           </div>
         </div>
