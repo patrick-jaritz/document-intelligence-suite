@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
+import { RepoComparison } from './RepoComparison';
 
 interface GitHubAnalysis {
   metadata: {
@@ -89,6 +90,9 @@ export function GitHubAnalyzer() {
   const [sortBy, setSortBy] = useState<'date' | 'stars' | 'name'>('date');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -405,6 +409,33 @@ export function GitHubAnalyzer() {
     }
   };
 
+  const handleToggleCompare = (url: string) => {
+    setSelectedForCompare(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(url)) {
+        newSet.delete(url);
+      } else if (newSet.size < 2) {
+        newSet.add(url);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCompare = () => {
+    if (selectedForCompare.size === 2) {
+      setShowComparison(true);
+      setCompareMode(false);
+    }
+  };
+
+  const getReposForComparison = () => {
+    const urls = Array.from(selectedForCompare);
+    return urls.map(url => {
+      const analysis = archivedAnalyses.find(a => a.repository_url === url);
+      return analysis ? { repository: url, analysis: analysis.analysis_data } : null;
+    }).filter(Boolean);
+  };
+
   const getFilteredAndSortedAnalyses = () => {
     let filtered = archivedAnalyses.filter(analysis => {
       const searchLower = archiveSearchTerm.toLowerCase();
@@ -503,6 +534,22 @@ export function GitHubAnalyzer() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900">Previously Analyzed Repositories ({archivedAnalyses.length})</h3>
               <div className="flex gap-2">
+                {compareMode && selectedForCompare.size === 2 && (
+                  <button
+                    onClick={handleCompare}
+                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm"
+                  >
+                    <GitCompare className="w-4 h-4" />
+                    Compare ({selectedForCompare.size}/2)
+                  </button>
+                )}
+                <button
+                  onClick={() => { setCompareMode(!compareMode); setSelectedForCompare(new Set()); }}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm ${compareMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
+                >
+                  <GitCompare className="w-4 h-4" />
+                  {compareMode ? 'Cancel Compare' : 'Compare Mode'}
+                </button>
                 <button
                   onClick={() => handleExportArchive('csv')}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
@@ -564,10 +611,18 @@ export function GitHubAnalyzer() {
                     {data.map((analysis, idx) => (
                     <div
                       key={analysis.id || idx}
-                      className="p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border border-purple-200 flex items-start gap-3 group"
+                      className={`p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border flex items-start gap-3 group ${compareMode ? 'border-2' : 'border-purple-200'} ${selectedForCompare.has(analysis.repository_url) ? 'border-purple-600 bg-purple-50' : ''}`}
                     >
+                      {compareMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedForCompare.has(analysis.repository_url)}
+                          onChange={() => handleToggleCompare(analysis.repository_url)}
+                          className="mt-1 w-4 h-4 text-purple-600 rounded"
+                        />
+                      )}
                       <div 
-                        onClick={() => handleArchiveClick(analysis)}
+                        onClick={() => !compareMode && handleArchiveClick(analysis)}
                         className="flex-1 min-w-0"
                       >
                         <div className="font-medium text-gray-900 truncate">{analysis.repository_name}</div>
@@ -1061,6 +1116,18 @@ export function GitHubAnalyzer() {
           </div>
         )}
       </div>
+
+      {/* Comparison Modal */}
+      {showComparison && (
+        <RepoComparison
+          repo1={getReposForComparison()[0]}
+          repo2={getReposForComparison()[1]}
+          onClose={() => {
+            setShowComparison(false);
+            setSelectedForCompare(new Set());
+          }}
+        />
+      )}
     </div>
   );
 }
