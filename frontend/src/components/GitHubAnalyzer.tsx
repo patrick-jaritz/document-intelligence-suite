@@ -107,6 +107,8 @@ export function GitHubAnalyzer() {
   });
   const [similarRepos, setSimilarRepos] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [versionData, setVersionData] = useState<any>(null);
+  const [loadingVersion, setLoadingVersion] = useState(false);
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -261,6 +263,9 @@ export function GitHubAnalyzer() {
     
     // Fetch similar repositories
     await fetchSimilarRepos(archivedAnalysis.repository_url);
+    
+    // Check for version updates
+    await checkRepositoryVersion(archivedAnalysis.repository_url);
   };
 
   const fetchSimilarRepos = async (repoUrl: string) => {
@@ -281,6 +286,29 @@ export function GitHubAnalyzer() {
       setSimilarRepos([]);
     } finally {
       setLoadingSimilar(false);
+    }
+  };
+
+  const checkRepositoryVersion = async (repoUrl: string) => {
+    try {
+      setLoadingVersion(true);
+      const response = await fetch(`${supabaseUrl}/functions/v1/check-repository-versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repository_url: repoUrl }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setVersionData(result);
+      } else {
+        setVersionData(null);
+      }
+    } catch (err) {
+      console.error('Failed to check version:', err);
+      setVersionData(null);
+    } finally {
+      setLoadingVersion(false);
     }
   };
 
@@ -1668,6 +1696,53 @@ export function GitHubAnalyzer() {
                 <p className="text-gray-600">{analysisResult.analysis.summary.business}</p>
               </div>
             </div>
+
+            {/* Version Updates */}
+            {versionData && (
+              <div className={`rounded-lg p-6 border-2 ${
+                versionData.has_updates 
+                  ? 'bg-orange-50 border-orange-200' 
+                  : 'bg-green-50 border-green-200'
+              }`}>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <AlertCircle className={`w-5 h-5 ${
+                    versionData.has_updates ? 'text-orange-600' : 'text-green-600'
+                  }`} />
+                  🔄 {versionData.has_updates ? 'Updates Available' : 'Up to Date'}
+                </h3>
+                {versionData.has_updates && versionData.changes && versionData.changes.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Changes detected since last analysis:
+                    </p>
+                    {versionData.changes.map((change: any, idx: number) => (
+                      <div key={idx} className="bg-white rounded p-3 border border-gray-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            change.type === 'version' ? 'bg-purple-100 text-purple-700' :
+                            change.type === 'description' ? 'bg-blue-100 text-blue-700' :
+                            change.type === 'topics' ? 'bg-indigo-100 text-indigo-700' :
+                            change.type === 'license' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {change.type}
+                          </span>
+                          <span className="text-xs text-gray-500">{change.field}</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <div>From: <span className="font-medium">{change.old_value || 'N/A'}</span></div>
+                          <div>To: <span className="font-medium text-green-700">{change.new_value}</span></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    No significant changes detected since the last analysis.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Similar Repositories */}
             {similarRepos.length > 0 && (
