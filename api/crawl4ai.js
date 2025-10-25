@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
       const html = await response.text();
       
-      // Simple HTML parsing (basic implementation)
+      // Simple HTML parsing
       const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
       const title = titleMatch ? titleMatch[1].trim() : 'Untitled Page';
       
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         .replace(/\s+/g, ' ')
         .trim();
       
-      // Extract links (basic implementation)
+      // Extract links
       const linkMatches = html.match(/<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/gi) || [];
       const links = linkMatches.slice(0, 10).map(link => {
         const hrefMatch = link.match(/href=["']([^"']*)["']/i);
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         };
       }).filter(link => link.url.startsWith('http'));
       
-      // Extract images (basic implementation)
+      // Extract images
       const imgMatches = html.match(/<img[^>]*src=["']([^"']*)["'][^>]*>/gi) || [];
       const images = imgMatches.slice(0, 5).map(img => {
         const srcMatch = img.match(/src=["']([^"']*)["']/i);
@@ -154,6 +154,5 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Default response
   res.status(404).json({ error: 'Not found' });
 }

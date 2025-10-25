@@ -265,7 +265,7 @@ async function extractTextWithCrawl4AI(url: string): Promise<UrlResult | null> {
     const crawl4aiServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/crawl4ai';
     
     // Call real Crawl4AI service
-    const response = await fetch(`${crawl4aiServiceUrl}/crawl`, {
+    const response = await fetch(`${crawl4aiServiceUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
