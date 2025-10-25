@@ -254,7 +254,7 @@ export function Home() {
           <div className="flex flex-col items-center space-y-4">
             <div className="flex items-center space-x-6">
               <button
-                onClick={() => navigate('/health')}
+                onClick={() => window.open('/health', '_blank')}
                 className="flex items-center px-6 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors duration-200 font-medium shadow-sm hover:shadow-md"
               >
                 <Activity className="w-5 h-5 mr-2" />
@@ -265,6 +265,11 @@ export function Home() {
             </div>
             <div className="text-xs text-gray-400">
               Monitor system performance, API usage, and service health
+            </div>
+            <div className="text-xs text-gray-400">
+              <a href="/health" className="text-indigo-500 hover:text-indigo-600 underline">
+                Direct link to Health Dashboard
+              </a>
             </div>
           </div>
         </footer>
