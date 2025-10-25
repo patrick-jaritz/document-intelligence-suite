@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Intelligence Suite - Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success {
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+        .info {
+            border-left: 4px solid #2196F3;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Document Intelligence Suite</h1>
+        
+        <div class="status info">
+            <strong>Status Check:</strong> Testing application components...
+        </div>
+
+        <div id="supabase-status" class="status">
+            <strong>Supabase Connection:</strong> <span id="supabase-result">Testing...</span>
+        </div>
+
+        <div id="functions-status" class="status">
+            <strong>Edge Functions:</strong> <span id="functions-result">Testing...</span>
+        </div>
+
+        <div id="main-app-status" class="status">
+            <strong>Main Application:</strong> <span id="main-app-result">Ready to test</span>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="testSupabase()">Test Supabase</button>
+            <button onclick="testFunctions()">Test Functions</button>
+            <button onclick="goToMainApp()">Go to Main App</button>
+        </div>
+
+        <div id="results" class="hidden">
+            <h3>Test Results:</h3>
+            <pre id="results-content"></pre>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://joqnpibrfzqflyogrkht.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcW5waWJyZnpxZmx5b2dya2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mjg5NTIsImV4cCI6MjA3NjAwNDk1Mn0.pIFvi2XRo1xmK3oZ-XBVpR6WvBye65a3ACE6wuFsxQk';
+
+        async function testSupabase() {
+            const resultEl = document.getElementById('supabase-result');
+            const statusEl = document.getElementById('supabase-status');
+            
+            try {
+                resultEl.textContent = 'Testing...';
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    resultEl.textContent = '✅ Connected successfully';
+                    statusEl.className = 'status success';
+                } else {
+                    resultEl.textContent = `❌ Error: ${response.status}`;
+                    statusEl.className = 'status error';
+                }
+            } catch (error) {
+                resultEl.textContent = `❌ Error: ${error.message}`;
+                statusEl.className = 'status error';
+            }
+        }
+
+        async function testFunctions() {
+            const resultEl = document.getElementById('functions-result');
+            const statusEl = document.getElementById('functions-status');
+            
+            try {
+                resultEl.textContent = 'Testing...';
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-embeddings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        text: 'Test document',
+                        filename: 'test.txt',
+                        provider: 'openai'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultEl.textContent = '✅ Functions working';
+                    statusEl.className = 'status success';
+                } else {
+                    resultEl.textContent = `❌ Error: ${data.error || response.status}`;
+                    statusEl.className = 'status error';
+                }
+                
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('results-content').textContent = JSON.stringify(data, null, 2);
+                
+            } catch (error) {
+                resultEl.textContent = `❌ Error: ${error.message}`;
+                statusEl.className = 'status error';
+            }
+        }
+
+        function goToMainApp() {
+            window.location.href = '/';
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(testSupabase, 1000);
+            setTimeout(testFunctions, 2000);
+        });
+    </script>
+</body>
+</html>

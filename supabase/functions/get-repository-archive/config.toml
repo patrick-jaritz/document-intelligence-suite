@@ -1,0 +1,5 @@
+name="get-repository-archive"
+runtime="deno"
+entrypoint="index.ts"
+main="index.ts"
+exclude=["node_modules"]

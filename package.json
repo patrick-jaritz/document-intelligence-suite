@@ -1,0 +1,42 @@
+{
+  "name": "document-intelligence-suite",
+  "version": "2.3.0",
+  "description": "Unified Document Intelligence Suite - RAG-powered Q&A and structured data extraction",
+  "type": "module",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "lint": "cd frontend && npm run lint",
+    "typecheck": "cd frontend && npm run typecheck",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:deploy": "supabase functions deploy",
+    "supabase:logs": "supabase functions logs",
+    "setup": "npm run setup:frontend && npm run setup:supabase",
+    "setup:frontend": "cd frontend && npm install",
+    "setup:supabase": "supabase start"
+  },
+  "keywords": [
+    "rag",
+    "document-processing",
+    "ocr",
+    "ai",
+    "supabase",
+    "pgvector",
+    "document-intelligence"
+  ],
+  "author": "Patrick Jaritz",
+  "license": "MIT",
+  "devDependencies": {
+    "supabase": "^1.200.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@pinecone-database/pinecone": "^6.1.2",
+    "@supabase/supabase-js": "^2.75.0"
+  }
+}

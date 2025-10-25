@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  deepseek-ocr-service:
+    build: .
+    ports:
+      - "5003:5003"
+    environment:
+      PYTHONUNBUFFERED: 1
+      CUDA_VISIBLE_DEVICES: 0  # Use first GPU
+      TRANSFORMERS_CACHE: /app/models
+      HF_HOME: /app/models
+    volumes:
+      # Persist model cache
+      - ./models:/app/models
+      # Persist output
+      - ./output:/app/output
+      # Mount code for development
+      - .:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    shm_size: '4gb'  # Shared memory for model loading
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s  # Allow time for model loading
