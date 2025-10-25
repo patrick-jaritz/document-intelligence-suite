@@ -1,9 +1,9 @@
 {
   "functions": {
-    "api/paddleocr.js": {
+    "api/paddleocr/index.js": {
       "maxDuration": 30
     },
-    "api/dots-ocr.js": {
+    "api/dots-ocr/index.js": {
       "maxDuration": 30
     }
   }
