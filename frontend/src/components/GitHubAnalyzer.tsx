@@ -115,43 +115,58 @@ export function GitHubAnalyzer() {
     }
   };
 
-  const saveAnalysisToArchive = async (result: AnalysisResult) => {
+  const saveAnalysisToArchive = async (result: AnalysisResult, showNotification = false) => {
     console.log('💾 Saving analysis to archive...', result.repository);
     
-    const response = await fetch(`${supabaseUrl}/functions/v1/save-github-analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        repository_url: result.repository,
-        repository_name: result.repository.split('/').pop(),
-        analysis_data: result.analysis,
-      }),
-    });
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/save-github-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          repository_url: result.repository,
+          repository_name: result.repository.split('/').pop(),
+          analysis_data: result.analysis,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Failed to save to archive:', errorText);
-      throw new Error('Failed to save to archive');
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Failed to save to archive:', errorText);
+        throw new Error(`Failed to save: ${errorText}`);
+      }
 
-    // Refresh archive list after saving
-    const saveResult = await response.json();
-    console.log('✅ Save result:', saveResult);
-    
-    if (saveResult.success) {
-      // Add the newly saved analysis to the archive list immediately
-      const newAnalysis = {
-        id: saveResult.id || Date.now().toString(),
-        repository_url: result.repository,
-        repository_name: result.repository.split('/').pop(),
-        analysis_data: result.analysis,
-        created_at: new Date().toISOString(),
-      };
-      setArchivedAnalyses(prev => [newAnalysis, ...prev]);
-      console.log('✅ Analysis added to archive list');
+      // Refresh archive list after saving
+      const saveResult = await response.json();
+      console.log('✅ Save result:', saveResult);
+      
+      if (saveResult.success) {
+        // Add the newly saved analysis to the archive list immediately
+        const newAnalysis = {
+          id: saveResult.id || Date.now().toString(),
+          repository_url: result.repository,
+          repository_name: result.repository.split('/').pop(),
+          analysis_data: result.analysis,
+          created_at: new Date().toISOString(),
+        };
+        setArchivedAnalyses(prev => [newAnalysis, ...prev]);
+        console.log('✅ Analysis added to archive list');
+        
+        if (showNotification) {
+          alert('✅ Analysis saved to archive!');
+        }
+        return true;
+      } else {
+        throw new Error('Save unsuccessful');
+      }
+    } catch (error) {
+      console.error('❌ Save error:', error);
+      if (showNotification) {
+        alert(`Failed to save to archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      throw error;
     }
   };
 
@@ -367,6 +382,23 @@ export function GitHubAnalyzer() {
 
         {analysisResult && (
           <div className="space-y-6">
+            {/* Save to Archive Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={async () => {
+                  try {
+                    await saveAnalysisToArchive(analysisResult, true);
+                  } catch (error) {
+                    console.error('Failed to save:', error);
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Archive className="w-4 h-4" />
+                Save to Archive
+              </button>
+            </div>
+
             {/* Repository Overview */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
