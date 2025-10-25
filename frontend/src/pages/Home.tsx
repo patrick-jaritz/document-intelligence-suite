@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Archive, Globe } from 'lucide-react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe } from 'lucide-react';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ResultsDisplay } from '../components/ResultsDisplay';
@@ -7,7 +7,6 @@ import { useDocumentProcessor } from '../hooks/useDocumentProcessor';
 import { RAGView } from '../components/RAGView';
 import { GitHubAnalyzer } from '../components/GitHubAnalyzer';
 import { WebCrawler } from '../components/WebCrawler';
-import RepositoryArchive from '../components/RepositoryArchive';
 
 type AppMode = 'extract' | 'ask' | 'github' | 'crawler';
 
