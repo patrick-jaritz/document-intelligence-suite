@@ -116,7 +116,9 @@ export function GitHubAnalyzer() {
   };
 
   const saveAnalysisToArchive = async (result: AnalysisResult) => {
-    const response = await fetch(`${supabaseUrl}/functions/v1/init-github-archive`, {
+    console.log('💾 Saving analysis to archive...', result.repository);
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/save-github-analysis`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -130,11 +132,15 @@ export function GitHubAnalyzer() {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to save to archive:', errorText);
       throw new Error('Failed to save to archive');
     }
 
     // Refresh archive list after saving
     const saveResult = await response.json();
+    console.log('✅ Save result:', saveResult);
+    
     if (saveResult.success) {
       // Add the newly saved analysis to the archive list immediately
       const newAnalysis = {
@@ -145,6 +151,7 @@ export function GitHubAnalyzer() {
         created_at: new Date().toISOString(),
       };
       setArchivedAnalyses(prev => [newAnalysis, ...prev]);
+      console.log('✅ Analysis added to archive list');
     }
   };
 
