@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Page Routing Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .test { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Health Page Routing Test</h1>
+    
+    <div class="test info">
+        <h3>Testing Health Page Access</h3>
+        <p>This will test if the health page is accessible at different URLs.</p>
+    </div>
+
+    <div>
+        <button onclick="testHealthPage()">Test /health</button>
+        <button onclick="testHealthHtml()">Test /health.html</button>
+        <button onclick="testMainApp()">Test Main App</button>
+        <button onclick="testAll()">Test All</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        async function testHealthPage() {
+            const result = await testUrl('https://document-intelligence-suite.vercel.app/health');
+            addResult('Health Page (/health)', result);
+        }
+
+        async function testHealthHtml() {
+            const result = await testUrl('https://document-intelligence-suite.vercel.app/health.html');
+            addResult('Health HTML (/health.html)', result);
+        }
+
+        async function testMainApp() {
+            const result = await testUrl('https://document-intelligence-suite.vercel.app/');
+            addResult('Main App (/)', result);
+        }
+
+        async function testAll() {
+            document.getElementById('results').innerHTML = '';
+            await testMainApp();
+            await testHealthPage();
+            await testHealthHtml();
+        }
+
+        async function testUrl(url) {
+            try {
+                const response = await fetch(url);
+                const html = await response.text();
+                
+                if (response.ok) {
+                    // Check if it's the health page content
+                    if (html.includes('System Health Dashboard') || html.includes('Health Dashboard')) {
+                        return {
+                            status: 'success',
+                            message: `✅ Health page accessible (${response.status})`,
+                            details: `Content length: ${html.length} chars`
+                        };
+                    } else if (html.includes('Document Intelligence Suite')) {
+                        return {
+                            status: 'warning',
+                            message: `⚠️ Main app served instead of health page (${response.status})`,
+                            details: `Content length: ${html.length} chars`
+                        };
+                    } else {
+                        return {
+                            status: 'info',
+                            message: `ℹ️ Page accessible but unknown content (${response.status})`,
+                            details: `Content length: ${html.length} chars`
+                        };
+                    }
+                } else {
+                    return {
+                        status: 'error',
+                        message: `❌ Error: ${response.status} ${response.statusText}`,
+                        details: `URL: ${url}`
+                    };
+                }
+            } catch (error) {
+                return {
+                    status: 'error',
+                    message: `❌ Network Error: ${error.message}`,
+                    details: `URL: ${url}`
+                };
+            }
+        }
+
+        function addResult(title, result) {
+            const resultsDiv = document.getElementById('results');
+            const testDiv = document.createElement('div');
+            testDiv.className = `test ${result.status}`;
+            
+            testDiv.innerHTML = `
+                <h4>${title}</h4>
+                <p><strong>${result.message}</strong></p>
+                <p><small>${result.details}</small></p>
+            `;
+            
+            resultsDiv.appendChild(testDiv);
+        }
+
+        // Auto-run test on page load
+        window.onload = () => {
+            setTimeout(testAll, 1000);
+        };
+    </script>
+</body>
+</html>
