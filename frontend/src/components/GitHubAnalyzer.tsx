@@ -85,6 +85,10 @@ export function GitHubAnalyzer() {
   const [archiveSearchTerm, setArchiveSearchTerm] = useState('');
   const [starredRepos, setStarredRepos] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'all' | 'starred'>('all');
+  const [filterLanguage, setFilterLanguage] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'stars' | 'name'>('date');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -352,26 +356,98 @@ export function GitHubAnalyzer() {
     });
   };
 
-  const handleExportArchive = () => {
+  const handleExportArchive = (format: 'json' | 'csv') => {
     const dataToExport = archivedAnalyses.map(analysis => ({
       repository_url: analysis.repository_url,
       repository_name: analysis.repository_name,
-      language: analysis.analysis_data?.metadata?.language,
-      stars: analysis.analysis_data?.metadata?.stars,
-      description: analysis.analysis_data?.metadata?.description,
-      topics: analysis.analysis_data?.metadata?.topics,
-      analyzed_at: analysis.created_at,
+      language: analysis.analysis_data?.metadata?.language || '',
+      stars: analysis.analysis_data?.metadata?.stars || 0,
+      description: analysis.analysis_data?.metadata?.description || '',
+      topics: (analysis.analysis_data?.metadata?.topics || []).join(', '),
+      analyzed_at: new Date(analysis.created_at).toISOString(),
     }));
 
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `github-archive-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `github-archive-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      // CSV export
+      const headers = ['Repository Name', 'Repository URL', 'Language', 'Stars', 'Description', 'Topics', 'Analyzed At'];
+      const csvContent = [
+        headers.join(','),
+        ...dataToExport.map(row => [
+          `"${row.repository_name}"`,
+          `"${row.repository_url}"`,
+          `"${row.language}"`,
+          row.stars,
+          `"${row.description.replace(/"/g, '""')}"`,
+          `"${row.topics}"`,
+          `"${row.analyzed_at}"`,
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `github-archive-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const getFilteredAndSortedAnalyses = () => {
+    let filtered = archivedAnalyses.filter(analysis => {
+      const searchLower = archiveSearchTerm.toLowerCase();
+      const topics = (analysis.analysis_data?.metadata?.topics || []).join(' ').toLowerCase();
+      const description = (analysis.analysis_data?.metadata?.description || '').toLowerCase();
+      const language = (analysis.analysis_data?.metadata?.language || '').toLowerCase();
+      
+      const matchesSearch = !archiveSearchTerm || 
+        analysis.repository_name.toLowerCase().includes(searchLower) ||
+        language.includes(searchLower) ||
+        topics.includes(searchLower) ||
+        description.includes(searchLower);
+
+      const matchesLanguage = !filterLanguage || 
+        analysis.analysis_data?.metadata?.language === filterLanguage;
+
+      return matchesSearch && matchesLanguage;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'stars':
+          return (b.analysis_data?.metadata?.stars || 0) - (a.analysis_data?.metadata?.stars || 0);
+        case 'name':
+          return a.repository_name.localeCompare(b.repository_name);
+        case 'date':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return filtered;
+  };
+
+  const getPaginatedAnalyses = () => {
+    const filtered = getFilteredAndSortedAnalyses();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return {
+      data: filtered.slice(startIndex, startIndex + itemsPerPage),
+      totalPages: Math.ceil(filtered.length / itemsPerPage),
+      total: filtered.length,
+    };
   };
 
   const handleLoadStarredFromStorage = () => {
@@ -385,6 +461,11 @@ export function GitHubAnalyzer() {
   React.useEffect(() => {
     handleLoadStarredFromStorage();
   }, []);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [archiveSearchTerm, filterLanguage, sortBy]);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -421,36 +502,66 @@ export function GitHubAnalyzer() {
           <div className="mb-6 bg-purple-50 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900">Previously Analyzed Repositories ({archivedAnalyses.length})</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleExportArchive('csv')}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => handleExportArchive('json')}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Export JSON
+                </button>
+              </div>
+            </div>
+            
+            {/* Filters and Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <input
                 type="text"
                 value={archiveSearchTerm}
-                onChange={(e) => setArchiveSearchTerm(e.target.value)}
+                onChange={(e) => { setArchiveSearchTerm(e.target.value); setCurrentPage(1); }}
                 placeholder="Search repositories..."
                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
+              <select
+                value={filterLanguage}
+                onChange={(e) => { setFilterLanguage(e.target.value); setCurrentPage(1); }}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All Languages</option>
+                {Array.from(new Set(archivedAnalyses.map(a => a.analysis_data?.metadata?.language).filter(Boolean))).map((lang: string) => (
+                  <option key={lang} value={lang}>{lang}</option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'stars' | 'name')}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="date">Sort by Date</option>
+                <option value="stars">Sort by Stars</option>
+                <option value="name">Sort by Name</option>
+              </select>
             </div>
             {loadingArchive ? (
               <div className="text-center py-4">Loading archive...</div>
             ) : archivedAnalyses.length === 0 ? (
               <div className="text-center py-4 text-gray-500">No archived analyses yet</div>
             ) : (() => {
-                             const filteredAnalyses = archivedAnalyses.filter(analysis => {
-                const searchLower = archiveSearchTerm.toLowerCase();
-                const topics = (analysis.analysis_data?.metadata?.topics || []).join(' ').toLowerCase();
-                const description = (analysis.analysis_data?.metadata?.description || '').toLowerCase();
-                return (
-                  analysis.repository_name.toLowerCase().includes(searchLower) ||
-                  (analysis.analysis_data?.metadata?.language || '').toLowerCase().includes(searchLower) ||
-                  topics.includes(searchLower) ||
-                  description.includes(searchLower)
-                );
-              });
-
-              return filteredAnalyses.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">No repositories match your search</div>
+              const { data, totalPages, total } = getPaginatedAnalyses();
+              
+              return total === 0 ? (
+                <div className="text-center py-4 text-gray-500">No repositories match your filters</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                  {filteredAnalyses.map((analysis, idx) => (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {data.map((analysis, idx) => (
                     <div
                       key={analysis.id || idx}
                       className="p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border border-purple-200 flex items-start gap-3 group"
@@ -494,6 +605,59 @@ export function GitHubAnalyzer() {
                     </div>
                   ))}
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-purple-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, total)} of {total} repositories
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-3 py-1.5 text-sm rounded-lg ${
+                                currentPage === pageNum
+                                  ? 'bg-purple-600 text-white'
+                                  : 'border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </>
               );
             })()}
           </div>
