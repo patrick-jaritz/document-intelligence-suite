@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Globe, Download, Save, Loader2, CheckCircle, AlertCircle, FileText, Archive, Settings } from 'lucide-react';
+import { callEdgeFunction } from '../lib/supabase';
 
 interface CrawlResult {
   url: string;
@@ -30,25 +31,11 @@ export function WebCrawler() {
     setResult(null);
 
     try {
-      // Call the crawl4ai Edge Function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crawl-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          url,
-          mode: crawlMode,
-        }),
+      // Call the crawl4ai Edge Function using the proper helper
+      const data = await callEdgeFunction('crawl-url', {
+        url,
+        mode: crawlMode,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Crawling failed');
-      }
-
-      const data = await response.json();
 
       const crawlResult: CrawlResult = {
         url,
