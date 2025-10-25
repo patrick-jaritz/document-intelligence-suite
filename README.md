@@ -60,3 +60,4 @@ npm run dev
 
 **Built with**: React, TypeScript, Supabase, Vercel  
 **Deployment**: https://document-intelligence-suite-5x6hi1tdt.vercel.app/
+# Force deployment Sun Oct 26 00:54:35 IDT 2025
