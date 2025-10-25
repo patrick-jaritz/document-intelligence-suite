@@ -9,7 +9,7 @@ export default function handler(req, res) {
     return;
   }
 
-  if (req.method === 'GET' && req.url === '/api/paddleocr/health') {
+  if (req.method === 'GET') {
     res.status(200).json({
       status: 'healthy',
       service: 'paddleocr',
@@ -19,7 +19,7 @@ export default function handler(req, res) {
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/api/paddleocr/ocr') {
+  if (req.method === 'POST') {
     try {
       const { base64_data, content_type = 'application/pdf' } = req.body;
       

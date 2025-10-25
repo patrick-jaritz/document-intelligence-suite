@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'GET' && req.url === '/api/crawl4ai/health') {
+  if (req.method === 'GET') {
     res.status(200).json({
       status: 'healthy',
       service: 'crawl4ai',
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/api/crawl4ai/crawl') {
+  if (req.method === 'POST') {
     try {
       const { url, options = {} } = req.body;
       
