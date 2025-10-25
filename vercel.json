@@ -14,38 +14,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "/$1"
     }
   ],
-  "functions": {
-    "api/paddleocr.js": {
-      "maxDuration": 30
-    },
-    "api/dots-ocr.js": {
-      "maxDuration": 30
-    },
-    "api/crawl4ai.js": {
-      "maxDuration": 30
-    },
-    "api/test.js": {
-      "maxDuration": 10
-    },
-    "api/health.js": {
-      "maxDuration": 10
-    }
-  },
   "env": {
     "NODE_ENV": "production"
-  },
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm install",
-  "framework": "vite",
-  "deploymentId": "deploy-1761432291435",
-  "timestamp": 1761432291435
+  }
 }
