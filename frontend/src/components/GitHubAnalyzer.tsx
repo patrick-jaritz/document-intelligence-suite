@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3 } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 import { RepoComparison } from './RepoComparison';
 
@@ -95,6 +95,7 @@ export function GitHubAnalyzer() {
   const [showComparison, setShowComparison] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -586,6 +587,57 @@ export function GitHubAnalyzer() {
     return `${sizeInMB.toFixed(1)} MB`;
   };
 
+  // Calculate statistics
+  const getStatistics = () => {
+    const totalRepos = archivedAnalyses.length;
+    const starredRepos = archivedAnalyses.filter(a => a.starred).length;
+    const totalStars = archivedAnalyses.reduce((sum, a) => sum + (a.analysis_data?.metadata?.stars || 0), 0);
+    const avgStars = totalRepos > 0 ? Math.round(totalStars / totalRepos) : 0;
+    
+    // Language distribution
+    const languages = archivedAnalyses.reduce((acc, a) => {
+      const lang = a.analysis_data?.metadata?.language || 'Unknown';
+      acc[lang] = (acc[lang] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const topLanguages = Object.entries(languages)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    
+    // Most popular repos
+    const mostPopular = [...archivedAnalyses]
+      .sort((a, b) => (b.analysis_data?.metadata?.stars || 0) - (a.analysis_data?.metadata?.stars || 0))
+      .slice(0, 5);
+    
+    // Recent additions
+    const recent = [...archivedAnalyses]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+    
+    // Topic distribution
+    const topics = archivedAnalyses.reduce((acc, a) => {
+      const repoTopics = a.analysis_data?.metadata?.topics || [];
+      repoTopics.forEach((topic: string) => {
+        acc[topic] = (acc[topic] || 0) + 1;
+      });
+      return acc;
+    }, {} as Record<string, number>);
+    const topTopics = Object.entries(topics)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+    
+    return {
+      totalRepos,
+      starredRepos,
+      totalStars,
+      avgStars,
+      topLanguages,
+      mostPopular,
+      recent,
+      topTopics,
+    };
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
@@ -594,14 +646,176 @@ export function GitHubAnalyzer() {
             <Github className="w-8 h-8 text-gray-700" />
             <h1 className="text-2xl font-bold text-gray-900">GitHub Repository Analyzer</h1>
           </div>
-          <button
-            onClick={() => setShowArchive(!showArchive)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-          >
-            <Archive className="w-4 h-4" />
-            Archive ({archivedAnalyses.length})
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowDashboard(!showDashboard)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setShowArchive(!showArchive)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              <Archive className="w-4 h-4" />
+              Archive ({archivedAnalyses.length})
+            </button>
+          </div>
         </div>
+
+        {/* Statistics Dashboard */}
+        {showDashboard && archivedAnalyses.length > 0 && (
+          <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <BarChart3 className="w-6 h-6" />
+                Archive Statistics
+              </h3>
+              <button
+                onClick={() => setShowDashboard(false)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {(() => {
+              const stats = getStatistics();
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Total Repositories */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Total Repos</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.totalRepos}</p>
+                      </div>
+                      <Archive className="w-8 h-8 text-purple-600" />
+                    </div>
+                  </div>
+                  
+                  {/* Starred */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Starred</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.starredRepos}</p>
+                      </div>
+                      <Star className="w-8 h-8 text-yellow-600" />
+                    </div>
+                  </div>
+                  
+                  {/* Total Stars */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Total Stars</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.totalStars.toLocaleString()}</p>
+                      </div>
+                      <Zap className="w-8 h-8 text-blue-600" />
+                    </div>
+                  </div>
+                  
+                  {/* Avg Stars */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Avg Stars</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.avgStars}</p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Top Languages and Topics */}
+            {(() => {
+              const stats = getStatistics();
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {/* Top Languages */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Code className="w-4 h-4" />
+                      Top Languages
+                    </h4>
+                    <div className="space-y-2">
+                      {stats.topLanguages.map(([lang, count]) => (
+                        <div key={lang} className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">{lang}</span>
+                          <span className="text-sm font-semibold text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Top Topics */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Top Topics
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {stats.topTopics.map(([topic, count]) => (
+                        <span key={topic} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                          {topic} ({count})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Most Popular & Recent */}
+            {(() => {
+              const stats = getStatistics();
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {/* Most Popular */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Most Popular
+                    </h4>
+                    <div className="space-y-2">
+                      {stats.mostPopular.map((repo) => (
+                        <div key={repo.repository_url} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="text-sm text-gray-700 truncate flex-1">{repo.repository_name}</span>
+                          <Star className="w-4 h-4 text-yellow-600 ml-2" />
+                          <span className="text-sm font-semibold text-gray-900 ml-2">
+                            {repo.analysis_data?.metadata?.stars?.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Recent */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Recently Added
+                    </h4>
+                    <div className="space-y-2">
+                      {stats.recent.map((repo) => (
+                        <div key={repo.repository_url} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="text-sm text-gray-700 truncate flex-1">{repo.repository_name}</span>
+                          <span className="text-xs text-gray-500">
+                            {formatDate(repo.created_at)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {showArchive && (
           <div className="mb-6 bg-purple-50 rounded-lg p-4">
