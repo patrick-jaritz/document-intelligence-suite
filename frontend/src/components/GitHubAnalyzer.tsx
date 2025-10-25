@@ -328,7 +328,11 @@ export function GitHubAnalyzer() {
                     >
                       <div className="font-medium text-gray-900">{analysis.repository_name}</div>
                       <div className="text-xs text-gray-500 line-clamp-1">
-                        {analysis.analysis_data?.summary?.tldr || analysis.analysis_data?.summary?.technicalSummary || 'No description available'}
+                        {analysis.analysis_data?.summary?.tlDr || 
+                         analysis.analysis_data?.summary?.executive || 
+                         analysis.analysis_data?.summary?.technical || 
+                         analysis.analysis_data?.metadata?.description || 
+                         'No description available'}
                       </div>
                     </div>
                     <button
