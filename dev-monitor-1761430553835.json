@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-10-25T22:15:53.817Z",
+  "deployment": {
+    "status": "healthy",
+    "assetHash": "HlcnRfh2",
+    "timestamp": 1761430553817
+  },
+  "health": {
+    "status": "inaccessible",
+    "httpStatus": 404,
+    "timestamp": 1761430553814
+  },
+  "git": {
+    "hasChanges": false,
+    "branch": "main",
+    "lastCommit": "b530e21 🚀 DEV DEPLOY: 2025-10-25T22:15:48.094Z",
+    "changes": []
+  },
+  "build": {
+    "status": "built",
+    "lastBuild": "2025-10-25T22:15:48.020Z",
+    "healthPage": true,
+    "files": 8
+  },
+  "metrics": {
+    "startTime": 1761430553470,
+    "deployments": 0,
+    "successes": 0,
+    "failures": 0,
+    "lastDeployment": null
+  }
+}
