@@ -26,6 +26,38 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Try to create table if it doesn't exist
+    const { error: createError } = await supabase.rpc('exec_sql', {
+      query: `
+        CREATE TABLE IF NOT EXISTS public.github_analyses (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          repository_url TEXT NOT NULL UNIQUE,
+          repository_name TEXT NOT NULL,
+          analysis_data JSONB NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_github_analyses_repository_url ON public.github_analyses(repository_url);
+        
+        ALTER TABLE public.github_analyses ENABLE ROW LEVEL SECURITY;
+        
+        DROP POLICY IF EXISTS "Public can view github analyses" ON public.github_analyses;
+        DROP POLICY IF EXISTS "Public can insert github analyses" ON public.github_analyses;
+        DROP POLICY IF EXISTS "Public can update github analyses" ON public.github_analyses;
+        DROP POLICY IF EXISTS "Public can delete github analyses" ON public.github_analyses;
+        
+        CREATE POLICY IF NOT EXISTS "Public can view github analyses" ON public.github_analyses FOR SELECT USING (true);
+        CREATE POLICY IF NOT EXISTS "Public can insert github analyses" ON public.github_analyses FOR INSERT WITH CHECK (true);
+        CREATE POLICY IF NOT EXISTS "Public can update github analyses" ON public.github_analyses FOR UPDATE USING (true);
+        CREATE POLICY IF NOT EXISTS "Public can delete github analyses" ON public.github_analyses FOR DELETE USING (true);
+      `
+    });
+
+    // Continue even if table creation fails (it might already exist)
+    if (createError) {
+      console.log('Table creation note:', createError.message);
+    }
+
     const { data, error } = await supabase
       .from('github_analyses')
       .insert({ repository_url, repository_name, analysis_data, created_at: new Date().toISOString() })
