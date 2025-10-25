@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { withRateLimit, rateLimiters } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +43,16 @@ Deno.serve(async (req: Request) => {
   let crawlerUsed = 'default';
 
   try {
+    // Apply rate limiting
+    const rateLimitResponse = withRateLimit(
+      rateLimiters.url,
+      'URL processing rate limit exceeded. Please try again in a minute.'
+    )(req);
+    
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

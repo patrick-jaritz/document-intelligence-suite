@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { withRateLimit, rateLimiters } from '../_shared/rate-limiter.ts'
 
 interface GitHubRepoAnalysis {
   metadata: {
@@ -442,6 +443,16 @@ serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Apply rate limiting
+  const rateLimitResponse = withRateLimit(
+    rateLimiters.github,
+    'GitHub analysis rate limit exceeded. Please try again in a minute.'
+  )(req);
+  
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   try {

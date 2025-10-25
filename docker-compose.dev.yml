@@ -1,0 +1,73 @@
+# Simplified Docker Compose for Local Development
+# This is optional - the app works without Docker in production mode
+
+version: '3.8'
+
+services:
+  # Optional: Local Supabase (if you want to run everything locally)
+  supabase-db:
+    image: supabase/postgres:15.1.0.117
+    container_name: supabase-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "54322:5432"
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+    profiles:
+      - local-db
+
+  # Optional: Local AI Services (if you want to test locally)
+  paddleocr:
+    build: ./supabase/functions/paddleocr-service
+    container_name: paddleocr-service
+    ports:
+      - "5001:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - local-ai
+
+  dots-ocr:
+    build: ./supabase/functions/dots-ocr-service
+    container_name: dots-ocr-service
+    ports:
+      - "5002:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - local-ai
+
+  crawl4ai:
+    build: ./supabase/functions/crawl4ai-service
+    container_name: crawl4ai-service
+    ports:
+      - "5003:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - local-ai
+
+  # Nginx proxy for local AI services
+  nginx:
+    image: nginx:alpine
+    container_name: ai-services-proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - paddleocr
+      - dots-ocr
+      - crawl4ai
+    profiles:
+      - local-ai
+
+volumes:
+  supabase_db_data:
+
+# Usage:
+# docker-compose --profile local-db up -d    # Start local database only
+# docker-compose --profile local-ai up -d    # Start AI services only
+# docker-compose --profile local-db --profile local-ai up -d  # Start everything
