@@ -105,6 +105,8 @@ export function GitHubAnalyzer() {
     createdAfter: '',
     createdBefore: '',
   });
+  const [similarRepos, setSimilarRepos] = useState<any[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -243,7 +245,7 @@ export function GitHubAnalyzer() {
     }
   };
 
-  const handleArchiveClick = (archivedAnalysis: any) => {
+  const handleArchiveClick = async (archivedAnalysis: any) => {
     // Convert archived analysis to AnalysisResult format
     setAnalysisResult({
       success: true,
@@ -256,6 +258,30 @@ export function GitHubAnalyzer() {
       },
     });
     setShowArchive(false);
+    
+    // Fetch similar repositories
+    await fetchSimilarRepos(archivedAnalysis.repository_url);
+  };
+
+  const fetchSimilarRepos = async (repoUrl: string) => {
+    try {
+      setLoadingSimilar(true);
+      const response = await fetch(`${supabaseUrl}/functions/v1/find-similar-repos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repository_url: repoUrl, limit: 5 }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSimilarRepos(result.similar_repositories || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch similar repos:', err);
+      setSimilarRepos([]);
+    } finally {
+      setLoadingSimilar(false);
+    }
   };
 
   // Fetch archive on mount
@@ -1642,6 +1668,58 @@ export function GitHubAnalyzer() {
                 <p className="text-gray-600">{analysisResult.analysis.summary.business}</p>
               </div>
             </div>
+
+            {/* Similar Repositories */}
+            {similarRepos.length > 0 && (
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 border-2 border-indigo-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-indigo-600" />
+                  🤖 AI Recommendations: Similar Repositories
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Based on language, topics, tech stack, and popularity
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {similarRepos.map((repo, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white rounded-lg p-4 border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => {
+                        const found = archivedAnalyses.find(a => a.repository_url === repo.url);
+                        if (found) handleArchiveClick(found);
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{repo.name}</div>
+                          <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                            <span>{repo.language || 'N/A'}</span>
+                            {repo.stars && (
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3 h-3 text-yellow-500" />
+                                {repo.stars.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
+                          {Math.round(repo.similarity_score)}% match
+                        </div>
+                      </div>
+                      {repo.topics && repo.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {repo.topics.slice(0, 3).map((topic: string, i: number) => (
+                            <span key={i} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs">
+                              {topic}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Analysis Metadata */}
             <div className="bg-gray-50 rounded-lg p-4">
