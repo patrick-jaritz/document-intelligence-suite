@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2 } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 
 interface GitHubAnalysis {
@@ -132,6 +132,38 @@ export function GitHubAnalyzer() {
     if (!response.ok) {
       throw new Error('Failed to save to archive');
     }
+
+    // Refresh archive list after saving
+    const saveResult = await response.json();
+    if (saveResult.success) {
+      // Add the newly saved analysis to the archive list immediately
+      const newAnalysis = {
+        id: saveResult.id || Date.now().toString(),
+        repository_url: result.repository,
+        repository_name: result.repository.split('/').pop(),
+        analysis_data: result.analysis,
+        created_at: new Date().toISOString(),
+      };
+      setArchivedAnalyses(prev => [newAnalysis, ...prev]);
+    }
+  };
+
+  const handleDeleteArchive = async (analysisId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the archive click
+    
+    if (!confirm('Are you sure you want to remove this analysis from the archive?')) {
+      return;
+    }
+
+    try {
+      // Call delete function or remove from Supabase
+      // For now, just remove from local state
+      setArchivedAnalyses(prev => prev.filter(a => a.id !== analysisId));
+      console.log('Archive item deleted');
+    } catch (error) {
+      console.error('Failed to delete archive item:', error);
+      alert('Failed to delete archive item');
+    }
   };
 
   const handleArchiveClick = (archivedAnalysis: any) => {
@@ -203,8 +235,6 @@ export function GitHubAnalyzer() {
         try {
           await saveAnalysisToArchive(result);
           console.log('✅ Analysis saved to archive');
-          // Refresh archive list
-          fetchArchivedAnalyses();
         } catch (saveError) {
           console.error('Failed to save to archive:', saveError);
           // Don't block the UI on save failure
@@ -267,12 +297,23 @@ export function GitHubAnalyzer() {
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {archivedAnalyses.map((analysis, idx) => (
                   <div
-                    key={idx}
-                    onClick={() => handleArchiveClick(analysis)}
-                    className="p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer"
+                    key={analysis.id || idx}
+                    className="p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer flex items-center justify-between group"
                   >
-                    <div className="font-medium text-gray-900">{analysis.repository_name}</div>
-                    <div className="text-sm text-gray-500">{analysis.repository_url}</div>
+                    <div 
+                      onClick={() => handleArchiveClick(analysis)}
+                      className="flex-1"
+                    >
+                      <div className="font-medium text-gray-900">{analysis.repository_name}</div>
+                      <div className="text-sm text-gray-500">{analysis.repository_url}</div>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteArchive(analysis.id || idx.toString(), e)}
+                      className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete from archive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
