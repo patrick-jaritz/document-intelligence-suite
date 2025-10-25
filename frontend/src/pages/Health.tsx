@@ -57,6 +57,24 @@ interface SystemMetrics {
   storageUsed: string;
 }
 
+interface DeploymentMetrics {
+  totalDeployments: number;
+  deploymentsToday: number;
+  deploymentsThisWeek: number;
+  deploymentsThisMonth: number;
+  lastDeployment: string;
+  deploymentStatus: 'success' | 'failed' | 'pending' | 'limited';
+  vercelLimit: number;
+  vercelRemaining: number;
+  vercelResetTime: string;
+  deploymentHistory: Array<{
+    timestamp: string;
+    status: 'success' | 'failed';
+    duration: number;
+    trigger: 'manual' | 'git-push' | 'api';
+  }>;
+}
+
 const Health: React.FC = () => {
   const [services, setServices] = useState<ServiceStatus[]>([
     {
@@ -147,6 +165,50 @@ const Health: React.FC = () => {
     storageUsed: '2.4 GB'
   });
 
+  const [deploymentMetrics, setDeploymentMetrics] = useState<DeploymentMetrics>({
+    totalDeployments: 127,
+    deploymentsToday: 23,
+    deploymentsThisWeek: 89,
+    deploymentsThisMonth: 127,
+    lastDeployment: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    deploymentStatus: 'limited',
+    vercelLimit: 100,
+    vercelRemaining: 0,
+    vercelResetTime: new Date(Date.now() + 13 * 60 * 60 * 1000).toISOString(), // 13 hours from now
+    deploymentHistory: [
+      {
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        status: 'success',
+        duration: 45,
+        trigger: 'git-push'
+      },
+      {
+        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+        status: 'success',
+        duration: 52,
+        trigger: 'manual'
+      },
+      {
+        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        status: 'failed',
+        duration: 12,
+        trigger: 'git-push'
+      },
+      {
+        timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+        status: 'success',
+        duration: 38,
+        trigger: 'api'
+      },
+      {
+        timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
+        status: 'success',
+        duration: 41,
+        trigger: 'git-push'
+      }
+    ]
+  });
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshMetrics = async () => {
@@ -178,6 +240,16 @@ const Health: React.FC = () => {
       memoryUsage: Math.max(0, Math.min(100, prev.memoryUsage + (Math.random() - 0.5) * 3)),
       activeConnections: prev.activeConnections + Math.floor((Math.random() - 0.5) * 10),
       totalDocuments: prev.totalDocuments + Math.floor(Math.random() * 3)
+    }));
+
+    // Update deployment metrics
+    setDeploymentMetrics(prev => ({
+      ...prev,
+      deploymentsToday: prev.deploymentsToday + (Math.random() < 0.1 ? 1 : 0),
+      deploymentsThisWeek: prev.deploymentsThisWeek + (Math.random() < 0.05 ? 1 : 0),
+      vercelRemaining: Math.max(0, prev.vercelRemaining - (Math.random() < 0.02 ? 1 : 0)),
+      deploymentStatus: prev.vercelRemaining <= 0 ? 'limited' : 
+                       prev.vercelRemaining <= 10 ? 'pending' : 'success'
     }));
 
     setIsRefreshing(false);
@@ -466,6 +538,149 @@ const Health: React.FC = () => {
                             'bg-red-100 text-red-800'
                           }`}>
                             {endpoint.errorRate.toFixed(2)}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Deployment Metrics */}
+        <div className="mt-8 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2" />
+              Deployment Metrics & Vercel Usage
+            </h2>
+          </div>
+          <div className="p-6">
+            {/* Deployment Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{deploymentMetrics.totalDeployments}</div>
+                <div className="text-sm text-gray-600">Total Deployments</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600">{deploymentMetrics.deploymentsToday}</div>
+                <div className="text-sm text-gray-600">Today</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">{deploymentMetrics.deploymentsThisWeek}</div>
+                <div className="text-sm text-gray-600">This Week</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">{deploymentMetrics.deploymentsThisMonth}</div>
+                <div className="text-sm text-gray-600">This Month</div>
+              </div>
+            </div>
+
+            {/* Vercel Limit Status */}
+            <div className="mb-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-4">Vercel Deployment Limits</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Daily Deployments</span>
+                  <span className={`text-sm font-bold ${
+                    deploymentMetrics.vercelRemaining > 20 ? 'text-green-600' :
+                    deploymentMetrics.vercelRemaining > 10 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {deploymentMetrics.vercelRemaining} / {deploymentMetrics.vercelLimit} remaining
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      deploymentMetrics.vercelRemaining > 20 ? 'bg-green-500' :
+                      deploymentMetrics.vercelRemaining > 10 ? 'bg-yellow-500' :
+                      'bg-red-500'
+                    }`}
+                    style={{ width: `${(deploymentMetrics.vercelRemaining / deploymentMetrics.vercelLimit) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Status: {
+                    deploymentMetrics.deploymentStatus === 'limited' ? '🚫 Limited - Wait for reset' :
+                    deploymentMetrics.deploymentStatus === 'success' ? '✅ Available' :
+                    deploymentMetrics.deploymentStatus === 'failed' ? '❌ Failed' :
+                    '⏳ Pending'
+                  }</span>
+                  <span>Resets: {new Date(deploymentMetrics.vercelResetTime).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Last Deployment Info */}
+            <div className="mb-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-4">Last Deployment</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <span className="text-sm text-gray-600">Timestamp:</span>
+                    <div className="font-medium">{new Date(deploymentMetrics.lastDeployment).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Status:</span>
+                    <div className={`font-medium ${
+                      deploymentMetrics.deploymentStatus === 'success' ? 'text-green-600' :
+                      deploymentMetrics.deploymentStatus === 'failed' ? 'text-red-600' :
+                      'text-yellow-600'
+                    }`}>
+                      {deploymentMetrics.deploymentStatus === 'success' ? '✅ Success' :
+                       deploymentMetrics.deploymentStatus === 'failed' ? '❌ Failed' :
+                       deploymentMetrics.deploymentStatus === 'limited' ? '🚫 Limited' :
+                       '⏳ Pending'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Time Since:</span>
+                    <div className="font-medium">
+                      {Math.floor((Date.now() - new Date(deploymentMetrics.lastDeployment).getTime()) / (1000 * 60 * 60))} hours ago
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Deployment History */}
+            <div>
+              <h3 className="text-md font-semibold text-gray-900 mb-4">Recent Deployment History</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {deploymentMetrics.deploymentHistory.map((deployment, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(deployment.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            deployment.status === 'success' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {deployment.status === 'success' ? '✅ Success' : '❌ Failed'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {deployment.duration}s
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            {deployment.trigger === 'git-push' ? 'Git Push' :
+                             deployment.trigger === 'manual' ? 'Manual' :
+                             'API'}
                           </span>
                         </td>
                       </tr>
