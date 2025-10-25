@@ -52,7 +52,7 @@ export function Home() {
                 <FileSearch className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">BRAITER Document Intelligence Suite - v2.1 with Repository Archive</h1>
+                <h1 className="text-3xl font-bold text-gray-900">BRAITER Document Intelligence Suite</h1>
                 <p className="text-gray-600 mt-1">RAG-powered Q&A and structured data extraction</p>
               </div>
             </div>
