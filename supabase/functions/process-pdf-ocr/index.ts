@@ -1165,7 +1165,7 @@ async function callDotsOCRService(base64Data: string, logger?: EdgeLogger): Prom
     const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/dots-ocr';
     
     // Call the real dots.ocr service
-    const response = await fetch(`${dotsOcrServiceUrl}/ocr`, {
+    const response = await fetch(`${dotsOcrServiceUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1272,7 +1272,7 @@ async function callPaddleOCRService(base64Data: string, logger?: EdgeLogger): Pr
     const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/paddleocr';
     
     // Call the real PaddleOCR service
-    const response = await fetch(`${paddleOcrServiceUrl}/ocr`, {
+    const response = await fetch(`${paddleOcrServiceUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

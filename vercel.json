@@ -1,20 +1,10 @@
 {
   "functions": {
-    "api/paddleocr/ocr.js": {
+    "api/paddleocr.js": {
       "maxDuration": 30
     },
-    "api/dots-ocr/ocr.js": {
+    "api/dots-ocr.js": {
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/paddleocr/(.*)",
-      "destination": "/api/paddleocr/ocr"
-    },
-    {
-      "source": "/api/dots-ocr/(.*)",
-      "destination": "/api/dots-ocr/ocr"
-    }
-  ]
+  }
 }

@@ -1,58 +1,40 @@
 // dots.ocr Vercel Serverless Function
-// This function provides OCR processing using dots.ocr
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-async function processWithDotsOCR(base64Data, contentType) {
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
+    const { base64_data, content_type } = req.body;
+
+    if (!base64_data) {
+      return res.status(400).json({ error: 'No base64 data provided' });
+    }
+
     // Simulate dots.ocr processing
     const processingTime = Math.random() * 1500 + 1000; // 1-2.5 seconds
     await new Promise(resolve => setTimeout(resolve, processingTime));
     
-    // Generate realistic OCR text based on data characteristics
-    const dataSize = base64Data.length;
+    // Generate realistic OCR text
+    const dataSize = base64_data.length;
     let mockText;
     
     if (dataSize > 100000) {
-      mockText = generateLargeDocumentText();
-    } else if (dataSize > 50000) {
-      mockText = generateMediumDocumentText();
-    } else {
-      mockText = generateSmallDocumentText();
-    }
-    
-    return {
-      success: true,
-      text: mockText,
-      metadata: {
-        provider: 'dots-ocr',
-        confidence: 97.8,
-        pages: contentType === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
-        language: 'auto',
-        processing_method: 'dots_ocr_vercel',
-        total_boxes: Math.floor(dataSize / 800),
-        layout_elements: Math.floor(dataSize / 2000) + 5,
-        reading_order: 'preserved',
-        dpi: 200,
-        processing_time: Math.round(processingTime)
-      }
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message,
-      text: '',
-      metadata: {
-        provider: 'dots-ocr',
-        confidence: 0,
-        pages: 0,
-        language: 'auto',
-        processing_method: 'error'
-      }
-    };
-  }
-}
-
-function generateLargeDocumentText() {
-  return `Document Layout Analysis - dots.ocr Processing
+      mockText = `Document Layout Analysis - dots.ocr Processing
 
 This document has been processed using dots.ocr, a state-of-the-art multilingual document layout parsing model that achieves SOTA performance on OmniDocBench.
 
@@ -91,10 +73,8 @@ Technical Details:
 - Deployment: Vercel Serverless Functions
 
 This demonstrates the superior capabilities of dots.ocr for enterprise document processing applications deployed on Vercel.`;
-}
-
-function generateMediumDocumentText() {
-  return `[dots.ocr Processing - Medium Document]
+    } else if (dataSize > 50000) {
+      mockText = `[dots.ocr Processing - Medium Document]
 
 Document Analysis Results:
 - Text Recognition: 98.1%
@@ -116,10 +96,8 @@ Technical Specifications:
 - Deployment: Vercel Serverless
 
 This document has been successfully processed using dots.ocr technology on Vercel.`;
-}
-
-function generateSmallDocumentText() {
-  return `[dots.ocr Processing - Small Document]
+    } else {
+      mockText = `[dots.ocr Processing - Small Document]
 
 Quick Analysis:
 - Text Recognition: 97.9%
@@ -127,42 +105,26 @@ Quick Analysis:
 - Language: Auto-detected
 
 Simple document processed with dots.ocr on Vercel.`;
-}
-
-export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { base64_data, content_type } = req.body;
-
-    if (!base64_data) {
-      return res.status(400).json({ error: 'No base64 data provided' });
     }
 
-    // Process with dots.ocr
-    const result = await processWithDotsOCR(base64_data, content_type || 'application/pdf');
+    const result = {
+      success: true,
+      text: mockText,
+      metadata: {
+        provider: 'dots-ocr',
+        confidence: 97.8,
+        pages: content_type === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
+        language: 'auto',
+        processing_method: 'dots_ocr_vercel',
+        total_boxes: Math.floor(dataSize / 800),
+        layout_elements: Math.floor(dataSize / 2000) + 5,
+        reading_order: 'preserved',
+        dpi: 200,
+        processing_time: Math.round(processingTime)
+      }
+    };
 
-    if (result.success) {
-      return res.status(200).json(result);
-    } else {
-      return res.status(500).json(result);
-    }
+    return res.status(200).json(result);
   } catch (error) {
     console.error('dots.ocr processing error:', error);
     return res.status(500).json({
