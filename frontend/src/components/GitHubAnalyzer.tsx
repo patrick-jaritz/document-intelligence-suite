@@ -326,11 +326,15 @@ export function GitHubAnalyzer() {
             ) : archivedAnalyses.length === 0 ? (
               <div className="text-center py-4 text-gray-500">No archived analyses yet</div>
             ) : (() => {
-              const filteredAnalyses = archivedAnalyses.filter(analysis => {
+                             const filteredAnalyses = archivedAnalyses.filter(analysis => {
                 const searchLower = archiveSearchTerm.toLowerCase();
+                const topics = (analysis.analysis_data?.metadata?.topics || []).join(' ').toLowerCase();
+                const description = (analysis.analysis_data?.metadata?.description || '').toLowerCase();
                 return (
                   analysis.repository_name.toLowerCase().includes(searchLower) ||
-                  (analysis.analysis_data?.metadata?.language || '').toLowerCase().includes(searchLower)
+                  (analysis.analysis_data?.metadata?.language || '').toLowerCase().includes(searchLower) ||
+                  topics.includes(searchLower) ||
+                  description.includes(searchLower)
                 );
               });
 
@@ -349,10 +353,9 @@ export function GitHubAnalyzer() {
                       >
                         <div className="font-medium text-gray-900 truncate">{analysis.repository_name}</div>
                         <div className="text-xs text-gray-600 mt-1 line-clamp-2">
-                          {analysis.analysis_data?.summary?.technical || 
-                           analysis.analysis_data?.technicalAnalysis?.architecture ||
+                          {analysis.analysis_data?.metadata?.description ||
                            analysis.analysis_data?.summary?.tlDr || 
-                           'No technical description available'}
+                           'No description available'}
                         </div>
                         <div className="flex items-center gap-3 mt-2 text-xs">
                           <span className="text-gray-500">{analysis.analysis_data?.metadata?.language || 'N/A'}</span>
@@ -361,6 +364,15 @@ export function GitHubAnalyzer() {
                               <Star className="w-3 h-3" />
                               {analysis.analysis_data.metadata.stars.toLocaleString()}
                             </span>
+                          )}
+                          {analysis.analysis_data?.metadata?.topics && analysis.analysis_data.metadata.topics.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {analysis.analysis_data.metadata.topics.slice(0, 3).map((topic: string, i: number) => (
+                                <span key={i} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                                  {topic}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
