@@ -1,0 +1,10 @@
+{
+  "name": "document-intelligence-api",
+  "version": "1.0.0",
+  "description": "OCR API functions for Document Intelligence Suite",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

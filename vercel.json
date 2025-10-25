@@ -1,18 +1,13 @@
 {
   "functions": {
-    "api/paddleocr/index.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs18.x"
+    "api/paddleocr.js": {
+      "maxDuration": 30
     },
-    "api/dots-ocr/index.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs18.x"
+    "api/dots-ocr.js": {
+      "maxDuration": 30
     },
     "api/test.js": {
-      "maxDuration": 10,
-      "runtime": "nodejs18.x"
+      "maxDuration": 10
     }
-  },
-  "buildCommand": "echo 'No build needed for serverless functions'",
-  "outputDirectory": "."
+  }
 }
