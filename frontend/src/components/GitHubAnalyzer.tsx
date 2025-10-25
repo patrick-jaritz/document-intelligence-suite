@@ -96,6 +96,15 @@ export function GitHubAnalyzer() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [searchFilters, setSearchFilters] = useState({
+    minStars: '',
+    maxStars: '',
+    hasLicense: '',
+    minTopics: '',
+    createdAfter: '',
+    createdBefore: '',
+  });
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -521,6 +530,64 @@ export function GitHubAnalyzer() {
     }
   };
 
+  const handleBulkStar = async (starred: boolean) => {
+    if (selectedForBulk.size === 0) return;
+
+    try {
+      const promises = Array.from(selectedForBulk).map(url =>
+        fetch(`${supabaseUrl}/functions/v1/toggle-star`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repository_url: url, starred }),
+        })
+      );
+
+      await Promise.all(promises);
+      
+      // Update local state
+      setArchivedAnalyses(prev =>
+        prev.map(analysis =>
+          selectedForBulk.has(analysis.repository_url)
+            ? { ...analysis, starred }
+            : analysis
+        )
+      );
+
+      setSelectedForBulk(new Set());
+      setBulkMode(false);
+      
+      alert(`${starred ? 'Starred' : 'Unstarred'} ${selectedForBulk.size} repository(ies)`);
+    } catch (err) {
+      console.error('Bulk star error:', err);
+      alert('Failed to update star status');
+    }
+  };
+
+  const handleBulkExport = () => {
+    if (selectedForBulk.size === 0) return;
+
+    const selected = archivedAnalyses.filter(a => selectedForBulk.has(a.repository_url));
+    const dataToExport = selected.map(analysis => ({
+      repository_url: analysis.repository_url,
+      repository_name: analysis.repository_name,
+      language: analysis.analysis_data?.metadata?.language || '',
+      stars: analysis.analysis_data?.metadata?.stars || 0,
+      description: analysis.analysis_data?.metadata?.description || '',
+      topics: (analysis.analysis_data?.metadata?.topics || []).join(', '),
+      analyzed_at: new Date(analysis.created_at).toISOString(),
+    }));
+
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `github-selected-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getFilteredAndSortedAnalyses = () => {
     let filtered = archivedAnalyses.filter(analysis => {
       const searchLower = archiveSearchTerm.toLowerCase();
@@ -537,7 +604,27 @@ export function GitHubAnalyzer() {
       const matchesLanguage = !filterLanguage || 
         analysis.analysis_data?.metadata?.language === filterLanguage;
 
-      return matchesSearch && matchesLanguage;
+      // Advanced search filters
+      const matchesMinStars = !searchFilters.minStars || 
+        (analysis.analysis_data?.metadata?.stars || 0) >= parseInt(searchFilters.minStars);
+      
+      const matchesMaxStars = !searchFilters.maxStars || 
+        (analysis.analysis_data?.metadata?.stars || 0) <= parseInt(searchFilters.maxStars);
+      
+      const matchesLicense = !searchFilters.hasLicense || 
+        (searchFilters.hasLicense === 'yes' ? !!analysis.analysis_data?.metadata?.license : !analysis.analysis_data?.metadata?.license);
+      
+      const matchesMinTopics = !searchFilters.minTopics || 
+        (analysis.analysis_data?.metadata?.topics?.length || 0) >= parseInt(searchFilters.minTopics);
+      
+      const matchesCreatedAfter = !searchFilters.createdAfter || 
+        new Date(analysis.created_at) >= new Date(searchFilters.createdAfter);
+      
+      const matchesCreatedBefore = !searchFilters.createdBefore || 
+        new Date(analysis.created_at) <= new Date(searchFilters.createdBefore);
+
+      return matchesSearch && matchesLanguage && matchesMinStars && matchesMaxStars && 
+             matchesLicense && matchesMinTopics && matchesCreatedAfter && matchesCreatedBefore;
     });
 
     // Sort
@@ -571,7 +658,7 @@ export function GitHubAnalyzer() {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [archiveSearchTerm, filterLanguage, sortBy]);
+  }, [archiveSearchTerm, filterLanguage, sortBy, searchFilters]);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -832,13 +919,36 @@ export function GitHubAnalyzer() {
                   </button>
                 )}
                 {bulkMode && selectedForBulk.size > 0 && (
-                  <button
-                    onClick={handleBulkDelete}
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete ({selectedForBulk.size})
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleBulkStar(true)}
+                      className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm"
+                    >
+                      <Star className="w-4 h-4" />
+                      Star ({selectedForBulk.size})
+                    </button>
+                    <button
+                      onClick={() => handleBulkStar(false)}
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm"
+                    >
+                      <Star className="w-4 h-4" />
+                      Unstar ({selectedForBulk.size})
+                    </button>
+                    <button
+                      onClick={handleBulkExport}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export ({selectedForBulk.size})
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete ({selectedForBulk.size})
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => { 
@@ -909,6 +1019,98 @@ export function GitHubAnalyzer() {
                 <option value="stars">Sort by Stars</option>
                 <option value="name">Sort by Name</option>
               </select>
+            </div>
+
+            {/* Advanced Search */}
+            <div className="mb-3">
+              <button
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-2"
+              >
+                {showAdvancedSearch ? '▼' : '▶'} Advanced Search
+              </button>
+              {showAdvancedSearch && (
+                <div className="mt-3 bg-white rounded-lg p-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min Stars</label>
+                      <input
+                        type="number"
+                        value={searchFilters.minStars}
+                        onChange={(e) => { setSearchFilters({...searchFilters, minStars: e.target.value}); setCurrentPage(1); }}
+                        placeholder="Min stars"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Max Stars</label>
+                      <input
+                        type="number"
+                        value={searchFilters.maxStars}
+                        onChange={(e) => { setSearchFilters({...searchFilters, maxStars: e.target.value}); setCurrentPage(1); }}
+                        placeholder="Max stars"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Has License</label>
+                      <select
+                        value={searchFilters.hasLicense}
+                        onChange={(e) => { setSearchFilters({...searchFilters, hasLicense: e.target.value}); setCurrentPage(1); }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="">Any</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min Topics</label>
+                      <input
+                        type="number"
+                        value={searchFilters.minTopics}
+                        onChange={(e) => { setSearchFilters({...searchFilters, minTopics: e.target.value}); setCurrentPage(1); }}
+                        placeholder="Min topics"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Created After</label>
+                      <input
+                        type="date"
+                        value={searchFilters.createdAfter}
+                        onChange={(e) => { setSearchFilters({...searchFilters, createdAfter: e.target.value}); setCurrentPage(1); }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Created Before</label>
+                      <input
+                        type="date"
+                        value={searchFilters.createdBefore}
+                        onChange={(e) => { setSearchFilters({...searchFilters, createdBefore: e.target.value}); setCurrentPage(1); }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSearchFilters({
+                        minStars: '',
+                        maxStars: '',
+                        hasLicense: '',
+                        minTopics: '',
+                        createdAfter: '',
+                        createdBefore: '',
+                      });
+                      setCurrentPage(1);
+                    }}
+                    className="mt-3 px-3 py-1.5 text-sm text-red-600 hover:text-red-800"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
             </div>
             {loadingArchive ? (
               <div className="text-center py-4">Loading archive...</div>
