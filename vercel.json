@@ -10,24 +10,12 @@
         "installCommand": "cd frontend && npm install",
         "buildCommand": "cd frontend && npm run build"
       }
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
-    },
-    {
-      "src": "/health",
-      "dest": "/api/health"
-    },
-    {
-      "src": "/admin",
-      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
@@ -46,11 +34,18 @@
     },
     "api/test.js": {
       "maxDuration": 10
+    },
+    "api/health.js": {
+      "maxDuration": 10
     }
   },
   "env": {
     "NODE_ENV": "production"
   },
-  "timestamp": 1761432091044,
-  "lastUpdate": "2025-10-25T22:41:31.044Z"
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd frontend && npm install",
+  "framework": "vite",
+  "deploymentId": "deploy-1761432291435",
+  "timestamp": 1761432291435
 }

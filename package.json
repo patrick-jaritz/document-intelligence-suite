@@ -25,7 +25,8 @@
     "vercel:link": "vercel link",
     "vercel:deploy": "vercel --prod",
     "vercel:logs": "vercel logs",
-    "health": "curl -s https://document-intelligence-suite.vercel.app/ | grep -o 'assets/index-[^\"]*.js'"
+    "health": "curl -s https://document-intelligence-suite.vercel.app/ | grep -o 'assets/index-[^\"]*.js'",
+    "vercel-build": "cd frontend && npm install && npm run build"
   },
   "keywords": [
     "rag",

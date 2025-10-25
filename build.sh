@@ -1,36 +1,33 @@
 #!/bin/bash
-# Build script for Vercel deployment
-
+# Vercel Build Script
 set -e
 
-echo "🚀 Starting build process..."
+echo "🚀 Starting Vercel build process..."
 
-# Clean previous build
-if [ -d "frontend/dist" ]; then
-    echo "🧹 Cleaning previous build..."
-    rm -rf frontend/dist
-fi
+# Navigate to frontend directory
+cd frontend
 
 # Install dependencies
 echo "📦 Installing dependencies..."
-cd frontend
 npm install
-cd ..
 
-# Build frontend
-echo "🔨 Building frontend..."
-cd frontend
+# Build the project
+echo "🔨 Building project..."
 npm run build
-cd ..
 
 # Verify build
-if [ ! -f "frontend/dist/index.html" ]; then
-    echo "❌ Build failed - index.html not found"
-    exit 1
+if [ ! -d "dist" ]; then
+  echo "❌ Build failed - dist directory not found"
+  exit 1
+fi
+
+if [ ! -f "dist/index.html" ]; then
+  echo "❌ Build failed - index.html not found"
+  exit 1
 fi
 
 echo "✅ Build completed successfully"
-echo "📁 Build output:"
-ls -la frontend/dist/
+echo "📁 Build contents:"
+ls -la dist/
 
-echo "🎉 Build process completed!"
+echo "🎉 Vercel build process completed"
