@@ -2,14 +2,7 @@ FROM python:3.9-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgcc-s1 \
-    poppler-utils \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -23,15 +16,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 
 # Create non-root user
-RUN useradd -m -u 1000 paddleocr && chown -R paddleocr:paddleocr /app
-USER paddleocr
+RUN useradd -m -u 1000 crawl4ai && chown -R crawl4ai:crawl4ai /app
+USER crawl4ai
 
 # Expose port
-EXPOSE 5001
+EXPOSE 5003
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:5001/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5003/health || exit 1
 
 # Run the application
 CMD ["python", "app.py"]

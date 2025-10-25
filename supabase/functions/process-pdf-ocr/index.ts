@@ -1161,106 +1161,53 @@ async function callDotsOCRService(base64Data: string, logger?: EdgeLogger): Prom
       dataSize: base64Data.length
     });
 
-    // Get service URL from environment (defaults to Vercel API)
-    const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/dots-ocr';
+    // Get service URL from environment (defaults to local Docker service)
+    const dotsOcrServiceUrl = Deno.env.get('DOTS_OCR_SERVICE_URL') || 'http://localhost:5002';
     
-        // Simulate dots.ocr processing directly in Edge Function
-        const processingTime = Math.random() * 1500 + 1000; // 1-2.5 seconds
-        await new Promise(resolve => setTimeout(resolve, processingTime));
-        
-        // Generate realistic OCR text
-        const dataSize = base64Data.length;
-        let mockText;
-        
-        if (dataSize > 100000) {
-          mockText = `Document Layout Analysis - dots.ocr Processing
+    // Call real dots.ocr service
+    const response = await fetch(`${dotsOcrServiceUrl}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64_data: base64Data,
+        content_type: 'application/pdf'
+      })
+    });
 
-This document has been processed using dots.ocr, a state-of-the-art multilingual document layout parsing model that achieves SOTA performance on OmniDocBench.
+    if (!response.ok) {
+      throw new Error(`dots.ocr service error: ${response.status} ${response.statusText}`);
+    }
 
-Performance Metrics:
-- Overall Accuracy: 97.8%
-- Text Recognition: 98.2%
-- Layout Detection: 97.5%
-- Reading Order: Preserved
-- Processing Time: 1.8 seconds
-- Layout Elements: 12 detected
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`dots.ocr processing failed: ${result.error}`);
+    }
 
-Document Structure Analysis:
-• Title Section: Main heading identified
-• Body Text: Multiple paragraphs with proper formatting
-• Tables: 3 tables detected with structure preserved
-• Formulas: Mathematical expressions recognized
-• Images: 2 images with captions extracted
-• Lists: Bulleted and numbered lists maintained
-• Headers/Footers: Page elements properly identified
+    logger?.info('ocr', 'dots.ocr service completed', {
+      textLength: result.text?.length || 0,
+      confidence: result.metadata?.confidence || 0
+    });
 
-dots.ocr Advantages:
-✓ SOTA Performance - Best results on OmniDocBench
-✓ Multilingual Support - 100+ languages automatically detected
-✓ Unified Architecture - Single vision-language model
-✓ Efficient Processing - Built on 1.7B parameter LLM
-✓ Layout Analysis - Excellent table and formula recognition
-✓ Reading Order - Maintains proper document structure
-✓ Fast Inference - Optimized for speed and accuracy
-
-Technical Details:
-- Model: dots.ocr (1.7B parameters)
-- Input: PDF document converted to images
-- Output: Structured layout with text extraction
-- Language: Auto-detected
-- DPI: 200 (optimal for dots.ocr)
-- Deployment: Supabase Edge Functions
-
-This demonstrates the superior capabilities of dots.ocr for enterprise document processing applications deployed on Supabase.`;
-        } else if (dataSize > 50000) {
-          mockText = `[dots.ocr Processing - Medium Document]
-
-Document Analysis Results:
-- Text Recognition: 98.1%
-- Layout Detection: 97.3%
-- Reading Order: Preserved
-- Processing Time: 1.5 seconds
-
-Key Features:
-• High accuracy text extraction
-• Layout structure preservation
-• Multi-language support
-• Fast processing speed
-
-Technical Specifications:
-- Model: dots.ocr (1.7B parameters)
-- Language: Auto-detected
-- DPI: 200
-- Layout Elements: 8 detected
-- Deployment: Supabase Edge Functions
-
-This document has been successfully processed using dots.ocr technology on Supabase.`;
-        } else {
-          mockText = `[dots.ocr Processing - Small Document]
-
-Quick Analysis:
-- Text Recognition: 97.9%
-- Processing Time: 1.1 seconds
-- Language: Auto-detected
-
-Simple document processed with dots.ocr on Supabase.`;
-        }
-
-        return {
-          text: mockText,
-          metadata: {
-            provider: 'dots-ocr',
-            confidence: 97.8,
-            pages: contentType === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
-            language: 'auto',
-            processing_method: 'dots_ocr_supabase',
-            total_boxes: Math.floor(dataSize / 800),
-            layout_elements: Math.floor(dataSize / 2000) + 5,
-            reading_order: 'preserved',
-            dpi: 200,
-            processing_time: Math.round(processingTime)
-          }
-        };
+    return {
+      text: result.text || '',
+      metadata: {
+        provider: 'dots-ocr',
+        confidence: result.metadata?.confidence || 0,
+        pages: result.metadata?.pages || 1,
+        language: result.metadata?.language || 'auto',
+        processing_method: 'dots_ocr_real',
+        total_boxes: result.metadata?.total_boxes || 0,
+        layout_elements: result.metadata?.layout_elements || 0,
+        reading_order: result.metadata?.reading_order || 'preserved',
+        dpi: result.metadata?.dpi || 200,
+        processing_time: result.metadata?.processing_time || 0,
+        model: result.metadata?.model || 'dots.ocr 1.7B',
+        architecture: result.metadata?.architecture || 'Vision-Language Transformer'
+      }
+    };
   } catch (error) {
     logger?.error('ocr', 'Real dots.ocr service failed', error);
     throw error;
@@ -1339,95 +1286,52 @@ async function callPaddleOCRService(base64Data: string, logger?: EdgeLogger): Pr
       dataSize: base64Data.length
     });
 
-    // Get service URL from environment (defaults to Vercel API)
-    const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'https://document-intelligence-suite.vercel.app/api/paddleocr';
+    // Get service URL from environment (defaults to local Docker service)
+    const paddleOcrServiceUrl = Deno.env.get('PADDLEOCR_SERVICE_URL') || 'http://localhost:5001';
     
-        // Simulate PaddleOCR processing directly in Edge Function
-        const processingTime = Math.random() * 2000 + 1000; // 1-3 seconds
-        await new Promise(resolve => setTimeout(resolve, processingTime));
-        
-        // Generate realistic OCR text
-        const dataSize = base64Data.length;
-        let mockText;
-        
-        if (dataSize > 100000) {
-          mockText = `[PaddleOCR Processing - Large Document]
+    // Call real PaddleOCR service
+    const response = await fetch(`${paddleOcrServiceUrl}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64_data: base64Data,
+        content_type: 'application/pdf'
+      })
+    });
 
-Document Analysis Results:
-- Text Recognition: 95.5%
-- Layout Detection: 94.2%
-- Processing Time: 2.1 seconds
-- Language: English (auto-detected)
+    if (!response.ok) {
+      throw new Error(`PaddleOCR service error: ${response.status} ${response.statusText}`);
+    }
 
-Key Features Detected:
-• Multiple paragraphs with proper formatting
-• Headers and subheaders identified
-• Tables with structured data
-• Lists and bullet points preserved
-• Images with captions extracted
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`PaddleOCR processing failed: ${result.error}`);
+    }
 
-Technical Specifications:
-- Model: PaddleOCR (latest version)
-- Language: Auto-detected
-- DPI: 300 (optimal for PaddleOCR)
-- Layout Elements: 12 detected
-- Total Text Blocks: 25
+    logger?.info('ocr', 'PaddleOCR service completed', {
+      textLength: result.text?.length || 0,
+      confidence: result.metadata?.confidence || 0
+    });
 
-PaddleOCR Advantages:
-✓ High accuracy for most document types
-✓ Excellent table recognition
-✓ Multi-language support (80+ languages)
-✓ Free and open source
-✓ No API costs
-✓ Local processing capabilities
-
-This document has been successfully processed using PaddleOCR technology
-deployed on Supabase Edge Functions.`;
-        } else if (dataSize > 50000) {
-          mockText = `[PaddleOCR Processing - Medium Document]
-
-Document Analysis:
-- Text Recognition: 95.2%
-- Layout Detection: 93.8%
-- Processing Time: 1.8 seconds
-
-Key Features:
-• Paragraphs with proper formatting
-• Headers identified
-• Tables detected
-• Lists preserved
-
-Technical Details:
-- Model: PaddleOCR
-- Language: English
-- DPI: 300
-- Layout Elements: 8 detected
-
-This document processed successfully with PaddleOCR on Supabase.`;
-        } else {
-          mockText = `[PaddleOCR Processing - Small Document]
-
-Quick Analysis:
-- Text Recognition: 94.8%
-- Processing Time: 1.2 seconds
-- Language: English
-
-Simple document processed with PaddleOCR on Supabase.`;
-        }
-
-        return {
-          text: mockText,
-          metadata: {
-            provider: 'paddleocr',
-            confidence: 95.5,
-            pages: contentType === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
-            language: 'en',
-            processing_method: 'paddleocr_supabase',
-            total_boxes: Math.floor(dataSize / 1000),
-            dpi: 300,
-            processing_time: Math.round(processingTime)
-          }
-        };
+    return {
+      text: result.text || '',
+      metadata: {
+        provider: 'paddleocr',
+        confidence: result.metadata?.confidence || 0,
+        pages: result.metadata?.pages || 1,
+        language: result.metadata?.language || 'en',
+        processing_method: 'paddleocr_real',
+        total_boxes: result.metadata?.total_boxes || 0,
+        layout_elements: result.metadata?.layout_elements || 0,
+        quality_score: result.metadata?.confidence || 0,
+        dpi: result.metadata?.dpi || 200,
+        processing_time: result.metadata?.processing_time || 0,
+        engine: 'PaddleOCR Real'
+      }
+    };
   } catch (error) {
     logger?.error('ocr', 'Real PaddleOCR service failed', error);
     throw error;
@@ -1662,13 +1566,13 @@ Simple document processed with DeepSeek-OCR on Supabase.`;
       processingTime: Math.round(processingTime)
     });
 
-    return {
-      text: mockText,
-      metadata: {
-        provider: 'deepseek-ocr',
+  return {
+    text: mockText,
+    metadata: {
+      provider: 'deepseek-ocr',
         confidence: 98.5,
         pages: contentType === 'application/pdf' ? Math.ceil(dataSize / 100000) : 1,
-        language: 'auto',
+      language: 'auto',
         processing_method: 'deepseek_ocr_supabase',
         total_blocks: Math.floor(dataSize / 2000) + 15,
         layout_elements: Math.floor(dataSize / 3000) + 8,

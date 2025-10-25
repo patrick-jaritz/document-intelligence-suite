@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  paddleocr:
+    build: ./services/paddleocr
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  dots-ocr:
+    build: ./services/dots-ocr
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  crawl4ai:
+    build: ./services/crawl4ai
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - paddleocr
+      - dots-ocr
+      - crawl4ai
+    restart: unless-stopped
