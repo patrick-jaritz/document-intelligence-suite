@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2 } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 
 interface GitHubAnalysis {
@@ -83,6 +83,8 @@ export function GitHubAnalyzer() {
   const [showArchive, setShowArchive] = useState(false);
   const [loadingArchive, setLoadingArchive] = useState(false);
   const [archiveSearchTerm, setArchiveSearchTerm] = useState('');
+  const [starredRepos, setStarredRepos] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'all' | 'starred'>('all');
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -335,6 +337,54 @@ export function GitHubAnalyzer() {
       setIsAnalyzing(false);
     }
   };
+
+  const handleStarToggle = (repoUrl: string) => {
+    setStarredRepos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(repoUrl)) {
+        newSet.delete(repoUrl);
+      } else {
+        newSet.add(repoUrl);
+      }
+      // Save to localStorage
+      localStorage.setItem('starredRepos', JSON.stringify(Array.from(newSet)));
+      return newSet;
+    });
+  };
+
+  const handleExportArchive = () => {
+    const dataToExport = archivedAnalyses.map(analysis => ({
+      repository_url: analysis.repository_url,
+      repository_name: analysis.repository_name,
+      language: analysis.analysis_data?.metadata?.language,
+      stars: analysis.analysis_data?.metadata?.stars,
+      description: analysis.analysis_data?.metadata?.description,
+      topics: analysis.analysis_data?.metadata?.topics,
+      analyzed_at: analysis.created_at,
+    }));
+
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `github-archive-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLoadStarredFromStorage = () => {
+    const stored = localStorage.getItem('starredRepos');
+    if (stored) {
+      setStarredRepos(new Set(JSON.parse(stored)));
+    }
+  };
+
+  // Load starred repos on mount
+  React.useEffect(() => {
+    handleLoadStarredFromStorage();
+  }, []);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
