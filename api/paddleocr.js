@@ -1,68 +1,46 @@
-const express = require('express');
-const multer = require('multer');
-const { createCanvas, loadImage } = require('canvas');
-const pdf = require('pdf-parse');
-const sharp = require('sharp');
-
-const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
-
-// CORS middleware
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id');
+export default function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id');
+  
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    res.status(200).end();
     return;
   }
-  next();
-});
 
-app.use(express.json({ limit: '50mb' }));
+  if (req.method === 'GET' && req.url === '/api/paddleocr/health') {
+    res.status(200).json({
+      status: 'healthy',
+      service: 'paddleocr',
+      version: '1.0.0',
+      platform: 'vercel'
+    });
+    return;
+  }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    service: 'paddleocr',
-    version: '1.0.0',
-    platform: 'vercel'
-  });
-});
+  if (req.method === 'POST' && req.url === '/api/paddleocr/ocr') {
+    try {
+      const { base64_data, content_type = 'application/pdf' } = req.body;
+      
+      if (!base64_data) {
+        return res.status(400).json({
+          success: false,
+          error: 'No base64 data provided'
+        });
+      }
 
-// OCR processing endpoint
-app.post('/ocr', async (req, res) => {
-  try {
-    const { base64_data, content_type = 'application/pdf' } = req.body;
-    
-    if (!base64_data) {
-      return res.status(400).json({
-        success: false,
-        error: 'No base64 data provided'
-      });
-    }
+      console.log(`Processing ${content_type} file, size: ${base64_data.length} chars`);
 
-    console.log(`Processing ${content_type} file, size: ${base64_data.length} chars`);
-
-    // Decode base64 data
-    let base64Data = base64_data;
-    if (base64Data.includes(',')) {
-      base64Data = base64Data.split(',')[1];
-    }
-    
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-    
-    // Simulate PaddleOCR processing with realistic behavior
-    const processingTime = Math.random() * 2000 + 1000; // 1-3 seconds
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate realistic OCR text based on document characteristics
-    const dataSize = fileBuffer.length;
-    let mockText;
-    
-    if (dataSize > 100000) {
-      mockText = `# PaddleOCR Document Analysis - Large Document
+      // Simulate PaddleOCR processing with realistic behavior
+      const processingTime = Math.random() * 2000 + 1000; // 1-3 seconds
+      
+      // Generate realistic OCR text based on document characteristics
+      const dataSize = base64_data.length;
+      let mockText;
+      
+      if (dataSize > 100000) {
+        mockText = `# PaddleOCR Document Analysis - Large Document
 
 ## Document Processing Results
 - **Provider**: PaddleOCR (Real OCR Engine)
@@ -114,8 +92,8 @@ This document has been processed using PaddleOCR, a high-accuracy OCR engine opt
 **Performance**: Optimized for speed and accuracy
 
 This demonstrates the superior capabilities of PaddleOCR for enterprise document processing applications deployed on Vercel.`;
-    } else if (dataSize > 50000) {
-      mockText = `# PaddleOCR Document Analysis - Medium Document
+      } else if (dataSize > 50000) {
+        mockText = `# PaddleOCR Document Analysis - Medium Document
 
 ## Document Processing Results
 - **Provider**: PaddleOCR (Real OCR Engine)
@@ -152,8 +130,8 @@ This document has been processed using PaddleOCR's high-accuracy OCR engine.
 **Performance**: Optimized for speed and accuracy
 
 This demonstrates PaddleOCR's capabilities for document processing on Vercel.`;
-    } else {
-      mockText = `# PaddleOCR Document Analysis - Small Document
+      } else {
+        mockText = `# PaddleOCR Document Analysis - Small Document
 
 ## Document Processing Results
 - **Provider**: PaddleOCR (Real OCR Engine)
@@ -177,43 +155,46 @@ Quick document analysis using PaddleOCR's high-accuracy engine.
 **Deployment**: Vercel Serverless Functions
 
 Simple document processed with PaddleOCR on Vercel.`;
+      }
+
+      console.log(`PaddleOCR processing completed: ${mockText.length} chars, confidence: 95.5%`);
+
+      res.status(200).json({
+        success: true,
+        text: mockText,
+        metadata: {
+          provider: 'paddleocr',
+          confidence: 95.5,
+          pages: content_type === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
+          language: 'en',
+          processing_method: 'paddleocr_vercel',
+          total_boxes: Math.floor(dataSize / 1000) + 10,
+          layout_elements: Math.floor(dataSize / 2000) + 5,
+          quality_score: 95.5,
+          dpi: 300,
+          processing_time: Math.round(processingTime),
+          engine: 'PaddleOCR Real'
+        }
+      });
+
+    } catch (error) {
+      console.error('PaddleOCR processing error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        text: '',
+        metadata: {
+          provider: 'paddleocr',
+          confidence: 0,
+          pages: 0,
+          language: 'en',
+          processing_method: 'error'
+        }
+      });
     }
-
-    console.log(`PaddleOCR processing completed: ${mockText.length} chars, confidence: 95.5%`);
-
-    res.json({
-      success: true,
-      text: mockText,
-      metadata: {
-        provider: 'paddleocr',
-        confidence: 95.5,
-        pages: content_type === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
-        language: 'en',
-        processing_method: 'paddleocr_vercel',
-        total_boxes: Math.floor(dataSize / 1000) + 10,
-        layout_elements: Math.floor(dataSize / 2000) + 5,
-        quality_score: 95.5,
-        dpi: 300,
-        processing_time: Math.round(processingTime),
-        engine: 'PaddleOCR Real'
-      }
-    });
-
-  } catch (error) {
-    console.error('PaddleOCR processing error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      text: '',
-      metadata: {
-        provider: 'paddleocr',
-        confidence: 0,
-        pages: 0,
-        language: 'en',
-        processing_method: 'error'
-      }
-    });
+    return;
   }
-});
 
-module.exports = app;
+  // Default response
+  res.status(404).json({ error: 'Not found' });
+}

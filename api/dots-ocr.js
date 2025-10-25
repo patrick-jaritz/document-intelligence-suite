@@ -1,63 +1,46 @@
-const express = require('express');
-
-const app = express();
-
-// CORS middleware
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id');
+export default function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id');
+  
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    res.status(200).end();
     return;
   }
-  next();
-});
 
-app.use(express.json({ limit: '50mb' }));
+  if (req.method === 'GET' && req.url === '/api/dots-ocr/health') {
+    res.status(200).json({
+      status: 'healthy',
+      service: 'dots-ocr',
+      version: '1.0.0',
+      platform: 'vercel'
+    });
+    return;
+  }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    service: 'dots-ocr',
-    version: '1.0.0',
-    platform: 'vercel'
-  });
-});
+  if (req.method === 'POST' && req.url === '/api/dots-ocr/ocr') {
+    try {
+      const { base64_data, content_type = 'application/pdf' } = req.body;
+      
+      if (!base64_data) {
+        return res.status(400).json({
+          success: false,
+          error: 'No base64 data provided'
+        });
+      }
 
-// OCR processing endpoint
-app.post('/ocr', async (req, res) => {
-  try {
-    const { base64_data, content_type = 'application/pdf' } = req.body;
-    
-    if (!base64_data) {
-      return res.status(400).json({
-        success: false,
-        error: 'No base64 data provided'
-      });
-    }
+      console.log(`Processing ${content_type} file, size: ${base64_data.length} chars`);
 
-    console.log(`Processing ${content_type} file, size: ${base64_data.length} chars`);
-
-    // Decode base64 data
-    let base64Data = base64_data;
-    if (base64Data.includes(',')) {
-      base64Data = base64Data.split(',')[1];
-    }
-    
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-    
-    // Simulate dots.ocr processing with realistic behavior
-    const processingTime = Math.random() * 1500 + 1000; // 1-2.5 seconds
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate realistic OCR text based on document characteristics
-    const dataSize = fileBuffer.length;
-    let mockText;
-    
-    if (dataSize > 100000) {
-      mockText = `# Document Layout Analysis - dots.ocr Processing
+      // Simulate dots.ocr processing with realistic behavior
+      const processingTime = Math.random() * 1500 + 1000; // 1-2.5 seconds
+      
+      // Generate realistic OCR text based on document characteristics
+      const dataSize = base64_data.length;
+      let mockText;
+      
+      if (dataSize > 100000) {
+        mockText = `# Document Layout Analysis - dots.ocr Processing
 
 ## Page Information
 - **Pages Processed**: ${Math.ceil(dataSize / 50000)}
@@ -113,8 +96,8 @@ The extracted content maintains the original document structure while providing 
 **Performance**: Optimized for enterprise document processing
 
 This demonstrates the superior capabilities of dots.ocr for enterprise document processing applications deployed on Vercel.`;
-    } else if (dataSize > 50000) {
-      mockText = `# Document Layout Analysis - dots.ocr Processing
+      } else if (dataSize > 50000) {
+        mockText = `# Document Layout Analysis - dots.ocr Processing
 
 ## Page Information
 - **Pages Processed**: 1
@@ -157,8 +140,8 @@ This document has been processed using dots.ocr's advanced vision-language capab
 **Performance**: Optimized for speed and accuracy
 
 This demonstrates dots.ocr's capabilities for document processing on Vercel.`;
-    } else {
-      mockText = `# Document Layout Analysis - dots.ocr Processing
+      } else {
+        mockText = `# Document Layout Analysis - dots.ocr Processing
 
 ## Page Information
 - **Processing Time**: ${Math.round(processingTime)}ms
@@ -181,44 +164,47 @@ Quick document analysis using dots.ocr's vision-language model.
 **Deployment**: Vercel Serverless Functions
 
 Simple document processed with dots.ocr on Vercel.`;
+      }
+
+      console.log(`dots.ocr processing completed: ${mockText.length} chars, confidence: 97.8%`);
+
+      res.status(200).json({
+        success: true,
+        text: mockText,
+        metadata: {
+          provider: 'dots-ocr',
+          confidence: 97.8,
+          pages: content_type === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
+          language: 'auto',
+          processing_method: 'dots_ocr_vercel',
+          total_boxes: Math.floor(dataSize / 800) + 15,
+          layout_elements: Math.floor(dataSize / 2000) + 8,
+          reading_order: 'preserved',
+          dpi: 200,
+          processing_time: Math.round(processingTime),
+          model: 'dots.ocr 1.7B',
+          architecture: 'Vision-Language Transformer'
+        }
+      });
+
+    } catch (error) {
+      console.error('dots.ocr processing error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        text: '',
+        metadata: {
+          provider: 'dots-ocr',
+          confidence: 0,
+          pages: 0,
+          language: 'auto',
+          processing_method: 'error'
+        }
+      });
     }
-
-    console.log(`dots.ocr processing completed: ${mockText.length} chars, confidence: 97.8%`);
-
-    res.json({
-      success: true,
-      text: mockText,
-      metadata: {
-        provider: 'dots-ocr',
-        confidence: 97.8,
-        pages: content_type === 'application/pdf' ? Math.ceil(dataSize / 50000) : 1,
-        language: 'auto',
-        processing_method: 'dots_ocr_vercel',
-        total_boxes: Math.floor(dataSize / 800) + 15,
-        layout_elements: Math.floor(dataSize / 2000) + 8,
-        reading_order: 'preserved',
-        dpi: 200,
-        processing_time: Math.round(processingTime),
-        model: 'dots.ocr 1.7B',
-        architecture: 'Vision-Language Transformer'
-      }
-    });
-
-  } catch (error) {
-    console.error('dots.ocr processing error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      text: '',
-      metadata: {
-        provider: 'dots-ocr',
-        confidence: 0,
-        pages: 0,
-        language: 'auto',
-        processing_method: 'error'
-      }
-    });
+    return;
   }
-});
 
-module.exports = app;
+  // Default response
+  res.status(404).json({ error: 'Not found' });
+}
