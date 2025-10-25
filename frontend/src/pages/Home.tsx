@@ -9,7 +9,7 @@ import { GitHubAnalyzer } from '../components/GitHubAnalyzer';
 import { WebCrawler } from '../components/WebCrawler';
 import RepositoryArchive from '../components/RepositoryArchive';
 
-type AppMode = 'extract' | 'ask' | 'github' | 'archive' | 'crawler';
+type AppMode = 'extract' | 'ask' | 'github' | 'crawler';
 
 export function Home() {
   const [appMode, setAppMode] = useState<AppMode>('extract');
@@ -68,7 +68,7 @@ export function Home() {
                 </h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <button
                 onClick={() => setAppMode('extract')}
                 className={`p-6 rounded-lg border-2 transition-all ${appMode === 'extract' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
@@ -118,22 +118,6 @@ export function Home() {
               </button>
 
               <button
-                onClick={() => setAppMode('archive')}
-                className={`p-6 rounded-lg border-2 transition-all ${appMode === 'archive' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${appMode === 'archive' ? 'bg-orange-600' : 'bg-gray-100'}`}>
-                    <Archive className={`w-6 h-6 ${appMode === 'archive' ? 'text-white' : 'text-gray-600'}`} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Repository Archive</h4>
-                    <p className="text-sm text-gray-600">Browse analyzed repositories</p>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">View and search through previously analyzed GitHub repositories.</p>
-              </button>
-
-              <button
                 onClick={() => setAppMode('crawler')}
                 className={`p-6 rounded-lg border-2 transition-all ${appMode === 'crawler' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
               >
@@ -159,8 +143,6 @@ export function Home() {
           <RAGView />
         ) : appMode === 'github' ? (
           <GitHubAnalyzer />
-        ) : appMode === 'archive' ? (
-          <RepositoryArchive />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: Inputs */}
