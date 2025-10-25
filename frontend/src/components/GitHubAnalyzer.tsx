@@ -93,6 +93,8 @@ export function GitHubAnalyzer() {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
   const [showComparison, setShowComparison] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -436,6 +438,51 @@ export function GitHubAnalyzer() {
     }).filter(Boolean);
   };
 
+  const handleToggleBulk = (url: string) => {
+    setSelectedForBulk(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(url)) {
+        newSet.delete(url);
+      } else {
+        newSet.add(url);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllBulk = () => {
+    const { data } = getPaginatedAnalyses();
+    if (selectedForBulk.size === data.length) {
+      setSelectedForBulk(new Set());
+    } else {
+      setSelectedForBulk(new Set(data.map(a => a.repository_url)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedForBulk.size === 0) return;
+    
+    if (!window.confirm(`Delete ${selectedForBulk.size} repository(ies) from archive?`)) return;
+
+    try {
+      const deletePromises = Array.from(selectedForBulk).map(url =>
+        fetch(`${supabaseUrl}/functions/v1/delete-github-analysis`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repository_url: url }),
+        })
+      );
+
+      await Promise.all(deletePromises);
+      setArchivedAnalyses(prev => prev.filter(a => !selectedForBulk.has(a.repository_url)));
+      setSelectedForBulk(new Set());
+      setBulkMode(false);
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      alert('Failed to delete repositories');
+    }
+  };
+
   const getFilteredAndSortedAnalyses = () => {
     let filtered = archivedAnalyses.filter(analysis => {
       const searchLower = archiveSearchTerm.toLowerCase();
@@ -543,12 +590,38 @@ export function GitHubAnalyzer() {
                     Compare ({selectedForCompare.size}/2)
                   </button>
                 )}
+                {bulkMode && selectedForBulk.size > 0 && (
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete ({selectedForBulk.size})
+                  </button>
+                )}
                 <button
-                  onClick={() => { setCompareMode(!compareMode); setSelectedForCompare(new Set()); }}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm ${compareMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
+                  onClick={() => { 
+                    setCompareMode(!compareMode); 
+                    setSelectedForCompare(new Set());
+                    if (compareMode) setBulkMode(false);
+                  }}
+                  disabled={bulkMode}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm ${compareMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-yellow-600 text-white hover:bg-yellow-700'} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <GitCompare className="w-4 h-4" />
                   {compareMode ? 'Cancel Compare' : 'Compare Mode'}
+                </button>
+                <button
+                  onClick={() => { 
+                    setBulkMode(!bulkMode); 
+                    setSelectedForBulk(new Set());
+                    if (bulkMode) setCompareMode(false);
+                  }}
+                  disabled={compareMode}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm ${bulkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-orange-600 text-white hover:bg-orange-700'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {bulkMode ? 'Cancel Bulk' : 'Bulk Mode'}
                 </button>
                 <button
                   onClick={() => handleExportArchive('csv')}
@@ -607,22 +680,43 @@ export function GitHubAnalyzer() {
                 <div className="text-center py-4 text-gray-500">No repositories match your filters</div>
               ) : (
                 <>
+                  {bulkMode && (
+                    <div className="mb-3 flex items-center justify-between">
+                      <button
+                        onClick={handleSelectAllBulk}
+                        className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                      >
+                        {selectedForBulk.size === data.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        {selectedForBulk.size} selected
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {data.map((analysis, idx) => (
                     <div
                       key={analysis.id || idx}
-                      className={`p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border flex items-start gap-3 group ${compareMode ? 'border-2' : 'border-purple-200'} ${selectedForCompare.has(analysis.repository_url) ? 'border-purple-600 bg-purple-50' : ''}`}
+                      className={`p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border flex items-start gap-3 group ${(compareMode || bulkMode) ? 'border-2' : 'border-purple-200'} ${selectedForCompare.has(analysis.repository_url) ? 'border-purple-600 bg-purple-50' : ''} ${selectedForBulk.has(analysis.repository_url) ? 'border-orange-600 bg-orange-50' : ''}`}
                     >
-                      {compareMode && (
+                      {(compareMode || bulkMode) && (
                         <input
                           type="checkbox"
-                          checked={selectedForCompare.has(analysis.repository_url)}
-                          onChange={() => handleToggleCompare(analysis.repository_url)}
+                          checked={
+                            compareMode 
+                              ? selectedForCompare.has(analysis.repository_url)
+                              : selectedForBulk.has(analysis.repository_url)
+                          }
+                          onChange={() => 
+                            compareMode 
+                              ? handleToggleCompare(analysis.repository_url)
+                              : handleToggleBulk(analysis.repository_url)
+                          }
                           className="mt-1 w-4 h-4 text-purple-600 rounded"
                         />
                       )}
                       <div 
-                        onClick={() => !compareMode && handleArchiveClick(analysis)}
+                        onClick={() => !compareMode && !bulkMode && handleArchiveClick(analysis)}
                         className="flex-1 min-w-0"
                       >
                         <div className="font-medium text-gray-900 truncate">{analysis.repository_name}</div>
