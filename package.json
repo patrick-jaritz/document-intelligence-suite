@@ -16,7 +16,8 @@
     "supabase:logs": "supabase functions logs",
     "setup": "npm run setup:frontend && npm run setup:supabase",
     "setup:frontend": "cd frontend && npm install",
-    "setup:supabase": "supabase start"
+    "setup:supabase": "supabase start",
+    "start": "cd frontend && npm run preview"
   },
   "keywords": [
     "rag",
