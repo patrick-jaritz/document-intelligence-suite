@@ -39,6 +39,13 @@ Deno.serve(async (req: Request) => {
 
   const inboundReqId = req.headers.get('X-Request-Id') || undefined;
   const requestId = inboundReqId || generateRequestId();
+  
+  // Track API usage metrics
+  const startTime = Date.now();
+  let requestSize = 0;
+  let responseSize = 0;
+  let errorOccurred = false;
+  let ocrProviderUsed = 'unknown';
 
   try {
     // Check environment variables first
@@ -60,13 +67,16 @@ Deno.serve(async (req: Request) => {
     // Parse request body with better error handling
     let requestBody: ProcessPDFRequest;
     try {
-      requestBody = await req.json();
+      const requestText = await req.text();
+      requestSize = requestText.length;
+      requestBody = JSON.parse(requestText);
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       throw new Error('Invalid JSON in request body');
     }
 
     const { documentId, jobId, fileUrl, ocrProvider, openaiVisionModel, fileDataUrl } = requestBody;
+    ocrProviderUsed = ocrProvider;
 
     // Validate required fields
     if (!documentId || !jobId || !ocrProvider) {
@@ -346,7 +356,25 @@ Deno.serve(async (req: Request) => {
         logger.debug('database', 'Updated job and document status to completed', { jobId, documentId });
       }
 
-      return new Response(JSON.stringify({ success: true, extractedText: ocrResult.text, processingTime, metadata: ocrResult.metadata, requestId }), { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
+      // Track successful request metrics
+      const responseTime = Date.now() - startTime;
+      const responseData = { success: true, extractedText: ocrResult.text, processingTime, metadata: ocrResult.metadata, requestId };
+      responseSize = JSON.stringify(responseData).length;
+      
+      // Log metrics
+      console.log('API_METRICS:', {
+        endpoint: '/api/process-pdf-ocr',
+        method: 'POST',
+        requestId,
+        responseTime,
+        requestSize,
+        responseSize,
+        ocrProvider: ocrProviderUsed,
+        success: true,
+        timestamp: new Date().toISOString()
+      });
+      
+      return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'OCR processing failed';
       logger.critical('ocr', 'OCR processing failed with error', error, {
@@ -394,10 +422,31 @@ Deno.serve(async (req: Request) => {
       throw error;
     }
   } catch (error) {
+    errorOccurred = true;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Track error metrics
+    const responseTime = Date.now() - startTime;
+    const errorData = { success: false, error: errorMessage, requestId };
+    responseSize = JSON.stringify(errorData).length;
+    
+    // Log error metrics
+    console.log('API_METRICS:', {
+      endpoint: '/api/process-pdf-ocr',
+      method: 'POST',
+      requestId,
+      responseTime,
+      requestSize,
+      responseSize,
+      ocrProvider: ocrProviderUsed,
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+    
     console.error('[CRITICAL] Function error:', errorMessage, error);
 
-    return new Response(JSON.stringify({ success: false, error: errorMessage, requestId }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
+    return new Response(JSON.stringify(errorData), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
   }
 });
 

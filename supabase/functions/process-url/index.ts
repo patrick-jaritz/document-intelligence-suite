@@ -34,13 +34,23 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Track API usage metrics
+  const startTime = Date.now();
+  let requestSize = 0;
+  let responseSize = 0;
+  let errorOccurred = false;
+  let crawlerUsed = 'default';
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { documentId, jobId, url, crawler = 'default' }: ProcessUrlRequest = await req.json();
+    const requestText = await req.text();
+    requestSize = requestText.length;
+    const { documentId, jobId, url, crawler = 'default' }: ProcessUrlRequest = JSON.parse(requestText);
+    crawlerUsed = crawler;
 
     if (!url || !documentId || !jobId) {
       return new Response(
@@ -80,29 +90,68 @@ Deno.serve(async (req: Request) => {
 
     console.log(`✅ URL processed successfully: ${urlResult.metadata.wordCount} words`);
 
+    // Track successful request metrics
+    const responseTime = Date.now() - startTime;
+    const responseData = { 
+      success: true, 
+      extractedText: urlResult.text,
+      metadata: urlResult.metadata,
+      documentId,
+      jobId
+    };
+    responseSize = JSON.stringify(responseData).length;
+    
+    // Log metrics
+    console.log('API_METRICS:', {
+      endpoint: '/api/process-url',
+      method: 'POST',
+      responseTime,
+      requestSize,
+      responseSize,
+      crawler: crawlerUsed,
+      success: true,
+      wordCount: urlResult.metadata.wordCount,
+      timestamp: new Date().toISOString()
+    });
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        extractedText: urlResult.text,
-        metadata: urlResult.metadata,
-        documentId,
-        jobId
-      }),
+      JSON.stringify(responseData),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
 
   } catch (error: any) {
+    errorOccurred = true;
+    const errorMessage = error.message || 'URL processing failed';
+    
+    // Track error metrics
+    const responseTime = Date.now() - startTime;
+    const errorData = { 
+      success: false, 
+      error: errorMessage 
+    };
+    responseSize = JSON.stringify(errorData).length;
+    
+    // Log error metrics
+    console.log('API_METRICS:', {
+      endpoint: '/api/process-url',
+      method: 'POST',
+      responseTime,
+      requestSize,
+      responseSize,
+      crawler: crawlerUsed,
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+    
     console.error('❌ URL processing error:', error);
     
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'URL processing failed' 
-      }),
+      JSON.stringify(errorData),
       { 
-        status: 500, 
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );

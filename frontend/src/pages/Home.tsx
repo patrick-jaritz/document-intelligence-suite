@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Globe } from 'lucide-react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ResultsDisplay } from '../components/ResultsDisplay';
@@ -12,6 +13,7 @@ type AppMode = 'extract' | 'ask' | 'github' | 'crawler';
 
 export function Home() {
   const [appMode, setAppMode] = useState<AppMode>('extract');
+  const navigate = useNavigate();
 
   // Extraction state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -249,7 +251,19 @@ export function Home() {
           )}
 
         <footer className="mt-10 text-center text-sm text-gray-500">
-            Developed with ❤️ by Patrick
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex items-center space-x-6">
+              <button
+                onClick={() => navigate('/health')}
+                className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200"
+              >
+                <Activity className="w-4 h-4 mr-2" />
+                System Health
+              </button>
+              <span className="text-gray-400">|</span>
+              <span>Developed with ❤️ by Patrick</span>
+            </div>
+          </div>
         </footer>
       </div>
     </div>
