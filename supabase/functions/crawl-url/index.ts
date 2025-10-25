@@ -6,14 +6,25 @@ interface CrawlRequest {
   mode?: 'basic' | 'llm-enhanced' | 'screenshots';
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const { url, mode = 'basic' }: CrawlRequest = await req.json()
 
     if (!url) {
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -94,7 +105,7 @@ This demonstrates the superior capabilities of Crawl4AI for enterprise web scrap
           processingTime: Math.round(processingTime)
         },
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
@@ -132,7 +143,7 @@ In a full implementation with the Crawl4AI Docker service running:
           simulation: true,
         },
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
