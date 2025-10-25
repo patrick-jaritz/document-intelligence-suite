@@ -1,15 +1,21 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
+  "functions": {
+    "api/paddleocr/index.js": {
+      "maxDuration": 30
+    },
+    "api/dots-ocr/index.js": {
+      "maxDuration": 30
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/api/paddleocr",
+      "destination": "/api/paddleocr/"
+    },
+    {
+      "source": "/api/dots-ocr",
+      "destination": "/api/dots-ocr/"
     }
   ]
 }
