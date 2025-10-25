@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-10-25T22:06:00.847Z",
+  "uptime": 1302,
+  "metrics": {
+    "startTime": 1761429959545,
+    "checks": 4,
+    "successes": 1,
+    "failures": 3,
+    "lastSuccess": 1761429959845,
+    "lastFailure": 1761429960846
+  },
+  "successRate": "25.00%",
+  "status": "UNHEALTHY"
+}
