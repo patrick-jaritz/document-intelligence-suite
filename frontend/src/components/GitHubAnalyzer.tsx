@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 
 interface GitHubAnalysis {
@@ -79,6 +79,9 @@ export function GitHubAnalyzer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [archivedAnalyses, setArchivedAnalyses] = useState<any[]>([]);
+  const [showArchive, setShowArchive] = useState(false);
+  const [loadingArchive, setLoadingArchive] = useState(false);
 
   const isGitHubUrl = (url: string): boolean => {
     try {
@@ -88,6 +91,68 @@ export function GitHubAnalyzer() {
       return false;
     }
   };
+
+  const fetchArchivedAnalyses = async () => {
+    try {
+      setLoadingArchive(true);
+      const response = await fetch(`${supabaseUrl}/functions/v1/get-repository-archive`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data && result.data.length > 0) {
+          setArchivedAnalyses(result.data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch archive:', error);
+    } finally {
+      setLoadingArchive(false);
+    }
+  };
+
+  const saveAnalysisToArchive = async (result: AnalysisResult) => {
+    const response = await fetch(`${supabaseUrl}/functions/v1/init-github-archive`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        repository_url: result.repository,
+        repository_name: result.repository.split('/').pop(),
+        analysis_data: result.analysis,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save to archive');
+    }
+  };
+
+  const handleArchiveClick = (archivedAnalysis: any) => {
+    // Convert archived analysis to AnalysisResult format
+    setAnalysisResult({
+      success: true,
+      repository: archivedAnalysis.repository_url,
+      analysis: archivedAnalysis.analysis_data,
+      metadata: {
+        analyzedAt: archivedAnalysis.created_at,
+        dataSources: ['archive'],
+        confidence: 1,
+      },
+    });
+    setShowArchive(false);
+  };
+
+  // Fetch archive on mount
+  React.useEffect(() => {
+    fetchArchivedAnalyses();
+  }, []);
 
   const handleAnalyze = async () => {
     if (!urlInput.trim()) return;
@@ -133,6 +198,17 @@ export function GitHubAnalyzer() {
       if (result.success) {
         setAnalysisResult(result);
         console.log('✅ Analysis completed successfully');
+        
+        // Auto-save to archive
+        try {
+          await saveAnalysisToArchive(result);
+          console.log('✅ Analysis saved to archive');
+          // Refresh archive list
+          fetchArchivedAnalyses();
+        } catch (saveError) {
+          console.error('Failed to save to archive:', saveError);
+          // Don't block the UI on save failure
+        }
       } else {
         throw new Error(result.error || 'Analysis failed');
       }
@@ -166,10 +242,43 @@ export function GitHubAnalyzer() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Github className="w-8 h-8 text-gray-700" />
-          <h1 className="text-2xl font-bold text-gray-900">GitHub Repository Analyzer</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Github className="w-8 h-8 text-gray-700" />
+            <h1 className="text-2xl font-bold text-gray-900">GitHub Repository Analyzer</h1>
+          </div>
+          <button
+            onClick={() => setShowArchive(!showArchive)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Archive className="w-4 h-4" />
+            Archive ({archivedAnalyses.length})
+          </button>
         </div>
+
+        {showArchive && (
+          <div className="mb-6 bg-purple-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Previously Analyzed Repositories</h3>
+            {loadingArchive ? (
+              <div className="text-center py-4">Loading archive...</div>
+            ) : archivedAnalyses.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">No archived analyses yet</div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {archivedAnalyses.map((analysis, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => handleArchiveClick(analysis)}
+                    className="p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer"
+                  >
+                    <div className="font-medium text-gray-900">{analysis.repository_name}</div>
+                    <div className="text-sm text-gray-500">{analysis.repository_url}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-6">
           <div className="flex gap-3">
