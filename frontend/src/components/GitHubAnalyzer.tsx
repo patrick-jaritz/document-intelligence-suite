@@ -253,6 +253,17 @@ export function GitHubAnalyzer() {
     fetchArchivedAnalyses();
   }, []);
 
+  // Update starred repos when archivedAnalyses changes
+  React.useEffect(() => {
+    const starredUrls = new Set<string>();
+    archivedAnalyses.forEach(analysis => {
+      if (analysis.starred) {
+        starredUrls.add(analysis.repository_url);
+      }
+    });
+    setStarredRepos(starredUrls);
+  }, [archivedAnalyses]);
+
   const handleAnalyze = async () => {
     if (!urlInput.trim()) return;
     
@@ -348,18 +359,44 @@ export function GitHubAnalyzer() {
     }
   };
 
-  const handleStarToggle = (repoUrl: string) => {
-    setStarredRepos(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(repoUrl)) {
-        newSet.delete(repoUrl);
-      } else {
-        newSet.add(repoUrl);
-      }
-      // Save to localStorage
-      localStorage.setItem('starredRepos', JSON.stringify(Array.from(newSet)));
-      return newSet;
-    });
+  const handleStarToggle = async (repoUrl: string) => {
+    const currentlyStarred = starredRepos.has(repoUrl);
+    
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/toggle-star`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          repository_url: repoUrl, 
+          starred: !currentlyStarred 
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update star status');
+
+      // Update local state
+      setStarredRepos(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(repoUrl)) {
+          newSet.delete(repoUrl);
+        } else {
+          newSet.add(repoUrl);
+        }
+        return newSet;
+      });
+
+      // Update archivedAnalyses to reflect the change
+      setArchivedAnalyses(prev =>
+        prev.map(analysis =>
+          analysis.repository_url === repoUrl
+            ? { ...analysis, starred: !currentlyStarred }
+            : analysis
+        )
+      );
+    } catch (err) {
+      console.error('Failed to toggle star:', err);
+      alert('Failed to update star status');
+    }
   };
 
   const handleExportArchive = (format: 'json' | 'csv') => {
@@ -528,17 +565,7 @@ export function GitHubAnalyzer() {
     };
   };
 
-  const handleLoadStarredFromStorage = () => {
-    const stored = localStorage.getItem('starredRepos');
-    if (stored) {
-      setStarredRepos(new Set(JSON.parse(stored)));
-    }
-  };
 
-  // Load starred repos on mount
-  React.useEffect(() => {
-    handleLoadStarredFromStorage();
-  }, []);
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
