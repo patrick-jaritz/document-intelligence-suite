@@ -23,7 +23,7 @@
     },
     {
       "src": "/health",
-      "dest": "/index.html"
+      "dest": "/api/health"
     },
     {
       "src": "/admin",
