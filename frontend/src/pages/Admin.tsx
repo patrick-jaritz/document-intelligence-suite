@@ -76,14 +76,24 @@ export function Admin() {
             </div>
 
             <div className="p-4 bg-white rounded-lg border">
-              <h2 className="text-lg font-semibold mb-3">Cost Estimates (very rough)</h2>
+              <h2 className="text-lg font-semibold mb-3">Cost Calculator & API Usage</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {Object.entries(data.costs || {}).map(([k, v]) => (
-                  <div key={k} className="p-3 rounded border">
-                    <p className="text-xs text-gray-500">{k}</p>
-                    <p className="text-base font-semibold">${v.toFixed(4)}</p>
+                  <div key={k} className="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
+                    <p className="text-xs text-gray-700 font-medium">{k}</p>
+                    <p className="text-lg font-bold text-blue-700">${v.toFixed(4)}</p>
                   </div>
                 ))}
+              </div>
+              <div className="mt-4 p-3 bg-gray-50 rounded border">
+                <p className="text-sm text-gray-600 mb-2">💡 Cost Calculation Includes:</p>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li>• OCR API calls (Google Vision, OpenAI Vision, Mistral, etc.)</li>
+                  <li>• Embedding generation (OpenAI, Mistral, Local)</li>
+                  <li>• LLM processing (Markdown conversion, extraction)</li>
+                  <li>• Web crawling & scraping operations</li>
+                  <li>• Database operations & vector search</li>
+                </ul>
               </div>
             </div>
 
