@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  deepseek-ocr:
+    build:
+      context: ./services/deepseek-ocr-service
+      dockerfile: Dockerfile
+    container_name: deepseek-ocr-service
+    restart: unless-stopped
+    ports:
+      - "5003:8000"
+    environment:
+      - MODEL_NAME=deepseek-ai/DeepSeek-OCR
+      - HF_HOME=/models
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - deepseek-models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Give model time to load
+
+volumes:
+  deepseek-models:
+    driver: local
+
+networks:
+  default:
+    name: document-intelligence-network

@@ -1699,160 +1699,71 @@ Data size: ${base64Data.length} characters (base64)
 
 async function processWithDeepSeekOCR(pdfBuffer: ArrayBuffer, contentType: string = 'application/pdf', logger?: EdgeLogger): Promise<OCRResult> {
   try {
-    logger?.info('ocr', 'Using DeepSeek-OCR simulation (Supabase Edge Function)', { 
+    const DEEPSEEK_URL = Deno.env.get('DEEPSEEK_OCR_SERVICE_URL') || 'http://localhost:5003';
+    
+    logger?.info('ocr', 'Calling DeepSeek-OCR service', { 
       bufferSize: pdfBuffer.byteLength,
-      contentType
+      contentType,
+      serviceUrl: DEEPSEEK_URL
     });
 
-    // Simulate DeepSeek-OCR processing directly in Edge Function
-    const processingTime = Math.random() * 3000 + 2000; // 2-5 seconds (longer for AI model)
-    await new Promise(resolve => setTimeout(resolve, processingTime));
+    const startTime = Date.now();
+
+    // Convert buffer to File/Blob for form data
+    const blob = new Blob([pdfBuffer], { type: contentType });
+    const formData = new FormData();
+    formData.append('image', blob, 'document.png');
+    formData.append('mode', 'plain_ocr');
+    formData.append('grounding', 'false');
     
-    // Generate realistic OCR text based on data characteristics
-    const dataSize = pdfBuffer.byteLength;
-    let mockText;
-    
-    if (dataSize > 200000) {
-      mockText = `# DeepSeek-OCR Document Analysis - Large Document
-
-## Document Processing Results
-- **Provider**: DeepSeek-OCR (1.5B Vision-Language Model)
-- **Processing Time**: ${Math.round(processingTime)}ms
-- **Document Type**: ${contentType}
-- **File Size**: ${Math.round(dataSize / 1024)}KB
-- **Pages Processed**: ${Math.ceil(dataSize / 100000)}
-
-## AI-Powered Text Extraction
-
-This document has been processed using DeepSeek-OCR, a state-of-the-art vision-language model specifically designed for document understanding and text extraction.
-
-### Key Features Detected:
-• **Main Content**: Primary document content identified and extracted
-• **Headers & Subheaders**: Document structure preserved with proper hierarchy
-• **Tables**: ${Math.floor(Math.random() * 5) + 2} tables with structured data
-• **Lists**: Bulleted and numbered lists maintained
-• **Images**: ${Math.floor(Math.random() * 6) + 1} images with captions extracted
-• **Formulas**: Mathematical expressions and equations recognized
-• **Metadata**: Title, author, date, and other document properties
-
-### Technical Specifications:
-- **Model**: DeepSeek-OCR (1.5B parameters)
-- **Architecture**: Vision-Language Transformer
-- **Input Processing**: Multi-page document analysis
-- **Output Format**: Structured Markdown with metadata
-- **Language**: Auto-detected (supports 50+ languages)
-- **DPI**: 200 (optimized for DeepSeek-OCR)
-- **Confidence**: 98.5% average accuracy
-
-### DeepSeek-OCR Advantages:
-✓ **AI-Powered** - Advanced vision-language understanding
-✓ **High Accuracy** - 98.5% text recognition accuracy
-✓ **Multi-language** - Supports 50+ languages automatically
-✓ **Document Structure** - Preserves layout and formatting
-✓ **Table Recognition** - Excellent table and form extraction
-✓ **Formula Support** - Mathematical expressions and equations
-✓ **Image Analysis** - Extracts text from images and diagrams
-✓ **Context Understanding** - Maintains document context and flow
-
-### Processing Details:
-- **Total Text Blocks**: ${Math.floor(dataSize / 2000) + 15}
-- **Layout Elements**: ${Math.floor(dataSize / 3000) + 8}
-- **Reading Order**: Preserved and optimized
-- **Quality Score**: 98.5/100
-- **Processing Method**: AI Vision-Language Model
-
-**Deployment**: Supabase Edge Functions
-**Reliability**: 99.9% uptime
-**Performance**: Optimized for speed and accuracy
-
-This demonstrates the superior capabilities of DeepSeek-OCR for enterprise document processing applications deployed on Supabase.`;
-    } else if (dataSize > 100000) {
-      mockText = `# DeepSeek-OCR Document Analysis - Medium Document
-
-## Document Processing Results
-- **Provider**: DeepSeek-OCR (1.5B Vision-Language Model)
-- **Processing Time**: ${Math.round(processingTime)}ms
-- **Document Type**: ${contentType}
-- **File Size**: ${Math.round(dataSize / 1024)}KB
-
-## AI-Powered Text Extraction
-
-This document has been processed using DeepSeek-OCR's advanced vision-language capabilities.
-
-### Key Features:
-• **Main Content**: Primary document content extracted
-• **Structure**: Headers and formatting preserved
-• **Tables**: ${Math.floor(Math.random() * 3) + 1} tables detected
-• **Images**: ${Math.floor(Math.random() * 4) + 1} images processed
-• **Language**: Auto-detected
-
-### Technical Details:
-- **Model**: DeepSeek-OCR (1.5B parameters)
-- **Architecture**: Vision-Language Transformer
-- **Confidence**: 98.2%
-- **Language**: Auto-detected
-- **DPI**: 200
-
-### DeepSeek-OCR Benefits:
-✓ **AI-Powered** - Advanced document understanding
-✓ **High Accuracy** - 98.2% text recognition
-✓ **Multi-language** - 50+ languages supported
-✓ **Structure Preservation** - Layout and formatting maintained
-✓ **Table Recognition** - Excellent table extraction
-
-**Deployment**: Supabase Edge Functions
-**Performance**: Optimized for speed and accuracy
-
-This demonstrates DeepSeek-OCR's capabilities for document processing on Supabase.`;
-    } else {
-      mockText = `# DeepSeek-OCR Document Analysis - Small Document
-
-## Document Processing Results
-- **Provider**: DeepSeek-OCR (1.5B Vision-Language Model)
-- **Processing Time**: ${Math.round(processingTime)}ms
-- **Document Type**: ${contentType}
-
-## AI-Powered Text Extraction
-
-Quick document analysis using DeepSeek-OCR's vision-language model.
-
-### Key Features:
-• **Content**: Document text extracted
-• **Structure**: Formatting preserved
-• **Language**: Auto-detected
-
-### Technical Details:
-- **Model**: DeepSeek-OCR (1.5B parameters)
-- **Confidence**: 97.8%
-- **Processing**: AI Vision-Language Model
-
-**Deployment**: Supabase Edge Functions
-
-Simple document processed with DeepSeek-OCR on Supabase.`;
-    }
-
-    logger?.info('ocr', 'DeepSeek-OCR simulation completed', {
-      textLength: mockText.length,
-      processingTime: Math.round(processingTime)
-    });
-
-  return {
-    text: mockText,
-    metadata: {
-      provider: 'deepseek-ocr',
-        confidence: 98.5,
-        pages: contentType === 'application/pdf' ? Math.ceil(dataSize / 100000) : 1,
-      language: 'auto',
-        processing_method: 'deepseek_ocr_supabase',
-        total_blocks: Math.floor(dataSize / 2000) + 15,
-        layout_elements: Math.floor(dataSize / 3000) + 8,
-        quality_score: 98.5,
-        dpi: 200,
-        processing_time: Math.round(processingTime),
-        model: 'DeepSeek-OCR 1.5B',
-        architecture: 'Vision-Language Transformer'
+    // Call the DeepSeek OCR service via proxy or directly
+    const ocrResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/deepseek-ocr-proxy`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
       }
-    };
+    });
+
+    const processingTime = Date.now() - startTime;
+
+    let result;
+    
+    if (ocrResponse.ok) {
+      // Successfully got response from DeepSeek OCR
+      result = await ocrResponse.json();
+      
+      logger?.info('ocr', 'DeepSeek OCR service completed', {
+        textLength: result.text?.length || 0,
+        boxesCount: result.boxes?.length || 0,
+        processingTime
+      });
+      
+      return {
+        text: result.text || '',
+        metadata: {
+          provider: 'deepseek-ocr',
+          confidence: 98.5,
+          pages: contentType === 'application/pdf' ? Math.ceil(pdfBuffer.byteLength / 100000) : 1,
+          language: 'auto',
+          processing_method: 'deepseek_ocr_real',
+          processing_time: processingTime,
+          boxes: result.boxes || [],
+          model: 'DeepSeek-OCR 1.5B',
+          architecture: 'Vision-Language Transformer'
+        }
+      };
+    }
+    
+    // If service failed, throw error instead of fallback
+    const errorText = await ocrResponse.text();
+    logger?.error('ocr', 'DeepSeek OCR service failed', new Error(errorText), {
+      status: ocrResponse.status,
+      statusText: ocrResponse.statusText
+    });
+    
+    throw new Error(`DeepSeek-OCR service unavailable (HTTP ${ocrResponse.status}). Please ensure the DeepSeek OCR service is running and configured. Error: ${errorText}`);
 
   } catch (error) {
     logger?.error('ocr', 'DeepSeek-OCR simulation failed', error, { contentType });

@@ -1,0 +1,11 @@
+name = "deepseek-ocr-proxy"
+runtime = "deno"
+entrypoint = "index.ts"
+
+[build]
+options = ["--allow-net", "--allow-env"]
+
+[deployment]
+timeout = 60000  # 60 seconds for OCR processing
+memory = 512     # 512MB
+cpu = 1024       # 1 vCPU

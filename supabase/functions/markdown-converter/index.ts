@@ -401,45 +401,35 @@ async function convertPDFToMarkdown(
     // Note: This is a simplified extraction. For production, use proper PDF parsing libraries
     let extractedText = '';
     
-    // Look for text streams in PDF content
-    const textMatches = fileData.match(/BT[\s\S]*?ET/g) || [];
-    if (textMatches.length > 0) {
-      // Extract readable text from PDF streams
-      extractedText = textMatches
-        .map(match => match.replace(/BT|ET/g, ''))
-        .filter(text => text.length > 3)
-        .join(' ');
+    // Try to decode and extract text from base64 PDF data
+    try {
+      const decodedData = atob(fileData);
+      
+      // Look for text streams in PDF content
+      const textMatches = fileData.match(/BT[\s\S]*?ET/g) || [];
+      if (textMatches.length > 0) {
+        // Extract readable text from PDF streams
+        const texts = textMatches
+          .map(match => match.replace(/BT|ET/g, ''))
+          .map(text => text.replace(/[^\x20-\x7E]/g, ' ')) // Keep only printable ASCII
+          .filter(text => text.trim().length > 3);
+        
+        extractedText = texts.join(' ').trim();
+      }
+    } catch (decodeError) {
+      logger?.warn('markdown', 'Failed to decode base64 PDF data', { error: decodeError });
+      extractedText = '';
     }
     
     if (!extractedText || extractedText.length < 50) {
-      // Fallback: Return informative markdown if text extraction failed
-      extractedText = `# PDF Document: ${fileName}
-
-> **Note**: PDF text extraction encountered difficulties with this file.
-> File size: ${fileSize} bytes
-> Format: PDF binary data
-
-## Content Analysis
-
-The PDF structure has been detected but automated text extraction requires specialized parsing libraries.
-
-### Recommended Action
-
-To extract text from this PDF:
-1. Use Adobe Acrobat or similar PDF tools to export as text
-2. Convert PDF to DOCX using online converters, then use our converter
-3. Manually copy text if the PDF allows copying
-
-**File Info:**
-- Name: ${fileName}
-- Size: ${(fileSize / 1024).toFixed(2)} KB
-- Type: PDF (Portable Document Format)`;
+      throw new Error('Failed to extract text from PDF. The PDF may be image-based or corrupted. Please use an OCR provider or pre-convert the PDF to text.');
     }
     
-    return extractText;
+    return extractedText;
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger?.error('markdown', 'PDF conversion error', error);
-    throw new Error(`Failed to extract text from PDF: ${error}`);
+    throw new Error(`Failed to extract text from PDF: ${errorMessage}`);
   }
 }
 
