@@ -7,6 +7,15 @@ interface HealthResponse {
   providers: Record<string, boolean>;
   costs: Record<string, number>;
   recentErrors: Array<{ id: string; error_message?: string; updated_at?: string }>;
+  healthMetrics?: {
+    documentsProcessed: number;
+    embeddingsGenerated: number;
+    jobsCompleted: number;
+    ragSessionsCreated: number;
+    avgEmbeddingsPerDocument: string;
+    systemUptime: string;
+    successRate: string;
+  };
   timestamp: string;
 }
 
@@ -47,18 +56,41 @@ export function Admin() {
 
         {data && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* System Health Overview */}
+            {data.healthMetrics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <p className="text-sm text-gray-700 font-medium">Documents Processed</p>
+                  <p className="text-2xl font-bold text-blue-700">{data.healthMetrics.documentsProcessed}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                  <p className="text-sm text-gray-700 font-medium">Embeddings Generated</p>
+                  <p className="text-2xl font-bold text-purple-700">{data.healthMetrics.embeddingsGenerated}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                  <p className="text-sm text-gray-700 font-medium">Jobs Completed</p>
+                  <p className="text-2xl font-bold text-green-700">{data.healthMetrics.jobsCompleted}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+                  <p className="text-sm text-gray-700 font-medium">Success Rate</p>
+                  <p className="text-2xl font-bold text-orange-700">{data.healthMetrics.successRate}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-white rounded-lg border">
-                <p className="text-sm text-gray-600">Database</p>
-                <p className={`text-xl font-semibold ${data.dbOk ? 'text-green-600' : 'text-red-600'}`}>{data.dbOk ? 'OK' : 'DOWN'}</p>
+                <p className="text-sm text-gray-600">Database Status</p>
+                <p className={`text-xl font-semibold ${data.dbOk ? 'text-green-600' : 'text-red-600'}`}>{data.dbOk ? '✅ OK' : '❌ DOWN'}</p>
                 <p className="text-xs text-gray-400 mt-1">{new Date(data.timestamp).toLocaleString()}</p>
               </div>
               <div className="p-4 bg-white rounded-lg border">
-                <p className="text-sm text-gray-600">Documents</p>
+                <p className="text-sm text-gray-600">Total Documents</p>
                 <p className="text-xl font-semibold">{data.counts?.documents ?? 0}</p>
               </div>
               <div className="p-4 bg-white rounded-lg border">
-                <p className="text-sm text-gray-600">Embeddings</p>
+                <p className="text-sm text-gray-600">Total Embeddings</p>
                 <p className="text-xl font-semibold">{data.counts?.document_embeddings ?? 0}</p>
               </div>
             </div>
