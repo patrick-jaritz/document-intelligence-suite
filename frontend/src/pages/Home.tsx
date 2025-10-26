@@ -274,108 +274,138 @@ export function Home() {
           <div className="flex flex-col items-center space-y-4">
             <div className="flex items-center space-x-6">
               <button
-                onClick={() => {
-                  // Create a simple health dashboard in a new window
-                  const healthWindow = window.open('', '_blank', 'width=1200,height=800');
-                  if (healthWindow) {
-                    healthWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html lang="en">
-                      <head>
-                          <meta charset="UTF-8">
-                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                          <title>System Health Dashboard</title>
-                          <script src="https://cdn.tailwindcss.com"></script>
-                          <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-                      </head>
-                      <body class="bg-gray-50">
-                          <div class="min-h-screen py-8">
-                              <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                                  <div class="mb-8">
-                                      <h1 class="text-3xl font-bold text-gray-900">System Health Dashboard</h1>
-                                      <p class="mt-2 text-gray-600">Real-time monitoring of all services and API usage</p>
-                                  </div>
-                                  
-                                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                                      <div class="bg-white rounded-lg shadow p-6">
-                                          <div class="flex items-center">
-                                              <div class="p-2 bg-green-100 rounded-lg">
-                                                  <i data-lucide="activity" class="w-6 h-6 text-green-600"></i>
-                                              </div>
-                                              <div class="ml-4">
-                                                  <p class="text-sm font-medium text-gray-600">Overall Status</p>
-                                                  <p class="text-2xl font-bold text-green-600">Healthy</p>
-                                              </div>
-                                          </div>
-                                      </div>
-                                      
-                                      <div class="bg-white rounded-lg shadow p-6">
-                                          <div class="flex items-center">
-                                              <div class="p-2 bg-blue-100 rounded-lg">
-                                                  <i data-lucide="zap" class="w-6 h-6 text-blue-600"></i>
-                                              </div>
-                                              <div class="ml-4">
-                                                  <p class="text-sm font-medium text-gray-600">Total Requests</p>
-                                                  <p class="text-2xl font-bold text-gray-900">76,590</p>
-                                              </div>
-                                          </div>
-                                      </div>
-                                      
-                                      <div class="bg-white rounded-lg shadow p-6">
-                                          <div class="flex items-center">
-                                              <div class="p-2 bg-purple-100 rounded-lg">
-                                                  <i data-lucide="clock" class="w-6 h-6 text-purple-600"></i>
-                                              </div>
-                                              <div class="ml-4">
-                                                  <p class="text-sm font-medium text-gray-600">Avg Response Time</p>
-                                                  <p class="text-2xl font-bold text-gray-900">1,250ms</p>
-                                              </div>
-                                          </div>
-                                      </div>
-                                      
-                                      <div class="bg-white rounded-lg shadow p-6">
-                                          <div class="flex items-center">
-                                              <div class="p-2 bg-green-100 rounded-lg">
-                                                  <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
-                                              </div>
-                                              <div class="ml-4">
-                                                  <p class="text-sm font-medium text-gray-600">Success Rate</p>
-                                                  <p class="text-2xl font-bold text-green-600">99.92%</p>
-                                              </div>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div class="bg-white rounded-lg shadow p-6">
-                                      <h2 class="text-lg font-semibold text-gray-900 mb-4">Services Status</h2>
-                                      <div class="space-y-4">
-                                          <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                              <span class="text-sm font-medium text-gray-700">Supabase Edge Functions</span>
-                                              <span class="text-sm font-bold text-green-600">Healthy</span>
-                                          </div>
-                                          <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                              <span class="text-sm font-medium text-gray-700">OpenAI API</span>
-                                              <span class="text-sm font-bold text-green-600">Healthy</span>
-                                          </div>
-                                          <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                              <span class="text-sm font-medium text-gray-700">Database</span>
-                                              <span class="text-sm font-bold text-green-600">Healthy</span>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div class="mt-8 text-center text-sm text-gray-500">
-                                      <p>Last updated: ${new Date().toLocaleString()}</p>
-                                      <p class="mt-2">
-                                          <button onclick="window.close()" class="text-blue-600 hover:text-blue-800 underline">Close Dashboard</button>
-                                      </p>
-                                  </div>
-                              </div>
-                          </div>
-                          <script>lucide.createIcons();</script>
-                      </body>
-                      </html>
-                    `);
+                onClick={async () => {
+                  // Fetch real health data
+                  try {
+                    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health`, {
+                      headers: {
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                      }
+                    });
+                    const data = await response.json();
+                    
+                    // Create health dashboard with REAL data
+                    const healthWindow = window.open('', '_blank', 'width=1200,height=800');
+                    if (healthWindow) {
+                      healthWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <title>System Health Dashboard - Real Data</title>
+                            <script src="https://cdn.tailwindcss.com"></script>
+                            <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+                        </head>
+                        <body class="bg-gray-50">
+                            <div class="min-h-screen py-8">
+                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                                    <div class="mb-8">
+                                        <h1 class="text-3xl font-bold text-gray-900">System Health Dashboard</h1>
+                                        <p class="mt-2 text-gray-600">Real-time monitoring of all services and API usage</p>
+                                    </div>
+                                    
+                                    <!-- Real Metrics -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                        <div class="bg-white rounded-lg shadow p-6">
+                                            <div class="flex items-center">
+                                                <div class="p-2 bg-green-100 rounded-lg">
+                                                    <i data-lucide="file-text" class="w-6 h-6 text-green-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <p class="text-sm font-medium text-gray-600">Documents Processed</p>
+                                                    <p class="text-2xl font-bold text-gray-900">${data.healthMetrics?.documentsProcessed || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="bg-white rounded-lg shadow p-6">
+                                            <div class="flex items-center">
+                                                <div class="p-2 bg-purple-100 rounded-lg">
+                                                    <i data-lucide="database" class="w-6 h-6 text-purple-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <p class="text-sm font-medium text-gray-600">Embeddings Generated</p>
+                                                    <p class="text-2xl font-bold text-purple-600">${data.healthMetrics?.embeddingsGenerated || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="bg-white rounded-lg shadow p-6">
+                                            <div class="flex items-center">
+                                                <div class="p-2 bg-blue-100 rounded-lg">
+                                                    <i data-lucide="check-circle" class="w-6 h-6 text-blue-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <p class="text-sm font-medium text-gray-600">Jobs Completed</p>
+                                                    <p class="text-2xl font-bold text-blue-600">${data.healthMetrics?.jobsCompleted || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="bg-white rounded-lg shadow p-6">
+                                            <div class="flex items-center">
+                                                <div class="p-2 bg-green-100 rounded-lg">
+                                                    <i data-lucide="activity" class="w-6 h-6 text-green-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <p class="text-sm font-medium text-gray-600">Success Rate</p>
+                                                    <p class="text-2xl font-bold text-green-600">${data.healthMetrics?.successRate || '100%'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- All OCR/LLM Providers -->
+                                    <div class="bg-white rounded-lg shadow p-6 mb-8">
+                                        <h2 class="text-lg font-semibold text-gray-900 mb-4">All OCR/LLM Provider Status</h2>
+                                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            ${Object.entries(data.providers || {}).map(([name, configured]) => `
+                                                <div class="flex justify-between items-center p-3 rounded-lg ${configured ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}">
+                                                    <span class="text-sm font-medium text-gray-700">${name.replace(/_/g, ' ')}</span>
+                                                    <span class="text-xs font-bold ${configured ? 'text-green-600' : 'text-gray-400'}">${configured ? '✅ Configured' : '❌ Missing'}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Cost Calculator -->
+                                    <div class="bg-white rounded-lg shadow p-6 mb-8">
+                                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Cost Calculator - Real Usage</h2>
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                            ${Object.entries(data.costs || {})
+                                              .filter(([_, v]) => v != null && !isNaN(Number(v)) && Number(v) > 0)
+                                              .slice(0, 12)
+                                              .map(([k, v]) => `
+                                                <div class="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
+                                                    <p class="text-xs text-gray-700 font-medium">${k.replace(/_/g, ' ').replace(/usd/gi, 'USD')}</p>
+                                                    <p class="text-lg font-bold text-blue-700">$${Number(v).toFixed(4)}</p>
+                                                </div>
+                                              `).join('')}
+                                        </div>
+                                        <div class="mt-4 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-300">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-lg font-semibold text-gray-800">Total Estimated Cost:</span>
+                                                <span class="text-3xl font-bold text-green-700">$${Number(data.costs?.total_estimate_usd || 0).toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-8 text-center text-sm text-gray-500">
+                                        <p>Last updated: ${new Date(data.timestamp).toLocaleString()}</p>
+                                        <p class="mt-2">
+                                            <button onclick="window.close()" class="text-blue-600 hover:text-blue-800 underline">Close Dashboard</button>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <script>lucide.createIcons();</script>
+                        </body>
+                        </html>
+                      `);
+                    }
+                  } catch (error) {
+                    alert('Failed to load health data: ' + error);
                   }
                 }}
                 className="flex items-center px-6 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition-colors duration-200 font-medium shadow-sm hover:shadow-md"
