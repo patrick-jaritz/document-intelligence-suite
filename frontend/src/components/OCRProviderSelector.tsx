@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface OCRProviderSelectorProps {
-  selectedProvider: 'google-vision' | 'openai-vision' | 'mistral' | 'ocr-space' | 'tesseract';
-  onProviderChange: (provider: 'google-vision' | 'openai-vision' | 'mistral' | 'ocr-space' | 'tesseract') => void;
+  selectedProvider: 'google-vision' | 'openai-vision' | 'mistral' | 'ocr-space' | 'tesseract' | 'deepseek-ocr';
+  onProviderChange: (provider: 'google-vision' | 'openai-vision' | 'mistral' | 'ocr-space' | 'tesseract' | 'deepseek-ocr') => void;
   disabled?: boolean;
 }
 
@@ -33,6 +33,7 @@ export const OCRProviderSelector: React.FC<OCRProviderSelectorProps> = ({
           >
             <option value="openai-vision">OpenAI Vision (Best for large PDFs)</option>
             <option value="google-vision">Google Vision (Good for images)</option>
+            <option value="deepseek-ocr">DeepSeek-OCR (AI-Powered, SOTA)</option>
             <option value="tesseract">Tesseract (Browser-based, no limits)</option>
             <option value="mistral">Mistral Vision (Alternative)</option>
             <option value="ocr-space">OCR.space (Free tier limited)</option>
@@ -44,6 +45,7 @@ export const OCRProviderSelector: React.FC<OCRProviderSelectorProps> = ({
           <ul className="text-sm text-gray-600 space-y-1">
             <li>• <strong>OpenAI Vision</strong>: Best for large PDFs, handles complex layouts</li>
             <li>• <strong>Google Vision</strong>: Good for images, may struggle with large PDFs</li>
+            <li>• <strong>DeepSeek-OCR</strong>: AI-powered, state-of-the-art accuracy (GPU required)</li>
             <li>• <strong>Tesseract</strong>: Browser-based, no API limits, good fallback</li>
             <li>• <strong>Mistral Vision</strong>: Alternative option, good for some formats</li>
             <li>• <strong>OCR.space</strong>: Free but limited to 1MB files</li>
