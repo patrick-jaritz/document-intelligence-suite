@@ -113,14 +113,30 @@ export function Admin() {
 
             <div className="p-4 bg-white rounded-lg border">
               <h2 className="text-lg font-semibold mb-3">Cost Calculator & API Usage</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {Object.entries(data.costs || {}).map(([k, v]) => (
-                  <div key={k} className="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
-                    <p className="text-xs text-gray-700 font-medium">{k}</p>
-                    <p className="text-lg font-bold text-blue-700">${v.toFixed(4)}</p>
+              {data.costs && Object.keys(data.costs).length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    {Object.entries(data.costs).filter(([_, v]) => v > 0).map(([k, v]) => (
+                      <div key={k} className="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
+                        <p className="text-xs text-gray-700 font-medium">{k.replace(/_/g, ' ').replace('usd', 'USD')}</p>
+                        <p className="text-lg font-bold text-blue-700">${Number(v).toFixed(4)}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  {data.costs.total_estimate_usd && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-semibold text-gray-800">Total Estimated Cost:</span>
+                        <span className="text-3xl font-bold text-green-700">${Number(data.costs.total_estimate_usd).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-4 bg-gray-50 rounded-lg border">
+                  <p className="text-sm text-gray-600">No cost data available yet. Costs will appear as you use the system.</p>
+                </div>
+              )}
               <div className="mt-4 p-3 bg-gray-50 rounded border">
                 <p className="text-sm text-gray-600 mb-2">💡 Cost Calculation Includes:</p>
                 <ul className="text-xs text-gray-600 space-y-1">
