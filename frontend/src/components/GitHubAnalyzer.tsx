@@ -788,26 +788,10 @@ export function GitHubAnalyzer() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center mb-6">
           <div className="flex items-center gap-3">
             <Github className="w-8 h-8 text-gray-700" />
             <h1 className="text-2xl font-bold text-gray-900">GitHub Repository Analyzer</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowDashboard(!showDashboard)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setShowArchive(!showArchive)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-            >
-              <Archive className="w-4 h-4" />
-              Archive ({archivedAnalyses.length})
-            </button>
           </div>
         </div>
 
@@ -1341,6 +1325,24 @@ export function GitHubAnalyzer() {
                   Analyze
                 </>
               )}
+            </button>
+          </div>
+          
+          {/* Dashboard and Archive buttons below URL input */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => setShowDashboard(!showDashboard)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setShowArchive(!showArchive)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              <Archive className="w-4 h-4" />
+              Archive ({archivedAnalyses.length})
             </button>
           </div>
           

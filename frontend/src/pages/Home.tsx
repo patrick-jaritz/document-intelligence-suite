@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity } from 'lucide-react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ResultsDisplay } from '../components/ResultsDisplay';
 import { useDocumentProcessor } from '../hooks/useDocumentProcessor';
 import { RAGView } from '../components/RAGView';
+import { RAGViewEnhanced } from '../components/RAGViewEnhanced';
 import { GitHubAnalyzer } from '../components/GitHubAnalyzer';
 import { WebCrawler } from '../components/WebCrawler';
+import { MarkdownConverter } from '../components/MarkdownConverter';
 
-type AppMode = 'extract' | 'ask' | 'github' | 'crawler';
+type AppMode = 'extract' | 'ask' | 'github' | 'crawler' | 'markdown';
 
 export function Home() {
   const [appMode, setAppMode] = useState<AppMode>('extract');
@@ -69,7 +71,7 @@ export function Home() {
                 </h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <button
                 onClick={() => setAppMode('extract')}
                 className={`p-6 rounded-lg border-2 transition-all ${appMode === 'extract' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
@@ -133,6 +135,22 @@ export function Home() {
                 </div>
                 <p className="text-xs text-gray-500">Crawl and extract content from any URL with AI-enhanced parsing.</p>
               </button>
+
+              <button
+                onClick={() => setAppMode('markdown')}
+                className={`p-6 rounded-lg border-2 transition-all ${appMode === 'markdown' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${appMode === 'markdown' ? 'bg-orange-600' : 'bg-gray-100'}`}>
+                    <FileCode className={`w-6 h-6 ${appMode === 'markdown' ? 'text-white' : 'text-gray-600'}`} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Markdown Converter</h4>
+                    <p className="text-sm text-gray-600">Convert to Markdown</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Convert PDFs, HTML, and text files to LLM-optimized Markdown format.</p>
+              </button>
             </div>
                 </div>
         </header>
@@ -141,9 +159,11 @@ export function Home() {
         {appMode === 'crawler' ? (
           <WebCrawler />
         ) : appMode === 'ask' ? (
-          <RAGView />
+          <RAGViewEnhanced />
         ) : appMode === 'github' ? (
           <GitHubAnalyzer />
+        ) : appMode === 'markdown' ? (
+          <MarkdownConverter />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: Inputs */}

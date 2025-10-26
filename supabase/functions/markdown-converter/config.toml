@@ -1,0 +1,6 @@
+[build]
+command = "deno compile --allow-all --target x86_64-unknown-linux-gnu index.ts"
+watch = ["index.ts"]
+
+[deploy]
+functions = ["markdown-converter"]

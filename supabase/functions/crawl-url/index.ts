@@ -19,11 +19,37 @@ serve(async (req) => {
   }
 
   try {
-    const { url, mode = 'basic' }: CrawlRequest = await req.json()
+    let body;
+    try {
+      body = await req.json()
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { url, mode = 'basic' }: CrawlRequest = body
 
     if (!url) {
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate URL format
+    let urlObj;
+    let domain;
+    let path;
+    try {
+      urlObj = new URL(url);
+      domain = urlObj.hostname;
+      path = urlObj.pathname;
+    } catch (urlError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid URL format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -34,11 +60,6 @@ serve(async (req) => {
     // Simulate Crawl4AI processing
     const processingTime = Math.random() * 2000 + 1000; // 1-3 seconds
     await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate realistic web scraping content
-    const urlObj = new URL(url);
-    const domain = urlObj.hostname;
-    const path = urlObj.pathname;
     
     const mockContent = `# Web Page Analysis - Crawl4AI Processing
 
@@ -111,39 +132,21 @@ This demonstrates the superior capabilities of Crawl4AI for enterprise web scrap
   } catch (error) {
     console.error('Crawl error:', error)
     
-    // Return simulation/fallback response
+    // Check if url is defined
+    let errorUrl = 'unknown';
+    try {
+      errorUrl = url || 'unknown';
+    } catch {
+      errorUrl = 'unknown';
+    }
+    
+    // Return error response with CORS headers
     return new Response(
       JSON.stringify({
-        url,
-        content: `[Crawl4AI Service Simulation]
-
-This is a simulated response from the Crawl4AI service.
-
-**URL:** ${url}
-**Mode:** ${mode}
-
-In a full implementation with the Crawl4AI Docker service running:
-- The service would fetch the page content
-- Parse HTML and extract text
-- Use AI models if enhanced mode is selected
-- Return structured content with links and metadata
-
-**Configuration:**
-- Set CRAWL4AI_SERVICE_URL environment variable
-- Deploy the crawl4ai-service Docker container
-- Ensure network connectivity between Edge Function and service
-
-**Error:** ${error.message}`,
-        title: new URL(url).hostname,
-        links: [],
-        images: [],
-        metadata: {
-          crawledAt: new Date().toISOString(),
-          mode,
-          simulation: true,
-        },
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        details: error instanceof Error ? error.stack : String(error),
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

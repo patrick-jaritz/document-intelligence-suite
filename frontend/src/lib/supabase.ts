@@ -163,6 +163,83 @@ export const ragHelpers = {
       llmProvider,
     });
   },
+
+  // Convert document to Markdown
+  convertToMarkdown: async (
+    fileData?: string,
+    contentType?: string,
+    fileName?: string,
+    fileSize?: number,
+    convertTables?: boolean,
+    preserveFormatting?: boolean
+  ) => {
+    return callEdgeFunction('markdown-converter', {
+      fileData,
+      contentType,
+      fileName,
+      fileSize,
+      convertTables,
+      preserveFormatting,
+    });
+  },
+
+  // Process document with OCR + Markdown conversion (Data Extract pipeline)
+  processOCRWithMarkdown: async (
+    documentId: string,
+    jobId: string,
+    fileUrl: string,
+    ocrProvider: string,
+    fileDataUrl?: string,
+    openaiVisionModel?: string,
+    enableMarkdownConversion?: boolean,
+    convertTables?: boolean,
+    preserveFormatting?: boolean
+  ) => {
+    return callEdgeFunction('process-pdf-ocr-markdown', {
+      documentId,
+      jobId,
+      fileUrl,
+      ocrProvider,
+      fileDataUrl,
+      openaiVisionModel,
+      enableMarkdownConversion: enableMarkdownConversion ?? true,
+      convertTables: convertTables ?? true,
+      preserveFormatting: preserveFormatting ?? true,
+    });
+  },
+
+  // Process document with OCR + Markdown + Embeddings (RAG pipeline)
+  processRAGWithMarkdown: async (
+    documentId: string,
+    jobId: string,
+    fileUrl: string,
+    ocrProvider: string,
+    fileDataUrl?: string,
+    openaiVisionModel?: string,
+    enableMarkdownConversion?: boolean,
+    convertTables?: boolean,
+    preserveFormatting?: boolean,
+    generateEmbeddings?: boolean,
+    embeddingProvider?: string,
+    chunkSize?: number,
+    chunkOverlap?: number
+  ) => {
+    return callEdgeFunction('process-rag-markdown', {
+      documentId,
+      jobId,
+      fileUrl,
+      ocrProvider,
+      fileDataUrl,
+      openaiVisionModel,
+      enableMarkdownConversion: enableMarkdownConversion ?? true,
+      convertTables: convertTables ?? true,
+      preserveFormatting: preserveFormatting ?? true,
+      generateEmbeddings: generateEmbeddings ?? true,
+      embeddingProvider: embeddingProvider ?? 'openai',
+      chunkSize: chunkSize ?? 1000,
+      chunkOverlap: chunkOverlap ?? 200,
+    });
+  },
 };
 
 export default supabase;
