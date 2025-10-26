@@ -40,8 +40,15 @@ export function Admin() {
         console.log('Costs:', json.costs);
         console.log('Providers:', json.providers);
         console.log('Health Metrics:', json.healthMetrics);
+        
+        // Validate data structure
+        if (!json || typeof json !== 'object') {
+          throw new Error('Invalid data received from health endpoint');
+        }
+        
         setData(json);
       } catch (e: any) {
+        console.error('Error loading health data:', e);
         setError(e.message || 'Failed to load');
       } finally {
         setLoading(false);
@@ -116,14 +123,19 @@ export function Admin() {
               {data.costs && Object.keys(data.costs).length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    {Object.entries(data.costs).filter(([_, v]) => v > 0).map(([k, v]) => (
-                      <div key={k} className="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
-                        <p className="text-xs text-gray-700 font-medium">{k.replace(/_/g, ' ').replace('usd', 'USD')}</p>
-                        <p className="text-lg font-bold text-blue-700">${Number(v).toFixed(4)}</p>
-                      </div>
-                    ))}
+                    {Object.entries(data.costs)
+                      .filter(([_, v]) => v != null && !isNaN(Number(v)) && Number(v) > 0)
+                      .map(([k, v]) => {
+                        const numValue = Number(v) || 0;
+                        return (
+                          <div key={k} className="p-3 rounded border bg-gradient-to-br from-blue-50 to-blue-100">
+                            <p className="text-xs text-gray-700 font-medium">{k.replace(/_/g, ' ').replace('usd', 'USD')}</p>
+                            <p className="text-lg font-bold text-blue-700">${numValue.toFixed(4)}</p>
+                          </div>
+                        );
+                      })}
                   </div>
-                  {data.costs.total_estimate_usd && (
+                  {data.costs.total_estimate_usd && !isNaN(Number(data.costs.total_estimate_usd)) && (
                     <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-300">
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-semibold text-gray-800">Total Estimated Cost:</span>
