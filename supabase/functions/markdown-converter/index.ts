@@ -394,42 +394,62 @@ async function convertPDFToMarkdown(
   });
 
   try {
-    // Decode base64 PDF data
-    const binaryData = atob(fileData);
+    logger?.info('markdown', 'Attempting PDF text extraction', {
+      fileName,
+      fileSize,
+      dataLength: fileData.length
+    });
+
+    // IMPORTANT: PDF text extraction without proper libraries (like pdf-parse) is unreliable
+    // This basic attempt may fail for complex PDFs, image-based PDFs, or encrypted PDFs
     
-    // Extract text from PDF using basic extraction
-    // Note: This is a simplified extraction. For production, use proper PDF parsing libraries
     let extractedText = '';
     
-    // Try to decode and extract text from base64 PDF data
     try {
+      // Decode base64 data
       const decodedData = atob(fileData);
       
-      // Look for text streams in PDF content
-      const textMatches = fileData.match(/BT[\s\S]*?ET/g) || [];
-      if (textMatches.length > 0) {
-        // Extract readable text from PDF streams
-        const texts = textMatches
-          .map(match => match.replace(/BT|ET/g, ''))
-          .map(text => text.replace(/[^\x20-\x7E]/g, ' ')) // Keep only printable ASCII
-          .filter(text => text.trim().length > 3);
-        
-        extractedText = texts.join(' ').trim();
+      // Look for readable text patterns in the decoded PDF data
+      // Simple approach: extract any readable ASCII text sequences
+      const textPattern = /[A-Za-z]{3,}[\s\.,!?;:]*[A-Za-z]{3,}/g;
+      const matches = decodedData.match(textPattern);
+      
+      if (matches && matches.length > 0) {
+        extractedText = matches
+          .filter(text => text.trim().length >= 10)
+          .join(' ')
+          .substring(0, 10000); // Limit to first 10k chars to avoid huge outputs
       }
+      
+      logger?.info('markdown', 'PDF extraction attempt', {
+        foundText: !!extractedText,
+        textLength: extractedText.length
+      });
     } catch (decodeError) {
       logger?.warn('markdown', 'Failed to decode base64 PDF data', { error: decodeError });
-      extractedText = '';
     }
     
+    // If we couldn't extract meaningful text, return a helpful error
     if (!extractedText || extractedText.length < 50) {
-      throw new Error('Failed to extract text from PDF. The PDF may be image-based or corrupted. Please use an OCR provider or pre-convert the PDF to text.');
+      logger?.error('markdown', 'PDF text extraction failed - insufficient text found', {
+        fileName,
+        fileSize,
+        extractedLength: extractedText.length
+      });
+      
+      throw new Error(
+        `PDF text extraction failed for "${fileName}". ` +
+        `This PDF may be image-based, encrypted, or in a format we cannot parse. ` +
+        `Try using an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
+      );
     }
     
     return extractedText;
+    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger?.error('markdown', 'PDF conversion error', error);
-    throw new Error(`Failed to extract text from PDF: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
 }
 
