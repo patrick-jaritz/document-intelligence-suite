@@ -8,7 +8,7 @@ interface CrawlRequest {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Request-Id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -22,19 +22,21 @@ serve(async (req) => {
     let body;
     try {
       body = await req.json()
+      console.log('📥 Received crawl request:', { url: body.url, mode: body.mode });
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
+      console.error('❌ JSON parse error:', parseError)
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const { url, mode = 'basic' }: CrawlRequest = body
 
-    if (!url) {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      console.error('❌ No URL provided in request');
       return new Response(
-        JSON.stringify({ error: 'URL is required' }),
+        JSON.stringify({ error: 'URL is required and must be a non-empty string', received: body }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

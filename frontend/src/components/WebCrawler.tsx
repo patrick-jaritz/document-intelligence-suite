@@ -31,6 +31,8 @@ export function WebCrawler() {
     setResult(null);
 
     try {
+      console.log('🌐 Starting crawl:', { url, mode: crawlMode });
+      
       // Call the crawl4ai Edge Function using the proper helper
       const data = await callEdgeFunction('crawl-url', {
         url,
@@ -53,7 +55,10 @@ export function WebCrawler() {
       setResult(crawlResult);
       setCrawlHistory(prev => [crawlResult, ...prev.slice(0, 9)]); // Keep last 10
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      console.error('❌ Crawl error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error('Error message:', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsCrawling(false);
     }
