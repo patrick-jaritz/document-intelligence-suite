@@ -393,13 +393,54 @@ async function convertPDFToMarkdown(
     convertTables
   });
 
-  // Simulate PyPDF2 text extraction
-  const extractedText = generateMockPDFText(fileName, fileSize);
-  
-  // Simulate markdownify conversion
-  const markdown = convertTextToMarkdownFormat(extractedText, convertTables);
+  try {
+    // Decode base64 PDF data
+    const binaryData = atob(fileData);
+    
+    // Extract text from PDF using basic extraction
+    // Note: This is a simplified extraction. For production, use proper PDF parsing libraries
+    let extractedText = '';
+    
+    // Look for text streams in PDF content
+    const textMatches = fileData.match(/BT[\s\S]*?ET/g) || [];
+    if (textMatches.length > 0) {
+      // Extract readable text from PDF streams
+      extractedText = textMatches
+        .map(match => match.replace(/BT|ET/g, ''))
+        .filter(text => text.length > 3)
+        .join(' ');
+    }
+    
+    if (!extractedText || extractedText.length < 50) {
+      // Fallback: Return informative markdown if text extraction failed
+      extractedText = `# PDF Document: ${fileName}
 
-  return markdown;
+> **Note**: PDF text extraction encountered difficulties with this file.
+> File size: ${fileSize} bytes
+> Format: PDF binary data
+
+## Content Analysis
+
+The PDF structure has been detected but automated text extraction requires specialized parsing libraries.
+
+### Recommended Action
+
+To extract text from this PDF:
+1. Use Adobe Acrobat or similar PDF tools to export as text
+2. Convert PDF to DOCX using online converters, then use our converter
+3. Manually copy text if the PDF allows copying
+
+**File Info:**
+- Name: ${fileName}
+- Size: ${(fileSize / 1024).toFixed(2)} KB
+- Type: PDF (Portable Document Format)`;
+    }
+    
+    return extractText;
+  } catch (error) {
+    logger?.error('markdown', 'PDF conversion error', error);
+    throw new Error(`Failed to extract text from PDF: ${error}`);
+  }
 }
 
 /**
@@ -418,10 +459,85 @@ async function convertHTMLToMarkdown(
     convertTables
   });
 
-  // Simulate BeautifulSoup HTML parsing and markdownify conversion
-  const markdown = generateMockHTMLMarkdown(fileName, fileSize);
-
-  return markdown;
+  try {
+    // Decode base64 HTML data
+    let html = '';
+    try {
+      html = atob(fileData);
+    } catch {
+      // If not base64, use as-is
+      html = fileData;
+    }
+    
+    // Remove scripts and styles
+    html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+    html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    html = html.replace(/<!--[\s\S]*?-->/g, '');
+    
+    // Extract title
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : fileName;
+    
+    // Convert headings
+    html = html.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n');
+    html = html.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n');
+    html = html.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
+    html = html.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n');
+    html = html.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '\n##### $1\n');
+    html = html.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '\n###### $1\n');
+    
+    // Convert paragraphs
+    html = html.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+    html = html.replace(/<div[^>]*>(.*?)<\/div>/gi, '$1\n\n');
+    
+    // Convert line breaks
+    html = html.replace(/<br[^>]*\/?>/gi, '\n');
+    
+    // Convert bold and italic
+    html = html.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+    html = html.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
+    html = html.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+    html = html.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
+    
+    // Convert lists
+    html = html.replace(/<ul[^>]*>/gi, '\n');
+    html = html.replace(/<\/ul>/gi, '\n');
+    html = html.replace(/<ol[^>]*>/gi, '\n');
+    html = html.replace(/<\/ol>/gi, '\n');
+    html = html.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+    
+    // Convert links
+    html = html.replace(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+    
+    // Convert blockquotes
+    html = html.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n');
+    
+    // Convert code blocks
+    html = html.replace(/<pre[^>]*>(.*?)<\/pre>/gi, '\n```\n$1\n```\n');
+    html = html.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
+    
+    // Remove remaining HTML tags
+    let text = html.replace(/<[^>]+>/g, '');
+    
+    // Decode HTML entities
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    text = text.replace(/&#39;/g, "'");
+    
+    // Clean up whitespace
+    text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+    text = text.trim();
+    
+    const markdown = `# ${title}\n\n${text}`;
+    
+    return markdown;
+  } catch (error) {
+    logger?.error('markdown', 'HTML conversion error', error);
+    throw new Error(`Failed to convert HTML to Markdown: ${error}`);
+  }
 }
 
 /**
