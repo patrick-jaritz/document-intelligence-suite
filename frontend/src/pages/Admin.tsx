@@ -36,6 +36,10 @@ export function Admin() {
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch');
+        console.log('Health data received:', json);
+        console.log('Costs:', json.costs);
+        console.log('Providers:', json.providers);
+        console.log('Health Metrics:', json.healthMetrics);
         setData(json);
       } catch (e: any) {
         setError(e.message || 'Failed to load');
