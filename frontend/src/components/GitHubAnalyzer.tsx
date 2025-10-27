@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3 } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3, Upload } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 import { RepoComparison } from './RepoComparison';
 
@@ -87,9 +87,14 @@ interface AnalysisResult {
 
 export function GitHubAnalyzer() {
   const [urlInput, setUrlInput] = useState('');
+  const [bulkUrlsInput, setBulkUrlsInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
+  const [bulkUploadMode, setBulkUploadMode] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, currentUrl: '' });
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bulkResults, setBulkResults] = useState<any[]>([]);
   const [archivedAnalyses, setArchivedAnalyses] = useState<any[]>([]);
   const [showArchive, setShowArchive] = useState(false);
   const [loadingArchive, setLoadingArchive] = useState(false);
@@ -436,6 +441,88 @@ export function GitHubAnalyzer() {
       }
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleBulkAnalyze = async () => {
+    if (!bulkUrlsInput.trim()) return;
+    
+    // Parse URLs from text input
+    const urls = bulkUrlsInput
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .filter(url => isGitHubUrl(url));
+    
+    if (urls.length === 0) {
+      setError('Please enter at least one valid GitHub repository URL');
+      return;
+    }
+
+    const confirmed = confirm(
+      `You're about to analyze ${urls.length} repositories. This may take several minutes. Continue?`
+    );
+    
+    if (!confirmed) return;
+
+    setIsBulkAnalyzing(true);
+    setBulkProgress({ current: 0, total: urls.length, currentUrl: '' });
+    setBulkResults([]);
+    setError(null);
+
+    try {
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        setBulkProgress({ current: i + 1, total: urls.length, currentUrl: url });
+        
+        try {
+          console.log(`🔍 Analyzing repository ${i + 1}/${urls.length}:`, url);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
+          
+          const response = await fetch(`${supabaseUrl}/functions/v1/github-analyzer`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ url }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              setBulkResults(prev => [...prev, result]);
+              
+              // Save to archive
+              try {
+                await saveAnalysisToArchive(result);
+              } catch (saveError) {
+                console.error('Failed to save to archive:', saveError);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to analyze ${url}:`, error);
+          setBulkResults(prev => [...prev, { 
+            repository: url, 
+            error: error instanceof Error ? error.message : 'Analysis failed' 
+          }]);
+        }
+      }
+      
+      console.log(`✅ Completed analyzing ${urls.length} repositories`);
+      
+    } catch (error) {
+      console.error('❌ Bulk analysis failed:', error);
+      setError(error instanceof Error ? error.message : 'Bulk analysis failed');
+    } finally {
+      setIsBulkAnalyzing(false);
+      setBulkProgress({ current: 0, total: 0, currentUrl: '' });
     }
   };
 
@@ -1322,33 +1409,108 @@ export function GitHubAnalyzer() {
         )}
 
         <div className="mb-6">
-          <div className="flex gap-3">
-            <input
-              type="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="Enter GitHub repository URL (e.g., https://github.com/owner/repo)"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isAnalyzing}
-            />
+          {/* Toggle between single and bulk mode */}
+          <div className="flex gap-2 mb-3">
             <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !urlInput.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onClick={() => setBulkUploadMode(false)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                !bulkUploadMode 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
             >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4" />
-                  Analyze
-                </>
-              )}
+              Single Analysis
+            </button>
+            <button
+              onClick={() => setBulkUploadMode(true)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                bulkUploadMode 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Bulk Upload
             </button>
           </div>
+
+          {!bulkUploadMode ? (
+            <div className="flex gap-3">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="Enter GitHub repository URL (e.g., https://github.com/owner/repo)"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isAnalyzing}
+              />
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing || !urlInput.trim()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    Analyze
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <textarea
+                value={bulkUrlsInput}
+                onChange={(e) => setBulkUrlsInput(e.target.value)}
+                placeholder="Enter multiple GitHub repository URLs (one per line):&#10;https://github.com/owner1/repo1&#10;https://github.com/owner2/repo2&#10;https://github.com/owner3/repo3"
+                rows={6}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                disabled={isBulkAnalyzing}
+              />
+              <button
+                onClick={handleBulkAnalyze}
+                disabled={isBulkAnalyzing || !bulkUrlsInput.trim()}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isBulkAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing {bulkProgress.current}/{bulkProgress.total}...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Analyze All
+                  </>
+                )}
+              </button>
+              {isBulkAnalyzing && bulkProgress.currentUrl && (
+                <div className="text-sm text-gray-600">
+                  Currently analyzing: <span className="font-mono">{bulkProgress.currentUrl}</span>
+                </div>
+              )}
+              {bulkResults.length > 0 && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-2">Bulk Analysis Results:</h3>
+                  <div className="space-y-2">
+                    {bulkResults.map((result, idx) => (
+                      <div key={idx} className="text-sm">
+                        {result.success ? (
+                          <span className="text-green-700">✓ {result.repository} - Success</span>
+                        ) : (
+                          <span className="text-red-700">✗ {result.repository} - {result.error}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Dashboard and Archive buttons below URL input */}
           <div className="flex gap-2 mt-3">
