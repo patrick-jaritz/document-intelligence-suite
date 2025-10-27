@@ -649,7 +649,18 @@ export function GitHubAnalyzer() {
   };
 
   const getFilteredAndSortedAnalyses = () => {
-    let filtered = archivedAnalyses.filter(analysis => {
+    // Deduplicate analyses by repository_url (case-insensitive)
+    const uniqueAnalyses = archivedAnalyses.reduce((acc, current) => {
+      const existing = acc.find(a => 
+        a.repository_url.toLowerCase() === current.repository_url.toLowerCase()
+      );
+      if (!existing) {
+        acc.push(current);
+      }
+      return acc;
+    }, [] as any[]);
+    
+    let filtered = uniqueAnalyses.filter(analysis => {
       const searchLower = archiveSearchTerm.toLowerCase();
       const topics = (analysis.analysis_data?.metadata?.topics || []).join(' ').toLowerCase();
       const description = (analysis.analysis_data?.metadata?.description || '').toLowerCase();
@@ -657,6 +668,7 @@ export function GitHubAnalyzer() {
       
       const matchesSearch = !archiveSearchTerm || 
         analysis.repository_name.toLowerCase().includes(searchLower) ||
+        analysis.repository_url.toLowerCase().includes(searchLower) ||
         language.includes(searchLower) ||
         topics.includes(searchLower) ||
         description.includes(searchLower);
@@ -1650,6 +1662,97 @@ export function GitHubAnalyzer() {
                       {industry}
                     </span>
                   ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Comprehensive Use Case Brainstorming */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-purple-600" />
+                Potential Use Cases & Business Integration Opportunities
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Integration Opportunities */}
+                <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <GitCompare className="w-4 h-4" />
+                    Integration Opportunities
+                  </h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="text-gray-700">• <strong>Microservices Architecture:</strong> Break down into independent services for scalability</li>
+                    <li className="text-gray-700">• <strong>API Gateway Integration:</strong> Connect to existing API gateways for unified access</li>
+                    <li className="text-gray-700">• <strong>Event-Driven Architecture:</strong> Transform into event sourcing pattern for real-time processing</li>
+                    <li className="text-gray-700">• <strong>CI/CD Pipeline Enhancement:</strong> Integrate with Jenkins, GitHub Actions, or GitLab CI</li>
+                    <li className="text-gray-700">• <strong>Kubernetes Operator:</strong> Create custom operator for Kubernetes cluster management</li>
+                  </ul>
+                </div>
+
+                {/* Business Transformation Ideas */}
+                <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    Business Transformation Ideas
+                  </h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="text-gray-700">• <strong>SaaS Model Transformation:</strong> Convert to multi-tenant SaaS platform</li>
+                    <li className="text-gray-700">• <strong>White-Label Solution:</strong> Package as customizable solution for enterprises</li>
+                    <li className="text-gray-700">• <strong>Marketplace Integration:</strong> Create plug-in marketplace for extensibility</li>
+                    <li className="text-gray-700">• <strong>Consulting Services:</strong> Offer implementation and migration services</li>
+                    <li className="text-gray-700">• <strong>Training & Certification:</strong> Build educational program around the technology</li>
+                  </ul>
+                </div>
+
+                {/* Cross-Industry Applications */}
+                <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Cross-Industry Applications
+                  </h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="text-gray-700">• <strong>Healthcare:</strong> Adapt for telemedicine, patient data management, or medical imaging</li>
+                    <li className="text-gray-700">• <strong>Finance:</strong> Transform for fraud detection, algorithmic trading, or risk analysis</li>
+                    <li className="text-gray-700">• <strong>Education:</strong> Create learning management system or personalized tutoring platform</li>
+                    <li className="text-gray-700">• <strong>Manufacturing:</strong> Integrate with IoT for predictive maintenance or quality control</li>
+                    <li className="text-gray-700">• <strong>Retail:</strong> Build recommendation engine or supply chain optimization tool</li>
+                  </ul>
+                </div>
+
+                {/* Competitive Edge Strategies */}
+                <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Competitive Edge Strategies
+                  </h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="text-gray-700">• <strong>AI/ML Enhancement:</strong> Add machine learning capabilities for predictive features</li>
+                    <li className="text-gray-700">• <strong>Blockchain Integration:</strong> Implement blockchain for trust, traceability, or tokenization</li>
+                    <li className="text-gray-700">• <strong>Edge Computing:</strong> Deploy edge instances for low-latency processing</li>
+                    <li className="text-gray-700">• <strong>Real-time Collaboration:</strong> Add live collaborative features</li>
+                    <li className="text-gray-700">• <strong>Mobile-First Approach:</strong> Develop companion mobile apps with native features</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Advanced Implementation Ideas */}
+              <div className="mt-4 bg-white border-2 border-blue-300 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Advanced Implementation Ideas
+                </h4>
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                    <div className="font-medium text-blue-900 mb-1">Data Platform</div>
+                    <div className="text-xs text-gray-700">Transform into data lake, ETL pipeline, or analytics platform with BI dashboards</div>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded border border-green-200">
+                    <div className="font-medium text-green-900 mb-1">Low-Code/No-Code</div>
+                    <div className="text-xs text-gray-700">Build visual workflow builder or drag-and-drop interface for non-technical users</div>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                    <div className="font-medium text-orange-900 mb-1">Platform as a Service</div>
+                    <div className="text-xs text-gray-700">Create ecosystem where third parties can build and deploy their own extensions</div>
+                  </div>
                 </div>
               </div>
             </div>
