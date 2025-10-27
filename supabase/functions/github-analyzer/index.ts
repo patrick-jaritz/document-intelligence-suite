@@ -540,7 +540,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        repository: `${owner}/${repo}`,
+        repository: `https://github.com/${owner}/${repo}`,
         analysis,
         metadata: {
           analyzedAt: new Date().toISOString(),
