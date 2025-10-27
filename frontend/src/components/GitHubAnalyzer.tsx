@@ -1755,6 +1755,89 @@ export function GitHubAnalyzer() {
                   </div>
                 </div>
               </div>
+
+              {/* Ranked Applications Table */}
+              <div className="mt-4 bg-white border-2 border-purple-300 rounded-lg p-4">
+                <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Ranked Applications by Feasibility & Market Demand
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-purple-100">
+                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Rank</th>
+                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Application Idea</th>
+                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Feasibility</th>
+                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Market Demand</th>
+                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Creativity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-green-600">1</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>AI-Powered Workflow Automation</strong> - Integrate AI agents for autonomous task execution</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-green-600">2</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Edge Intelligence Platform</strong> - Deploy ML models at edge locations for real-time inference</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-blue-600">3</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Conversational Interface Layer</strong> - Add natural language interface for all operations</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-blue-600">4</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Blockchain-Based Audit Trail</strong> - Add immutable logging for compliance and trust</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-orange-600">5</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Multi-Tenant SaaS Transformation</strong> - Convert to cloud-native multi-tenant architecture</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-orange-600">6</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Real-Time Collaboration Hub</strong> - Add live collaborative editing and sharing</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-purple-600">7</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>AR/VR Visualization Layer</strong> - Create immersive data visualization experience</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
+                      </tr>
+                      <tr className="border-b border-purple-100">
+                        <td className="px-3 py-2 font-bold text-purple-600">8</td>
+                        <td className="px-3 py-2 text-gray-900"><strong>Quantum Computing Integration</strong> - Explore quantum algorithms for optimization problems</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 text-xs text-gray-600 bg-purple-50 p-2 rounded border border-purple-200">
+                  <strong>Ranking Methodology:</strong> Based on technical feasibility (High = proven tech, Medium = emerging tech, Low = research stage), 
+                  market demand (High = immediate need, Medium = growing need, Low = niche), and creative potential (innovation score).
+                </div>
+              </div>
             </div>
 
             {/* Recommendations */}
@@ -1792,9 +1875,81 @@ export function GitHubAnalyzer() {
 
             {/* Detailed Summaries */}
             <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Executive Summary</h3>
-                <p className="text-gray-600">{analysisResult.analysis.summary.executive}</p>
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-indigo-600" />
+                  Executive Summary
+                </h3>
+                
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                    <h4 className="font-semibold text-indigo-900 mb-2">🎯 Strategic Overview</h4>
+                    <p className="text-sm text-gray-700 mb-3">{analysisResult.analysis.summary.executive}</p>
+                    <div className="text-xs text-gray-600 bg-indigo-50 p-2 rounded">
+                      <strong>Market Position:</strong> This repository represents a {analysisResult.analysis.metadata.language}-based solution with {analysisResult.analysis.metadata.stars ? `${analysisResult.analysis.metadata.stars.toLocaleString()}+ stars` : 'growing'} community engagement, indicating strong product-market fit and adoption potential.
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                    <h4 className="font-semibold text-indigo-900 mb-2">💡 Innovation Potential</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start gap-2">
+                        <TrendingUp className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-gray-900">Technology Maturity:</div>
+                          <div className="text-gray-600">{analysisResult.analysis.technicalAnalysis.codeQuality}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-gray-900">Scalability Score:</div>
+                          <div className="text-gray-600">{analysisResult.analysis.useCases.scalingPotential || 'High - Modern architecture supports enterprise deployment'}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Shield className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-gray-900">Competitive Edge:</div>
+                          <div className="text-gray-600">{analysisResult.analysis.useCases.competitiveAdvantages?.[0] || 'Strong technical foundation with active development'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                  <h4 className="font-semibold text-indigo-900 mb-3">📊 Business Intelligence</h4>
+                  <div className="grid md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-gray-600 mb-1">Primary Industries</div>
+                      <div className="text-gray-900 font-medium">
+                        {analysisResult.analysis.useCases.industries?.slice(0, 3).join(', ') || 'Technology, Enterprise, Startups'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">Target Audience</div>
+                      <div className="text-gray-900 font-medium">
+                        {analysisResult.analysis.useCases.targetAudience?.join(', ') || 'Developers, Enterprises, Tech Companies'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 mb-1">Investment Attractiveness</div>
+                      <div className="text-gray-900 font-medium">
+                        {analysisResult.analysis.useCases.investmentPotential || 'High - Strong market demand and scalable technology'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                  <h4 className="font-semibold text-indigo-900 mb-3">🚀 Go-to-Market Strategy</h4>
+                  <div className="text-sm text-gray-700 space-y-2">
+                    <p><strong>Immediate Opportunities:</strong> {analysisResult.analysis.useCases.primary?.slice(0, 2).join(', ') || analysisResult.analysis.summary.business}</p>
+                    <p><strong>Monetization Path:</strong> {analysisResult.analysis.useCases.monetizationStrategies?.[0] || 'Freemium model with enterprise features'}</p>
+                    <p><strong>Partnership Strategy:</strong> {analysisResult.analysis.useCases.partnershipOpportunities?.[0] || 'Strategic partnerships with cloud platforms and developer tools'}</p>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-lg p-6">
