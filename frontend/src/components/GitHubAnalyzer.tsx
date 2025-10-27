@@ -1408,7 +1408,7 @@ export function GitHubAnalyzer() {
                   </div>
                 </div>
                 <a
-                  href={urlInput}
+                  href={analysisResult.repository}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
