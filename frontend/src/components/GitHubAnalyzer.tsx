@@ -3,6 +3,15 @@ import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, 
 import { supabaseUrl } from '../lib/supabase';
 import { RepoComparison } from './RepoComparison';
 
+interface RankedApplication {
+  rank: number;
+  title: string;
+  description: string;
+  feasibility: 'High' | 'Medium' | 'Low';
+  marketDemand: 'High' | 'Medium' | 'Low';
+  creativityScore: number;
+}
+
 interface GitHubAnalysis {
   metadata: {
     name: string;
@@ -44,6 +53,7 @@ interface GitHubAnalysis {
     investmentPotential: string;
     exitStrategies: string[];
   };
+  rankedApplications?: RankedApplication[];
   recommendations: {
     strengths: string[];
     improvements: string[];
@@ -1762,81 +1772,74 @@ export function GitHubAnalyzer() {
                   <BarChart3 className="w-4 h-4" />
                   Ranked Applications by Feasibility & Market Demand
                 </h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-purple-100">
-                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Rank</th>
-                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Application Idea</th>
-                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Feasibility</th>
-                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Market Demand</th>
-                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Creativity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-green-600">1</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>AI-Powered Workflow Automation</strong> - Integrate AI agents for autonomous task execution</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-green-600">2</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Edge Intelligence Platform</strong> - Deploy ML models at edge locations for real-time inference</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-blue-600">3</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Conversational Interface Layer</strong> - Add natural language interface for all operations</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-blue-600">4</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Blockchain-Based Audit Trail</strong> - Add immutable logging for compliance and trust</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-orange-600">5</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Multi-Tenant SaaS Transformation</strong> - Convert to cloud-native multi-tenant architecture</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-orange-600">6</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Real-Time Collaboration Hub</strong> - Add live collaborative editing and sharing</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-green-100 text-green-700 rounded">High</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-purple-600">7</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>AR/VR Visualization Layer</strong> - Create immersive data visualization experience</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Medium</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
-                      </tr>
-                      <tr className="border-b border-purple-100">
-                        <td className="px-3 py-2 font-bold text-purple-600">8</td>
-                        <td className="px-3 py-2 text-gray-900"><strong>Quantum Computing Integration</strong> - Explore quantum algorithms for optimization problems</td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-red-100 text-red-700 rounded">Low</span></td>
-                        <td className="px-3 py-2 text-center"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">⭐⭐⭐⭐⭐</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-3 text-xs text-gray-600 bg-purple-50 p-2 rounded border border-purple-200">
-                  <strong>Ranking Methodology:</strong> Based on technical feasibility (High = proven tech, Medium = emerging tech, Low = research stage), 
-                  market demand (High = immediate need, Medium = growing need, Low = niche), and creative potential (innovation score).
-                </div>
+                {analysisResult.analysis.rankedApplications && analysisResult.analysis.rankedApplications.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-purple-100">
+                            <th className="px-3 py-2 text-left font-semibold text-purple-900">Rank</th>
+                            <th className="px-3 py-2 text-left font-semibold text-purple-900">Application Idea</th>
+                            <th className="px-3 py-2 text-center font-semibold text-purple-900">Feasibility</th>
+                            <th className="px-3 py-2 text-center font-semibold text-purple-900">Market Demand</th>
+                            <th className="px-3 py-2 text-center font-semibold text-purple-900">Creativity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analysisResult.analysis.rankedApplications.slice(0, 8).map((app) => {
+                            const getFeasibilityColor = (level: string) => {
+                              if (level === 'High') return 'bg-green-100 text-green-700';
+                              if (level === 'Medium') return 'bg-yellow-100 text-yellow-700';
+                              return 'bg-red-100 text-red-700';
+                            };
+                            const getRankColor = (rank: number) => {
+                              if (rank <= 2) return 'text-green-600';
+                              if (rank <= 4) return 'text-blue-600';
+                              if (rank <= 6) return 'text-orange-600';
+                              return 'text-purple-600';
+                            };
+                            const getStars = (score: number) => '⭐'.repeat(Math.min(Math.max(score, 1), 5));
+                            
+                            return (
+                              <tr key={app.rank} className="border-b border-purple-100">
+                                <td className={`px-3 py-2 font-bold ${getRankColor(app.rank)}`}>{app.rank}</td>
+                                <td className="px-3 py-2 text-gray-900">
+                                  <div className="font-medium mb-1">{app.title}</div>
+                                  <div className="text-xs text-gray-600">{app.description}</div>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <span className={`px-2 py-1 rounded ${getFeasibilityColor(app.feasibility)}`}>
+                                    {app.feasibility}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <span className={`px-2 py-1 rounded ${getFeasibilityColor(app.marketDemand)}`}>
+                                    {app.marketDemand}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                    {getStars(app.creativityScore)}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-600 bg-purple-50 p-2 rounded border border-purple-200">
+                      <strong>Ranking Methodology:</strong> Based on technical feasibility (High = proven tech, Medium = emerging tech, Low = research stage), 
+                      market demand (High = immediate need, Medium = growing need, Low = niche), and creative potential (innovation score).
+                      <br />
+                      <strong>Source:</strong> AI-generated specific to this repository's unique characteristics.
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No ranked applications available. This will be populated after analysis completes.
+                  </div>
+                )}
               </div>
             </div>
 

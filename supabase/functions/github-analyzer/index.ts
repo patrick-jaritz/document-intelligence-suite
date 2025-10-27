@@ -44,6 +44,14 @@ interface GitHubRepoAnalysis {
     investmentPotential: string;
     exitStrategies: string[];
   };
+  rankedApplications?: Array<{
+    rank: number;
+    title: string;
+    description: string;
+    feasibility: 'High' | 'Medium' | 'Low';
+    marketDemand: 'High' | 'Medium' | 'Low';
+    creativityScore: number;
+  }>;
   recommendations: {
     strengths: string[];
     improvements: string[];
@@ -270,6 +278,16 @@ Please provide a comprehensive analysis in the following JSON format:
     "investmentPotential": "Investment potential assessment",
     "exitStrategies": ["Exit strategy 1", "Exit strategy 2"]
   },
+  "rankedApplications": [
+    {
+      "rank": 1,
+      "title": "Application idea title specific to this repository",
+      "description": "Detailed description of how this idea applies to this specific repo",
+      "feasibility": "High|Medium|Low",
+      "marketDemand": "High|Medium|Low",
+      "creativityScore": 5
+    }
+  ],
   "recommendations": {
     "strengths": ["Strength 1", "Strength 2"],
     "improvements": ["Improvement 1", "Improvement 2"],
@@ -297,6 +315,16 @@ Be thorough, accurate, and provide actionable insights. Focus on:
 3. **Market Viability**: Assess the market demand, target customers, and business model potential
 4. **Investment Potential**: Consider funding requirements, growth potential, and exit strategies
 5. **Strategic Opportunities**: Identify partnerships, integrations, and market positioning strategies
+
+CRITICAL: Generate "rankedApplications" with 8 SPECIFIC, CREATIVE application ideas tailored to this repository's unique characteristics. Consider:
+- Unique features of this repository
+- Technology stack capabilities
+- Industry applications
+- Integration opportunities
+- Competitive transformations
+- Market gaps this could fill
+
+Each application idea MUST be specific to this repo, not generic. Think creatively about how this technology could be transformed or applied.
 
 Provide specific, actionable insights that would help an entrepreneur or investor make informed decisions about this technology.
 `;
