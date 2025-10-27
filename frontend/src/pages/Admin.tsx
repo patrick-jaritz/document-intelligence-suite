@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 
+interface ProviderInfo {
+  configured: boolean;
+  type: "api_key" | "self_hosted" | "built_in";
+  note?: string;
+}
+
 interface HealthResponse {
   ok: boolean;
   dbOk: boolean;
   counts: Record<string, number>;
-  providers: Record<string, boolean>;
+  providers: Record<string, ProviderInfo>;
   costs: Record<string, number>;
   recentErrors: Array<{ id: string; error_message?: string; updated_at?: string }>;
   healthMetrics?: {
@@ -107,14 +113,48 @@ export function Admin() {
             </div>
 
             <div className="p-4 bg-white rounded-lg border">
-              <h2 className="text-lg font-semibold mb-3">External Providers</h2>
+              <h2 className="text-lg font-semibold mb-3">All Providers & Services</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {Object.entries(data.providers || {}).map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between p-2 rounded border">
-                    <span className="text-sm text-gray-700">{k}</span>
-                    <span className={`text-xs font-medium ${v ? 'text-green-600' : 'text-gray-400'}`}>{v ? 'configured' : 'missing'}</span>
-                  </div>
-                ))}
+                {Object.entries(data.providers || {}).map(([k, providerInfo]) => {
+                  const configured = typeof providerInfo === 'boolean' ? providerInfo : providerInfo?.configured;
+                  const type = typeof providerInfo === 'object' ? providerInfo.type : 'api_key';
+                  const note = typeof providerInfo === 'object' ? providerInfo.note : undefined;
+                  
+                  return (
+                    <div 
+                      key={k} 
+                      className={`flex flex-col p-2 rounded border ${
+                        configured 
+                          ? 'bg-green-50 border-green-200' 
+                          : type === 'self_hosted' 
+                            ? 'bg-yellow-50 border-yellow-200' 
+                            : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">{k.replace(/_/g, ' ')}</span>
+                        <span className={`text-xs font-bold ${
+                          configured 
+                            ? 'text-green-600' 
+                            : type === 'self_hosted' 
+                              ? 'text-yellow-600' 
+                              : 'text-gray-400'
+                        }`}>
+                          {configured ? '✅ Configured' : type === 'self_hosted' ? '⚠️ Not Deployed' : '❌ Missing'}
+                        </span>
+                      </div>
+                      {note && (
+                        <p className="text-xs text-yellow-700 mt-1">{note}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> Providers marked "Not Deployed" are optional self-hosted services. 
+                  You have 5 working OCR providers (OpenAI, Google, Mistral, OCR.space, Tesseract) configured.
+                </p>
               </div>
             </div>
 

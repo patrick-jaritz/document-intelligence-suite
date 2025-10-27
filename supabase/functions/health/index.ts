@@ -109,35 +109,37 @@ Deno.serve(async (req: Request) => {
     const counts = await getCounts(supabase);
     const errors = await getRecentErrors(supabase);
 
-    // Comprehensive API provider status
+    // Comprehensive API provider status with type information
     const providers = {
       // OpenAI Suite
-      OPENAI_API_KEY: !!Deno.env.get("OPENAI_API_KEY"),
-      OPENAI_VISION: !!Deno.env.get("OPENAI_API_KEY"), // Vision uses same key
+      "OPENAI_API_KEY": { configured: !!Deno.env.get("OPENAI_API_KEY"), type: "api_key" },
+      "OPENAI_VISION": { configured: !!Deno.env.get("OPENAI_API_KEY"), type: "api_key" },
       
       // Anthropic
-      ANTHROPIC_API_KEY: !!Deno.env.get("ANTHROPIC_API_KEY"),
+      "ANTHROPIC_API_KEY": { configured: !!Deno.env.get("ANTHROPIC_API_KEY"), type: "api_key" },
       
       // Mistral AI
-      MISTRAL_API_KEY: !!Deno.env.get("MISTRAL_API_KEY"),
+      "MISTRAL_API_KEY": { configured: !!Deno.env.get("MISTRAL_API_KEY"), type: "api_key" },
       
       // Google Vision
-      GOOGLE_VISION_API_KEY: !!Deno.env.get("GOOGLE_VISION_API_KEY"),
+      "GOOGLE_VISION_API_KEY": { configured: !!Deno.env.get("GOOGLE_VISION_API_KEY"), type: "api_key" },
       
       // OCR Providers
-      OCR_SPACE_API_KEY: !!Deno.env.get("OCR_SPACE_API_KEY"),
-      DOTS_OCR_API_KEY: !!Deno.env.get("DOTS_OCR_API_KEY"),
-      PADDLE_OCR_API_KEY: !!Deno.env.get("PADDLE_OCR_API_KEY"),
-      DEEPSEEK_OCR_API_KEY: !!Deno.env.get("DEEPSEEK_OCR_API_KEY"),
+      "OCR_SPACE_API_KEY": { configured: !!Deno.env.get("OCR_SPACE_API_KEY"), type: "api_key" },
+      
+      // Self-hosted services (require deployment)
+      "DOTS_OCR_SERVICE": { configured: !!Deno.env.get("DOTS_OCR_SERVICE_URL"), type: "self_hosted", note: "Requires deployment to cloud" },
+      "PADDLE_OCR_SERVICE": { configured: !!Deno.env.get("PADDLE_OCR_SERVICE_URL"), type: "self_hosted", note: "Requires deployment to cloud" },
+      "DEEPSEEK_OCR_SERVICE": { configured: !!Deno.env.get("DEEPSEEK_OCR_SERVICE_URL"), type: "self_hosted", note: "Requires GPU deployment" },
       
       // Web & Data Providers
-      CRAWL4AI_ENABLED: true, // Running in Supabase Edge Functions
+      "CRAWL4AI_ENABLED": { configured: true, type: "built_in" },
       
       // Supabase Services (always available)
-      SUPABASE_DB: true,
-      SUPABASE_STORAGE: true,
-      SUPABASE_AUTH: true,
-      SUPABASE_EDGE_FUNCTIONS: true,
+      "SUPABASE_DB": { configured: true, type: "built_in" },
+      "SUPABASE_STORAGE": { configured: true, type: "built_in" },
+      "SUPABASE_AUTH": { configured: true, type: "built_in" },
+      "SUPABASE_EDGE_FUNCTIONS": { configured: true, type: "built_in" },
     };
 
     const costs = estimateCosts(counts);
