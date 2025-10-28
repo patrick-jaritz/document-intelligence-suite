@@ -233,6 +233,23 @@ serve(async (req) => {
     });
 
     // Insert into database (correct table name)
+    // If documentId is provided, ensure it exists in rag_documents table
+    if (documentId) {
+      const { data: existingDoc, error: docError } = await supabase
+        .from('rag_documents')
+        .select('id')
+        .eq('id', documentId)
+        .single();
+      
+      if (docError || !existingDoc) {
+        console.log(`Document ${documentId} not found in rag_documents, setting document_id to null`);
+        // Set document_id to null if document doesn't exist
+        embeddingsData.forEach(chunk => {
+          chunk.document_id = null;
+        });
+      }
+    }
+
     const { error: insertError } = await supabase
       .from('document_chunks')
       .insert(embeddingsData);

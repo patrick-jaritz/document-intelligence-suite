@@ -282,7 +282,37 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Step 4: Generate embeddings (if enabled)
+      // Step 4: Create document record in rag_documents table
+      logger.info('rag', 'Creating document record', { documentId, filename });
+      
+      const { error: docInsertError } = await supabaseClient
+        .from('rag_documents')
+        .insert({
+          id: documentId,
+          filename: filename,
+          upload_date: new Date().toISOString(),
+          embedding_provider: embeddingProvider,
+          metadata: {
+            fileSize: fileSize,
+            fileType: fileType,
+            ocrProvider: ocrProvider,
+            markdownEnabled: enableMarkdownConversion,
+            chunkSize,
+            chunkOverlap
+          }
+        });
+
+      if (docInsertError) {
+        logger.warning('rag', 'Failed to create document record', {
+          error: docInsertError.message,
+          documentId
+        });
+        // Continue anyway - we can still generate embeddings without the document record
+      } else {
+        logger.info('rag', 'Document record created successfully', { documentId });
+      }
+
+      // Step 5: Generate embeddings (if enabled)
       let embeddingsGenerated = false;
       let chunksCreated = 0;
       let ragProcessingTime = 0;
