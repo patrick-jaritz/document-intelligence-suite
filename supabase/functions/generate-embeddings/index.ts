@@ -139,6 +139,8 @@ async function generateEmbedding(
 // =============================================================================
 
 serve(async (req) => {
+  console.log('🚀 generate-embeddings function called');
+  
   try {
     // CORS headers
     if (req.method === 'OPTIONS') {
@@ -152,7 +154,9 @@ serve(async (req) => {
     }
 
     // Parse request
+    console.log('📋 Parsing request body...');
     const { text, documentId, filename, sourceUrl, provider = 'openai' } = await req.json();
+    console.log('📋 Request parsed:', { documentId, filename, provider, textLength: text?.length });
 
     if (!text || !filename) {
       return new Response(
