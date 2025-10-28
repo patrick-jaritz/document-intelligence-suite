@@ -274,9 +274,27 @@ async function convertFileDataToMarkdown(
   let linksDetected = 0;
 
   if (contentType === 'application/pdf') {
-    // PDF to Markdown conversion
-    markdown = await convertPDFToMarkdown(fileData, fileName, fileSize, convertTables, logger);
-    conversionMethod = 'pdf-to-markdown';
+    // For PDFs, we should expect OCR-extracted text, not raw PDF data
+    // Check if this looks like OCR output (readable text) vs raw PDF binary
+    const pdfKeywords = ['endobj', 'endstream', 'FlateDecode', 'StructParent', 'StructElem'];
+    const hasPdfKeywords = pdfKeywords.some(keyword => fileData.includes(keyword));
+    
+    if (hasPdfKeywords) {
+      logger?.warn('markdown', 'PDF appears to be raw binary data - cannot extract text', {
+        fileName,
+        detectedKeywords: pdfKeywords.filter(k => fileData.includes(k))
+      });
+      
+      throw new Error(
+        `PDF text extraction failed for "${fileName}". ` +
+        `This PDF contains raw binary data that cannot be parsed without proper PDF libraries. ` +
+        `Please use an OCR provider first to extract text, then use the Markdown converter on the OCR output.`
+      );
+    }
+    
+    // If no PDF keywords found, treat as OCR-extracted text
+    markdown = await convertTextToMarkdown(fileData, fileName, fileSize, logger);
+    conversionMethod = 'pdf-ocr-to-markdown';
     tablesDetected = Math.floor(Math.random() * 5) + 1;
     imagesDetected = Math.floor(Math.random() * 3) + 1;
     linksDetected = Math.floor(Math.random() * 10) + 2;
@@ -583,7 +601,7 @@ async function convertHTMLToMarkdown(
 }
 
 /**
- * Convert plain text to Markdown
+ * Convert plain text to Markdown (including OCR output)
  */
 async function convertTextToMarkdown(
   fileData: string,
@@ -593,31 +611,61 @@ async function convertTextToMarkdown(
 ): Promise<string> {
   logger?.info('markdown', 'Converting text to markdown', {
     fileName,
-    fileSize
+    fileSize,
+    textLength: fileData.length
   });
 
-  // Plain text is already like markdown, just add some basic formatting
-  const markdown = convertTextToMarkdownFormat(fileData, false);
+  // Handle both plain text and OCR output
+  let text = fileData;
+  
+  // If it's base64 encoded, decode it first
+  try {
+    if (fileData.length > 100 && !fileData.includes(' ') && !fileData.includes('\n')) {
+      // Might be base64 encoded
+      const decoded = atob(fileData);
+      if (decoded.length > 0 && decoded.length < fileData.length) {
+        text = decoded;
+        logger?.info('markdown', 'Decoded base64 text', {
+          originalLength: fileData.length,
+          decodedLength: text.length
+        });
+      }
+    }
+  } catch (e) {
+    // Not base64, use as-is
+    logger?.info('markdown', 'Text is not base64 encoded, using as-is');
+  }
+
+  // Convert to markdown format
+  const markdown = convertTextToMarkdownFormat(text, true);
 
   return markdown;
 }
 
 /**
- * Convert extracted text to Markdown format
+ * Convert extracted text to Markdown format (including OCR output)
  */
 function convertTextToMarkdownFormat(text: string, convertTables: boolean): string {
   let markdown = text;
 
-  // Basic text formatting
+  // Clean up OCR artifacts and improve formatting
   markdown = markdown
-    .replace(/^(.+)$/gm, (match) => {
-      // Convert lines that look like headers
-      if (match.match(/^[A-Z][A-Z\s]+$/)) {
-        return `## ${match}`;
+    // Remove excessive whitespace
+    .replace(/\s+/g, ' ')
+    // Fix line breaks
+    .replace(/\n\s*\n/g, '\n\n')
+    // Convert lines that look like headers (all caps, short lines)
+    .replace(/^([A-Z][A-Z\s]{2,30})$/gm, '## $1')
+    // Convert lines that look like subheaders (title case, short lines)
+    .replace(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)$/gm, (match) => {
+      if (match.length < 50 && !match.includes('.')) {
+        return `### ${match}`;
       }
       return match;
     })
-    .replace(/\n{3,}/g, '\n\n') // Normalize multiple newlines
+    // Normalize multiple newlines
+    .replace(/\n{3,}/g, '\n\n')
+    // Clean up spacing
     .trim();
 
   if (convertTables) {

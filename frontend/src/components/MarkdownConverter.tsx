@@ -88,12 +88,11 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
       if (isPdfError) {
         setError(
           `PDF conversion failed: ${errorMessage}\n\n` +
-          `💡 **Suggestion**: PDF files often contain complex formatting or images that cannot be converted to Markdown directly. ` +
-          `Try using an OCR provider instead:\n` +
-          `• Google Vision API\n` +
-          `• OpenAI Vision\n` +
-          `• DeepSeek-OCR\n` +
-          `• Or use the RAG processing mode which includes OCR`
+          `💡 **Suggestion**: The Markdown converter works best with OCR-extracted text, not raw PDF files. ` +
+          `Try this workflow:\n` +
+          `1. First use an OCR provider (Google Vision, OpenAI Vision, DeepSeek-OCR)\n` +
+          `2. Then use the Markdown converter on the OCR output\n` +
+          `3. Or use the RAG processing mode which does OCR + Markdown conversion automatically`
         );
       } else {
         setError(errorMessage);
