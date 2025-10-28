@@ -307,6 +307,17 @@ Deno.serve(async (req: Request) => {
       const filename = `rag-document-${documentId}.md`;
       const fileSize = pdfBuffer.byteLength;
       const fileType = contentType;
+      
+      console.log('🔧 About to create document record:', {
+        documentId,
+        filename,
+        fileSize,
+        fileType,
+        embeddingProvider,
+        supabaseUrl,
+        hasSupabaseClient: !!supabaseClient
+      });
+      
       logger.info('rag', 'Creating document record', { documentId, filename });
       
       const { error: docInsertError } = await supabaseClient
@@ -325,6 +336,13 @@ Deno.serve(async (req: Request) => {
             chunkOverlap
           }
         });
+
+      console.log('🔧 Document record creation result:', {
+        hasError: !!docInsertError,
+        errorMessage: docInsertError?.message,
+        errorCode: docInsertError?.code,
+        errorDetails: docInsertError?.details
+      });
 
       if (docInsertError) {
         console.error('❌ Failed to create document record:', {
