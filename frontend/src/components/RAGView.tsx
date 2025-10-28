@@ -432,7 +432,7 @@ export function RAGView() {
         body: JSON.stringify({
           question: inputMessage,
           documentId: selectedDocument === 'all' ? null : selectedDocument,
-          filename: selectedDocument === 'all' ? null : selectedDocument,
+          filename: selectedDocument === 'all' ? null : documents.find(doc => doc.id === selectedDocument)?.filename,
           provider: ragProvider,
           model: ragModel,
           topK: 5
@@ -698,10 +698,10 @@ export function RAGView() {
               {documents.map((doc) => (
                 <button
                   key={doc.id}
-                  onClick={() => setSelectedDocument(doc.filename)}
+                  onClick={() => setSelectedDocument(doc.id)}
                   disabled={doc.status !== 'ready'}
                   className={`w-full text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
-                    selectedDocument === doc.filename
+                    selectedDocument === doc.id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
@@ -742,7 +742,7 @@ export function RAGView() {
               Chat with Documents
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {selectedDocument === 'all' ? 'Searching all documents' : `Searching: ${selectedDocument}`}
+              {selectedDocument === 'all' ? 'Searching all documents' : `Searching: ${documents.find(doc => doc.id === selectedDocument)?.filename || selectedDocument}`}
             </p>
           </div>
 

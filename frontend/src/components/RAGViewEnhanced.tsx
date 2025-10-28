@@ -237,7 +237,8 @@ export function RAGViewEnhanced() {
     setIsQuerying(true);
 
     try {
-      const filename = selectedDocument === 'all' ? undefined : selectedDocument;
+      const selectedDoc = documents.find(doc => doc.id === selectedDocument);
+      const filename = selectedDocument === 'all' ? undefined : selectedDoc?.filename;
       const documentId = selectedDocument === 'all' ? undefined : selectedDocument;
       
       console.log('🔍 Querying RAG system with enhanced processing...');
@@ -566,7 +567,7 @@ export function RAGViewEnhanced() {
             {documents
               .filter(doc => doc.status === 'ready')
               .map(doc => (
-                <option key={doc.id} value={doc.filename}>
+                <option key={doc.id} value={doc.id}>
                   {doc.filename}
                 </option>
               ))}
