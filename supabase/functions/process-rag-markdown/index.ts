@@ -100,15 +100,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Check environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://joqnpibrfzqflyogrkht.supabase.co';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing required environment variables:', {
-        hasSupabaseUrl: !!supabaseUrl,
-        hasSupabaseServiceKey: !!supabaseServiceKey
-      });
-      throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseServiceKey) {
+      console.error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -329,6 +326,14 @@ Deno.serve(async (req: Request) => {
         });
 
         try {
+          logger.info('rag', 'Calling generate-embeddings function', {
+            supabaseUrl,
+            url: `${supabaseUrl}/functions/v1/generate-embeddings`,
+            documentId,
+            filename: `rag-document-${documentId}.md`,
+            textLength: textForEmbeddings.length
+          });
+          
           const embeddingResponse = await fetch(`${supabaseUrl}/functions/v1/generate-embeddings`, {
             method: 'POST',
             headers: {

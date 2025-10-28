@@ -28,11 +28,11 @@ export function ConvertToMarkdownButton({
     setError(null);
 
     try {
-      // Convert text to base64 for the markdown converter
-      const base64Text = btoa(text);
+      // For plain text, we don't need to base64 encode it
+      // The markdown converter can handle plain text directly
       
       const result = await ragHelpers.convertToMarkdown(
-        base64Text,
+        text, // Send as plain text, not base64
         'text/plain',
         filename,
         text.length,
