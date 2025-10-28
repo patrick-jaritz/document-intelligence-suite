@@ -26,6 +26,8 @@ interface ConversionResult {
 
 export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [textInput, setTextInput] = useState<string>('');
+  const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,13 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
   }, []);
 
   const convertToMarkdown = useCallback(async () => {
-    if (!file) {
+    if (inputMode === 'file' && !file) {
       setError('Please select a file to convert');
+      return;
+    }
+    
+    if (inputMode === 'text' && !textInput.trim()) {
+      setError('Please enter text to convert');
       return;
     }
 
@@ -54,21 +61,37 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
     setResult(null);
 
     try {
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      let fileData: string;
+      let contentType: string;
+      let fileName: string;
+      let fileSize: number;
+
+      if (inputMode === 'file' && file) {
+        // Convert file to base64
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        fileData = btoa(binary);
+        contentType = file.type;
+        fileName = file.name;
+        fileSize = file.size;
+      } else {
+        // Use text input directly
+        fileData = textInput;
+        contentType = 'text/plain';
+        fileName = 'text-input.txt';
+        fileSize = textInput.length;
       }
-      const base64 = btoa(binary);
 
       // Call the markdown converter
       const response = await ragHelpers.convertToMarkdown(
-        base64,
-        file.type,
-        file.name,
-        file.size,
+        fileData,
+        contentType,
+        fileName,
+        fileSize,
         options.convertTables,
         options.preserveFormatting
       );
@@ -102,7 +125,7 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
     } finally {
       setIsProcessing(false);
     }
-  }, [file, options, onConvert]);
+  }, [file, textInput, inputMode, options, onConvert]);
 
   const downloadMarkdown = useCallback(() => {
     if (!result?.markdown) return;
@@ -140,20 +163,64 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
         </p>
       </div>
 
-      {/* File Upload */}
+      {/* Input Mode Toggle */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select File
-        </label>
-        <input
-          type="file"
-          accept=".pdf,.html,.htm,.txt"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
-        {file && (
-          <div className="mt-2 text-sm text-gray-600">
-            <strong>Selected:</strong> {file.name} ({(file.size / 1024).toFixed(1)} KB)
+        <div className="flex gap-4 mb-4">
+          <button
+            onClick={() => setInputMode('file')}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              inputMode === 'file'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <FileText className="w-4 h-4 inline mr-2" />
+            Upload File
+          </button>
+          <button
+            onClick={() => setInputMode('text')}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              inputMode === 'text'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <FileText className="w-4 h-4 inline mr-2" />
+            Text Input
+          </button>
+        </div>
+
+        {inputMode === 'file' ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select File
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.html,.htm,.txt,.md"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {file && (
+              <div className="mt-2 text-sm text-gray-600">
+                <strong>Selected:</strong> {file.name} ({(file.size / 1024).toFixed(1)} KB)
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Enter Text
+            </label>
+            <textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Paste your text here to convert to Markdown..."
+              className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="mt-1 text-sm text-gray-500">
+              {textInput.length} characters
+            </div>
           </div>
         )}
       </div>
@@ -187,7 +254,7 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
       <div className="mb-6">
         <button
           onClick={convertToMarkdown}
-          disabled={!file || isProcessing}
+          disabled={(inputMode === 'file' && !file) || (inputMode === 'text' && !textInput.trim()) || isProcessing}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isProcessing ? (
