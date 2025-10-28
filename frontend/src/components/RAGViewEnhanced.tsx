@@ -239,6 +239,13 @@ export function RAGViewEnhanced() {
       const filename = selectedDocument === 'all' ? undefined : selectedDocument;
       
       console.log('🔍 Querying RAG system with enhanced processing...');
+      console.log('📋 Query parameters:', {
+        question: inputMessage,
+        filename,
+        provider: ragProvider,
+        selectedDocument
+      });
+      
       const ragResult = await ragHelpers.queryRAG(
         inputMessage,
         undefined, // documentId
@@ -246,7 +253,21 @@ export function RAGViewEnhanced() {
         ragProvider
       );
 
-      if (!ragResult.success) {
+      console.log('📊 RAG Result received:', {
+        hasAnswer: !!ragResult.answer,
+        hasError: !!ragResult.error,
+        hasSources: !!ragResult.sources,
+        answerLength: ragResult.answer?.length || 0,
+        sourcesCount: ragResult.sources?.length || 0,
+        retrievedChunks: ragResult.retrievedChunks,
+        model: ragResult.model,
+        provider: ragResult.provider,
+        fullResult: ragResult
+      });
+
+      // The rag-query Edge Function returns data directly, not wrapped in success/error
+      if (ragResult.error) {
+        console.error('❌ RAG query returned error:', ragResult.error);
         throw new Error(ragResult.error || 'RAG query failed');
       }
 
@@ -257,10 +278,17 @@ export function RAGViewEnhanced() {
         sources: ragResult.sources || []
       };
 
+      console.log('✅ RAG query successful, adding message to chat');
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('❌ RAG query failed:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined,
+        fullError: error
+      });
       
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,

@@ -56,6 +56,14 @@ export const callEdgeFunction = async (
     console.log('📦 Payload:', JSON.stringify(payload).substring(0, 200) + '...');
   }
   
+  // Always log RAG queries for debugging
+  if (functionName === 'rag-query') {
+    console.group(`🔍 [RAG-${requestId}] RAG Query Debug`);
+    console.log('📍 URL:', functionUrl);
+    console.log('📋 Payload:', payload);
+    console.log('🔑 Headers:', headers);
+  }
+  
   try {
     const response = await fetch(functionUrl, {
       method,
@@ -68,6 +76,12 @@ export const callEdgeFunction = async (
     if (debugMode) {
       console.log(`⏱️  Response in ${durationMs}ms`);
       console.log('📊 Status:', response.status, response.statusText);
+    }
+    
+    // Always log RAG query responses
+    if (functionName === 'rag-query') {
+      console.log(`⏱️  RAG Response in ${durationMs}ms`);
+      console.log('📊 RAG Status:', response.status, response.statusText);
     }
     
     if (!response.ok) {
@@ -86,6 +100,13 @@ export const callEdgeFunction = async (
         console.groupEnd();
       }
       
+      // Always log RAG query errors
+      if (functionName === 'rag-query') {
+        console.error('❌ RAG Error:', errorMessage);
+        console.error('❌ RAG Error Text:', errorText);
+        console.groupEnd();
+      }
+      
       const err = new Error(
         `[${functionName}] (${durationMs}ms, reqId=${requestId}) ${errorMessage}`
       );
@@ -100,6 +121,21 @@ export const callEdgeFunction = async (
     
     if (debugMode) {
       console.log('✅ Success:', data.success ? 'true' : 'false');
+      console.groupEnd();
+    }
+    
+    // Always log RAG query success
+    if (functionName === 'rag-query') {
+      console.log('✅ RAG Success:', {
+        hasAnswer: !!data.answer,
+        hasError: !!data.error,
+        hasSources: !!data.sources,
+        answerLength: data.answer?.length || 0,
+        sourcesCount: data.sources?.length || 0,
+        retrievedChunks: data.retrievedChunks,
+        model: data.model,
+        provider: data.provider
+      });
       console.groupEnd();
     }
     
@@ -127,12 +163,37 @@ export const ragHelpers = {
 
   // Query RAG system
   queryRAG: async (question: string, documentId: string, filename: string, provider: string = 'openai') => {
-    return callEdgeFunction('rag-query', {
-      question,
-      documentId: null,  // Don't filter by documentId, only by filename
+    console.log('🔍 ragHelpers.queryRAG called with:', {
+      question: question?.substring(0, 100) + '...',
+      documentId,
       filename,
-      provider,
+      provider
     });
+    
+    try {
+      const result = await callEdgeFunction('rag-query', {
+        question,
+        documentId: null,  // Don't filter by documentId, only by filename
+        filename,
+        provider,
+      });
+      
+      console.log('✅ ragHelpers.queryRAG result:', {
+        hasAnswer: !!result.answer,
+        hasError: !!result.error,
+        hasSources: !!result.sources,
+        answerLength: result.answer?.length || 0,
+        sourcesCount: result.sources?.length || 0,
+        retrievedChunks: result.retrievedChunks,
+        model: result.model,
+        provider: result.provider
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ ragHelpers.queryRAG error:', error);
+      throw error;
+    }
   },
 
   // Process document with OCR
