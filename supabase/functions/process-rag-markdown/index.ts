@@ -324,28 +324,52 @@ Deno.serve(async (req: Request) => {
       
       logger.info('rag', 'Creating document record', { documentId, filename });
       
-      const { error: docInsertError } = await supabaseClient
+      // Check if document record already exists
+      const { data: existingDoc, error: checkError } = await supabaseClient
         .from('rag_documents')
-        .insert({
-          id: documentId,
-          filename: filename,
-          upload_date: new Date().toISOString(),
-          embedding_provider: embeddingProvider,
-          metadata: {
-            fileSize: fileSize,
-            fileType: fileType,
-            ocrProvider: ocrProvider,
-            markdownEnabled: enableMarkdownConversion,
-            chunkSize,
-            chunkOverlap
-          }
-        });
+        .select('id')
+        .eq('id', documentId)
+        .single();
+
+      console.log('🔍 Checking for existing document record:', {
+        existingDoc,
+        checkError: checkError?.message,
+        documentId
+      });
+
+      let docInsertError = null;
+      if (!existingDoc) {
+        console.log('🔧 No existing record found, creating new one...');
+        
+        const { error } = await supabaseClient
+          .from('rag_documents')
+          .insert({
+            id: documentId,
+            filename: filename,
+            upload_date: new Date().toISOString(),
+            embedding_provider: embeddingProvider,
+            metadata: {
+              fileSize: fileSize,
+              fileType: fileType,
+              ocrProvider: ocrProvider,
+              markdownEnabled: enableMarkdownConversion,
+              chunkSize,
+              chunkOverlap
+            }
+          });
+        
+        docInsertError = error;
+      } else {
+        console.log('✅ Document record already exists, skipping creation');
+        logger.info('rag', 'Document record already exists', { documentId });
+      }
 
       console.log('🔧 Document record creation result:', {
         hasError: !!docInsertError,
         errorMessage: docInsertError?.message,
         errorCode: docInsertError?.code,
-        errorDetails: docInsertError?.details
+        errorDetails: docInsertError?.details,
+        existingRecord: !!existingDoc
       });
 
       if (docInsertError) {
@@ -365,8 +389,8 @@ Deno.serve(async (req: Request) => {
         });
         // Continue anyway - we can still generate embeddings without the document record
       } else {
-        console.log('✅ Document record created successfully:', { documentId, filename });
-        logger.info('rag', 'Document record created successfully', { documentId });
+        console.log('✅ Document record created/verified successfully:', { documentId, filename });
+        logger.info('rag', 'Document record created/verified successfully', { documentId });
       }
 
       // Step 5: Generate embeddings (if enabled)
@@ -390,6 +414,34 @@ Deno.serve(async (req: Request) => {
           chunkSize,
           chunkOverlap
         });
+
+        // Verify document record exists before generating embeddings
+        console.log('🔍 Verifying document record exists before embedding generation...');
+        const { data: verifyDoc, error: verifyError } = await supabaseClient
+          .from('rag_documents')
+          .select('id')
+          .eq('id', documentId)
+          .single();
+
+        console.log('🔍 Document verification result:', {
+          documentId,
+          exists: !!verifyDoc,
+          verifyError: verifyError?.message
+        });
+
+        if (!verifyDoc && verifyError?.code !== 'PGRST116') {
+          console.error('❌ Document record verification failed:', {
+            documentId,
+            error: verifyError?.message,
+            code: verifyError?.code
+          });
+          logger.error('rag', 'Document record verification failed', {
+            documentId,
+            error: verifyError?.message
+          });
+        } else {
+          console.log('✅ Document record verified, proceeding with embedding generation');
+        }
 
         try {
           logger.info('rag', 'Calling generate-embeddings function', {
@@ -526,25 +578,7 @@ Deno.serve(async (req: Request) => {
           .update({ status: 'completed' })
           .eq('id', documentId);
 
-        // Store in RAG documents table
-        await supabaseClient
-          .from('rag_documents')
-          .insert({
-            id: documentId,
-            filename: `rag-document-${documentId}.md`,
-            source_url: fileUrl,
-            upload_date: new Date().toISOString(),
-            embedding_provider: embeddingProvider,
-            metadata: {
-              type: 'file',
-              originalFilename: `document-${documentId}`,
-              wordCount: markdownResult?.metadata?.wordCount || 0,
-              processingTime: totalProcessingTime,
-              markdownEnabled: enableMarkdownConversion,
-              chunksCreated,
-              embeddingsGenerated
-            }
-          });
+        // Note: rag_documents record was already created in Step 4
 
         await logger.recordPerformanceMetric({
           jobId,
