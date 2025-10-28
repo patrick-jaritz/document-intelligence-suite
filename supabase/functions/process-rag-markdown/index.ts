@@ -317,22 +317,30 @@ Deno.serve(async (req: Request) => {
           if (embeddingResponse.ok) {
             const embeddingResult = await embeddingResponse.json();
             embeddingsGenerated = true;
-            chunksCreated = embeddingResult.chunksCreated || 0;
+            chunksCreated = embeddingResult.chunkCount || embeddingResult.chunksCreated || 0;
             ragProcessingTime = Date.now() - ragStartTime;
             
             logger.info('rag', 'Embedding generation completed', {
               chunksCreated,
               embeddingProvider,
-              processingTime: ragProcessingTime
+              processingTime: ragProcessingTime,
+              embeddingResult
             });
           } else {
-            logger.warning('rag', 'Embedding generation failed', {
+            const errorText = await embeddingResponse.text();
+            logger.error('rag', 'Embedding generation failed', {
               status: embeddingResponse.status,
-              statusText: embeddingResponse.statusText
+              statusText: embeddingResponse.statusText,
+              errorText
             });
           }
         } catch (embeddingError) {
-          logger.warning('rag', 'Embedding generation error', embeddingError);
+          logger.error('rag', 'Embedding generation error', {
+            error: embeddingError instanceof Error ? embeddingError.message : String(embeddingError),
+            stack: embeddingError instanceof Error ? embeddingError.stack : undefined,
+            documentId,
+            embeddingProvider
+          });
         }
       }
 

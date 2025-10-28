@@ -169,15 +169,36 @@ serve(async (req) => {
     };
 
     console.log(`Generating embeddings for ${filename} using ${provider}`);
+    console.log(`Text length: ${text.length} characters`);
+    console.log(`API Keys available:`, {
+      openai: apiKeys.OPENAI_API_KEY ? 'present' : 'missing',
+      mistral: apiKeys.MISTRAL_API_KEY ? 'present' : 'missing',
+      anthropic: apiKeys.ANTHROPIC_API_KEY ? 'present' : 'missing'
+    });
 
     // Chunk the text
     const chunks = chunkText(text, 1000, 200);
     console.log(`Created ${chunks.length} chunks`);
+    
+    if (chunks.length === 0) {
+      throw new Error('No chunks created from text');
+    }
 
     // Generate embeddings for each chunk
-    const embeddings = await Promise.all(
-      chunks.map(chunk => generateEmbedding(chunk.text, provider, apiKeys))
-    );
+    console.log('Starting embedding generation...');
+    const embeddings = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      console.log(`Generating embedding for chunk ${i + 1}/${chunks.length} (${chunk.text.length} chars)`);
+      try {
+        const embedding = await generateEmbedding(chunk.text, provider, apiKeys);
+        embeddings.push(embedding);
+        console.log(`✓ Generated embedding ${i + 1}/${chunks.length}`);
+      } catch (error) {
+        console.error(`❌ Failed to generate embedding for chunk ${i + 1}:`, error);
+        throw error;
+      }
+    }
     console.log(`Generated ${embeddings.length} embeddings`);
 
     // Store in Supabase
@@ -202,6 +223,14 @@ serve(async (req) => {
     }));
 
     console.log(`Inserting ${embeddingsData.length} chunks into document_chunks table...`);
+    console.log('Sample chunk data:', {
+      firstChunk: {
+        document_id: embeddingsData[0]?.document_id,
+        filename: embeddingsData[0]?.filename,
+        chunk_text_length: embeddingsData[0]?.chunk_text?.length,
+        embedding_length: embeddingsData[0]?.embedding ? JSON.parse(embeddingsData[0].embedding).length : 0
+      }
+    });
 
     // Insert into database (correct table name)
     const { error: insertError } = await supabase
@@ -210,6 +239,12 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('Database insert error:', insertError);
+      console.error('Insert error details:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint
+      });
       throw insertError;
     }
 
