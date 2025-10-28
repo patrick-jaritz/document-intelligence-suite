@@ -173,7 +173,7 @@ export const ragHelpers = {
     try {
       const result = await callEdgeFunction('rag-query', {
         question,
-        documentId: null,  // Don't filter by documentId, only by filename
+        documentId,  // Pass the documentId for filtering
         filename,
         provider,
       });

@@ -22,7 +22,7 @@ export function DocumentUploader({ onFileSelect, isProcessing }: DocumentUploade
   };
 
   const isValidFile = (file: File) => {
-    return file.type === 'application/pdf' || file.type.startsWith('image/');
+    return file.type === 'application/pdf' || file.type.startsWith('image/') || file.type === 'text/plain' || file.type === 'text/markdown';
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -36,7 +36,7 @@ export function DocumentUploader({ onFileSelect, isProcessing }: DocumentUploade
       setSelectedFile(validFile);
       onFileSelect(validFile);
     } else {
-      alert('Please upload a PDF or image file (PNG, JPG, WebP)');
+      alert('Please upload a PDF, image file (PNG, JPG, WebP), or text file (TXT, MD)');
     }
   };
 
@@ -46,7 +46,7 @@ export function DocumentUploader({ onFileSelect, isProcessing }: DocumentUploade
       setSelectedFile(file);
       onFileSelect(file);
     } else {
-      alert('Please select a PDF or image file (PNG, JPG, WebP)');
+      alert('Please select a PDF, image file (PNG, JPG, WebP), or text file (TXT, MD)');
     }
   };
 
@@ -83,7 +83,7 @@ export function DocumentUploader({ onFileSelect, isProcessing }: DocumentUploade
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,image/*"
+            accept=".pdf,image/*,.txt,.md"
             onChange={handleFileInput}
             className="hidden"
             disabled={isProcessing}
@@ -99,7 +99,7 @@ export function DocumentUploader({ onFileSelect, isProcessing }: DocumentUploade
                 Drop your document or image here, or click to browse
               </p>
               <p className="text-sm text-gray-500">
-                Supports PDFs and images (PNG, JPG, WebP) for OCR text extraction
+                Supports PDFs, images (PNG, JPG, WebP), and text files (TXT, MD)
               </p>
             </div>
 

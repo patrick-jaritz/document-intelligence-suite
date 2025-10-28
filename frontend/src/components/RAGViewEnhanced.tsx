@@ -238,18 +238,20 @@ export function RAGViewEnhanced() {
 
     try {
       const filename = selectedDocument === 'all' ? undefined : selectedDocument;
+      const documentId = selectedDocument === 'all' ? undefined : selectedDocument;
       
       console.log('🔍 Querying RAG system with enhanced processing...');
       console.log('📋 Query parameters:', {
         question: inputMessage,
         filename,
+        documentId,
         provider: ragProvider,
         selectedDocument
       });
       
       const ragResult = await ragHelpers.queryRAG(
         inputMessage,
-        undefined, // documentId
+        documentId, // Pass the documentId instead of undefined
         filename,
         ragProvider
       );
@@ -447,12 +449,15 @@ export function RAGViewEnhanced() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md"
               onChange={handleFileUpload}
               className="hidden"
             />
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-2">Click to upload a document</p>
+            <p className="text-xs text-gray-500 mb-4">
+              Supports PDF, images (PNG, JPG, WebP), and text files (TXT, MD)
+            </p>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}

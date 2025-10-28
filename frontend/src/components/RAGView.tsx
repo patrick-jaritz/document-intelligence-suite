@@ -431,6 +431,7 @@ export function RAGView() {
         },
         body: JSON.stringify({
           question: inputMessage,
+          documentId: selectedDocument === 'all' ? null : selectedDocument,
           filename: selectedDocument === 'all' ? null : selectedDocument,
           provider: ragProvider,
           model: ragModel,

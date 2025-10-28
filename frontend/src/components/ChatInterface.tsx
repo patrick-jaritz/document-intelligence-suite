@@ -59,7 +59,7 @@ export function ChatInterface({ provider, docId, documentName }: ChatInterfacePr
       // Prepare request payload
       const requestPayload = {
         question: currentQuestion,
-        documentId: null,  // Don't filter by documentId in RAG mode, only by filename
+        documentId: docId,  // Use the documentId for filtering
         filename: documentName,
         model: selectedProvider === 'openai' ? 'gpt-4o-mini' : 
                selectedProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
