@@ -303,6 +303,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      console.log('🔍 AFTER MARKDOWN CONVERSION - ABOUT TO CREATE DOCUMENT RECORD');
+
       // Step 4: Create document record in rag_documents table
       console.log('🚀 REACHED DOCUMENT RECORD CREATION STEP');
       
