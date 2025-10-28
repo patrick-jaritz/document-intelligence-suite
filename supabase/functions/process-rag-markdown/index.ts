@@ -327,12 +327,23 @@ Deno.serve(async (req: Request) => {
         });
 
       if (docInsertError) {
+        console.error('❌ Failed to create document record:', {
+          error: docInsertError.message,
+          details: docInsertError.details,
+          hint: docInsertError.hint,
+          code: docInsertError.code,
+          documentId,
+          filename,
+          fileSize,
+          fileType
+        });
         logger.warning('rag', 'Failed to create document record', {
           error: docInsertError.message,
           documentId
         });
         // Continue anyway - we can still generate embeddings without the document record
       } else {
+        console.log('✅ Document record created successfully:', { documentId, filename });
         logger.info('rag', 'Document record created successfully', { documentId });
       }
 
