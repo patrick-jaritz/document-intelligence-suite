@@ -229,28 +229,37 @@ serve(async (req) => {
 
     // Ensure rag_documents has a record for the document when UUID is valid
     if (effectiveDocumentId) {
-      const { data: existingDoc, error: docSelectError } = await supabase
-        .from('rag_documents')
-        .select('id')
-        .eq('id', effectiveDocumentId)
-        .single();
-
-      if (docSelectError || !existingDoc) {
-        console.log(`rag_documents missing for ${effectiveDocumentId}, creating a minimal record before chunk insert`);
-        const { error: docInsertError } = await supabase
+      try {
+        const { data: existingDoc, error: docSelectError } = await supabase
           .from('rag_documents')
-          .insert({
-            id: effectiveDocumentId,
-            filename,
-            upload_date: new Date().toISOString(),
-            embedding_provider: provider,
-            metadata: { sourceUrl: sourceUrl || null, createdBy: 'generate-embeddings' }
-          });
+          .select('id')
+          .eq('id', effectiveDocumentId)
+          .single();
 
-        if (docInsertError) {
-          console.warn('Failed to create rag_documents record, will fallback to null document_id for chunks', docInsertError);
-          effectiveDocumentId = null;
+        if (docSelectError || !existingDoc) {
+          console.log(`rag_documents missing for ${effectiveDocumentId}, creating a minimal record before chunk insert`);
+          const { error: docInsertError } = await supabase
+            .from('rag_documents')
+            .insert({
+              id: effectiveDocumentId,
+              filename,
+              upload_date: new Date().toISOString(),
+              embedding_provider: provider,
+              metadata: { sourceUrl: sourceUrl || null, createdBy: 'generate-embeddings' }
+            });
+
+          if (docInsertError) {
+            console.warn('Failed to create rag_documents record, will fallback to null document_id for chunks', docInsertError);
+            effectiveDocumentId = null;
+          } else {
+            console.log(`✅ Successfully created rag_documents record for ${effectiveDocumentId}`);
+          }
+        } else {
+          console.log(`✅ rag_documents record already exists for ${effectiveDocumentId}`);
         }
+      } catch (error) {
+        console.error('❌ Error in rag_documents check/create:', error);
+        effectiveDocumentId = null;
       }
     }
 
