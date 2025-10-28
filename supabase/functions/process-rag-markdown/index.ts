@@ -304,6 +304,8 @@ Deno.serve(async (req: Request) => {
       }
 
       // Step 4: Create document record in rag_documents table
+      console.log('🚀 REACHED DOCUMENT RECORD CREATION STEP');
+      
       const filename = `rag-document-${documentId}.md`;
       const fileSize = pdfBuffer.byteLength;
       const fileType = contentType;
