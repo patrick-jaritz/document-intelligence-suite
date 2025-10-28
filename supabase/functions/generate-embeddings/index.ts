@@ -211,6 +211,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    console.log('🔍 Starting UUID validation and rag_documents check...');
+    
     // Validate UUID helper
     const isValidUuid = (value: string | undefined | null): boolean => {
       if (!value) return false;
@@ -219,16 +221,22 @@ serve(async (req) => {
       return uuidV4Regex.test(value) || genericUuidRegex.test(value);
     };
 
+    console.log(`🔍 Validating documentId: ${documentId}`);
+    
     // Decide effective document id used for insertion
     let effectiveDocumentId: string | null = null;
     if (documentId && isValidUuid(documentId)) {
       effectiveDocumentId = documentId;
+      console.log(`✅ documentId is valid UUID: ${effectiveDocumentId}`);
     } else if (documentId) {
-      console.warn(`Provided documentId is not a valid UUID, will insert chunks with null document_id: ${documentId}`);
+      console.warn(`❌ Provided documentId is not a valid UUID, will insert chunks with null document_id: ${documentId}`);
     }
 
+    console.log(`🔍 effectiveDocumentId: ${effectiveDocumentId}, will check/create rag_documents record`);
+    
     // Ensure rag_documents has a record for the document when UUID is valid
     if (effectiveDocumentId) {
+      console.log(`🔍 effectiveDocumentId is ${effectiveDocumentId}, checking rag_documents...`);
       try {
         const { data: existingDoc, error: docSelectError } = await supabase
           .from('rag_documents')
