@@ -16,14 +16,14 @@ const testRAGProcessing = async () => {
       body: JSON.stringify({
         documentId: 'test-doc-' + Date.now(),
         jobId: 'test-job-' + Date.now(),
-        inputType: 'text',
+        fileUrl: '', // Empty since we're using fileDataUrl
         ocrProvider: 'dots-ocr',
-        fileData: testText,
-        llmModel: 'gpt-4o-mini',
+        fileDataUrl: 'data:text/plain;base64,' + btoa(testText),
+        openaiVisionModel: 'gpt-4o-mini',
         enableMarkdownConversion: true,
         convertTables: true,
         preserveFormatting: true,
-        generateEmbeddings: true,
+        generateEmbeddings: true, // Test with true
         embeddingProvider: 'openai',
         chunkSize: 1000,
         chunkOverlap: 200
