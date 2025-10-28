@@ -207,9 +207,52 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Validate UUID helper
+    const isValidUuid = (value: string | undefined | null): boolean => {
+      if (!value) return false;
+      const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const genericUuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidV4Regex.test(value) || genericUuidRegex.test(value);
+    };
+
+    // Decide effective document id used for insertion
+    let effectiveDocumentId: string | null = null;
+    if (documentId && isValidUuid(documentId)) {
+      effectiveDocumentId = documentId;
+    } else if (documentId) {
+      console.warn(`Provided documentId is not a valid UUID, will insert chunks with null document_id: ${documentId}`);
+    }
+
+    // Ensure rag_documents has a record for the document when UUID is valid
+    if (effectiveDocumentId) {
+      const { data: existingDoc, error: docSelectError } = await supabase
+        .from('rag_documents')
+        .select('id')
+        .eq('id', effectiveDocumentId)
+        .single();
+
+      if (docSelectError || !existingDoc) {
+        console.log(`rag_documents missing for ${effectiveDocumentId}, creating a minimal record before chunk insert`);
+        const { error: docInsertError } = await supabase
+          .from('rag_documents')
+          .insert({
+            id: effectiveDocumentId,
+            filename,
+            upload_date: new Date().toISOString(),
+            embedding_provider: provider,
+            metadata: { sourceUrl: sourceUrl || null, createdBy: 'generate-embeddings' }
+          });
+
+        if (docInsertError) {
+          console.warn('Failed to create rag_documents record, will fallback to null document_id for chunks', docInsertError);
+          effectiveDocumentId = null;
+        }
+      }
+    }
+
     // Prepare data for insertion
     const embeddingsData = chunks.map((chunk, i) => ({
-      document_id: documentId || null,
+      document_id: effectiveDocumentId,
       filename,
       chunk_text: chunk.text,
       chunk_index: chunk.index,
@@ -232,23 +275,7 @@ serve(async (req) => {
       }
     });
 
-    // Insert into database (correct table name)
-    // If documentId is provided, ensure it exists in rag_documents table
-    if (documentId) {
-      const { data: existingDoc, error: docError } = await supabase
-        .from('rag_documents')
-        .select('id')
-        .eq('id', documentId)
-        .single();
-      
-      if (docError || !existingDoc) {
-        console.log(`Document ${documentId} not found in rag_documents, setting document_id to null`);
-        // Set document_id to null if document doesn't exist
-        embeddingsData.forEach(chunk => {
-          chunk.document_id = null;
-        });
-      }
-    }
+    // No additional adjustment needed here, effectiveDocumentId already accounts for validity and existence
 
     const { error: insertError } = await supabase
       .from('document_chunks')
