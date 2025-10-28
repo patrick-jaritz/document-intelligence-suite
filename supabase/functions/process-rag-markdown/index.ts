@@ -99,6 +99,13 @@ Deno.serve(async (req: Request) => {
       return rateLimitResponse;
     }
 
+    console.log('🚀 Process RAG with Markdown started', {
+      requestId,
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries())
+    });
+    
     // Check environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://joqnpibrfzqflyogrkht.supabase.co';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -123,6 +130,17 @@ Deno.serve(async (req: Request) => {
       const requestText = await req.text();
       requestSize = requestText.length;
       requestBody = JSON.parse(requestText);
+      
+      console.log('📋 Request body parsed successfully:', {
+        documentId: requestBody.documentId,
+        jobId: requestBody.jobId,
+        inputType: requestBody.inputType,
+        ocrProvider: requestBody.ocrProvider,
+        generateEmbeddings: requestBody.generateEmbeddings,
+        embeddingProvider: requestBody.embeddingProvider,
+        hasFileData: !!requestBody.fileDataUrl,
+        hasFileUrl: !!requestBody.fileUrl
+      });
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       throw new Error('Invalid JSON in request body');
