@@ -314,7 +314,13 @@ Deno.serve(async (req: Request) => {
       let chunksCreated = 0;
       let ragProcessingTime = 0;
 
-      if (generateEmbeddings) {
+      logger.info('rag', 'Checking embedding generation flag', {
+        generateEmbeddings,
+        markdownResult: !!markdownResult,
+        ocrResultTextLength: ocrResult.text.length
+      });
+
+      if (generateEmbeddings) {        
         const ragStartTime = Date.now();
         const textForEmbeddings = markdownResult?.markdown || ocrResult.text;
         
