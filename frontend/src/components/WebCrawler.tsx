@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Globe, Download, Save, Loader2, CheckCircle, AlertCircle, FileText, Archive, Settings } from 'lucide-react';
 import { callEdgeFunction } from '../lib/supabase';
+import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
 
 interface CrawlResult {
   url: string;
@@ -251,6 +252,21 @@ export function WebCrawler() {
               <FileText className="w-5 h-5 text-green-600" />
               Crawled Content
             </h3>
+            <ConvertToMarkdownButton 
+              text={result.content}
+              filename={`${result.metadata.title.replace(/[^a-zA-Z0-9]/g, '-')}.txt`}
+              onConvert={(markdown) => {
+                const blob = new Blob([markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${result.metadata.title.replace(/[^a-zA-Z0-9]/g, '-')}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+            />
           </div>
 
           <div className="space-y-4">

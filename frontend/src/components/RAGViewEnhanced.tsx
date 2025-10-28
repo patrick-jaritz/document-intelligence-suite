@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe, Settings, CheckCircle } from 'lucide-react';
 import { supabase, supabaseUrl, ragHelpers } from '../lib/supabase';
+import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
 
 interface Document {
   id: string;
@@ -586,6 +587,25 @@ export function RAGViewEnhanced() {
                       <span className="font-medium">Score: {source.score.toFixed(3)}</span> - {source.text.substring(0, 100)}...
                     </div>
                   ))}
+                </div>
+              )}
+              {message.role === 'assistant' && (
+                <div className="mt-2 pt-2 border-t border-gray-300">
+                  <ConvertToMarkdownButton 
+                    text={message.content}
+                    filename={`rag-response-${message.id}.txt`}
+                    onConvert={(markdown) => {
+                      const blob = new Blob([markdown], { type: 'text/markdown' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `rag-response-${message.id}.md`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  />
                 </div>
               )}
             </div>

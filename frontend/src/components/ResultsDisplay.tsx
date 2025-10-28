@@ -3,6 +3,7 @@ import { Download, Copy, CheckCircle, AlertCircle, Loader2, FileText } from 'luc
 import { UserFriendlyError } from './UserFriendlyError';
 import { ProcessingProgress } from './ProcessingProgress';
 import { SuccessFeedback } from './SuccessFeedback';
+import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
 
 interface ResultsDisplayProps {
   status: 'pending' | 'ocr_processing' | 'llm_processing' | 'completed' | 'failed';
@@ -203,6 +204,21 @@ export function ResultsDisplay({
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
               <span className="text-sm font-medium text-gray-700">Extracted Data (JSON)</span>
               <div className="flex gap-2">
+                <ConvertToMarkdownButton 
+                  text={structuredJson}
+                  filename="structured-output.json"
+                  onConvert={(markdown) => {
+                    const blob = new Blob([markdown], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'structured-output.md';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                />
                 <button
                   onClick={() => handleCopy(structuredJson, 'structured')}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
@@ -245,22 +261,39 @@ export function ResultsDisplay({
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
               <span className="text-sm font-medium text-gray-700">Raw Extracted Text</span>
-              <button
-                onClick={() => handleCopy(extractedText || '', 'raw')}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
-              >
-                {copiedRaw ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    Copy
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <ConvertToMarkdownButton 
+                  text={extractedText || ''}
+                  filename="extracted-text.txt"
+                  onConvert={(markdown) => {
+                    const blob = new Blob([markdown], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'extracted-text.md';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                />
+                <button
+                  onClick={() => handleCopy(extractedText || '', 'raw')}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
+                >
+                  {copiedRaw ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
             <div className="p-4 text-sm text-gray-800 overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap">
               {extractedText || 'No raw text available'}
