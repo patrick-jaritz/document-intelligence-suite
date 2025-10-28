@@ -196,7 +196,21 @@ Deno.serve(async (req: Request) => {
         errorMessage
       });
 
-      throw conversionError;
+      // Provide helpful error response with guidance
+      const responseTime = Date.now() - startTime;
+      const errorData = { 
+        success: false, 
+        error: errorMessage,
+        suggestion: contentType === 'application/pdf' ? 
+          'Try using an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for PDF files.' :
+          'Try using a different file format or OCR provider.',
+        requestId 
+      };
+      
+      return new Response(JSON.stringify(errorData), { 
+        status: 400, // Bad Request instead of 500 for user guidance
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+      });
     }
 
   } catch (error) {
@@ -409,6 +423,23 @@ async function convertPDFToMarkdown(
       // Decode base64 data
       const decodedData = atob(fileData);
       
+      // Check if this looks like raw PDF binary data (contains PDF structure keywords)
+      const pdfKeywords = ['endobj', 'endstream', 'FlateDecode', 'StructParent', 'StructElem'];
+      const hasPdfKeywords = pdfKeywords.some(keyword => decodedData.includes(keyword));
+      
+      if (hasPdfKeywords) {
+        logger?.warn('markdown', 'PDF appears to be raw binary data - cannot extract text', {
+          fileName,
+          detectedKeywords: pdfKeywords.filter(k => decodedData.includes(k))
+        });
+        
+        throw new Error(
+          `PDF text extraction failed for "${fileName}". ` +
+          `This PDF contains raw binary data that cannot be parsed without proper PDF libraries. ` +
+          `Please use an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
+        );
+      }
+      
       // Look for readable text patterns in the decoded PDF data
       // Simple approach: extract any readable ASCII text sequences
       const textPattern = /[A-Za-z]{3,}[\s\.,!?;:]*[A-Za-z]{3,}/g;
@@ -423,7 +454,8 @@ async function convertPDFToMarkdown(
       
       logger?.info('markdown', 'PDF extraction attempt', {
         foundText: !!extractedText,
-        textLength: extractedText.length
+        textLength: extractedText.length,
+        hasPdfKeywords
       });
     } catch (decodeError) {
       logger?.warn('markdown', 'Failed to decode base64 PDF data', { error: decodeError });
@@ -440,7 +472,7 @@ async function convertPDFToMarkdown(
       throw new Error(
         `PDF text extraction failed for "${fileName}". ` +
         `This PDF may be image-based, encrypted, or in a format we cannot parse. ` +
-        `Try using an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
+        `Please use an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
       );
     }
     

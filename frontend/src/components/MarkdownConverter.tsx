@@ -78,7 +78,27 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Conversion failed';
-      setError(errorMessage);
+      
+      // Check if this is a PDF parsing error and provide helpful guidance
+      const isPdfError = file.type === 'application/pdf' && 
+        (errorMessage.includes('PDF text extraction failed') || 
+         errorMessage.includes('raw binary data') ||
+         errorMessage.includes('cannot be parsed'));
+      
+      if (isPdfError) {
+        setError(
+          `PDF conversion failed: ${errorMessage}\n\n` +
+          `💡 **Suggestion**: PDF files often contain complex formatting or images that cannot be converted to Markdown directly. ` +
+          `Try using an OCR provider instead:\n` +
+          `• Google Vision API\n` +
+          `• OpenAI Vision\n` +
+          `• DeepSeek-OCR\n` +
+          `• Or use the RAG processing mode which includes OCR`
+        );
+      } else {
+        setError(errorMessage);
+      }
+      
       console.error('Markdown conversion error:', err);
     } finally {
       setIsProcessing(false);
@@ -193,7 +213,7 @@ export const MarkdownConverter: React.FC<MarkdownConverterProps> = ({ onConvert 
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">Conversion Error</h3>
-              <div className="mt-2 text-sm text-red-700">{error}</div>
+              <div className="mt-2 text-sm text-red-700 whitespace-pre-line">{error}</div>
             </div>
           </div>
         </div>
