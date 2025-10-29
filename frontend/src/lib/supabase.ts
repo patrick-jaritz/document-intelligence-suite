@@ -329,6 +329,21 @@ export const ragHelpers = {
       chunkOverlap: chunkOverlap ?? 200,
     });
   },
+
+  // Process URL with crawler
+  processURL: async (
+    documentId: string,
+    jobId: string,
+    url: string,
+    crawler: string = 'crawl4ai'
+  ) => {
+    return callEdgeFunction('process-url', {
+      documentId,
+      jobId,
+      url,
+      crawler,
+    });
+  },
 };
 
 export default supabase;
