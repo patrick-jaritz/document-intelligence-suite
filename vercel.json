@@ -1,18 +1,7 @@
 {
   "version": 2,
-  "name": "document-intelligence-suite",
+  "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist",
-        "installCommand": "cd frontend && npm install",
-        "buildCommand": "cd frontend && npm run build && cd .. && mkdir -p dist && cp -r frontend/dist/* dist/"
-      }
-    }
-  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
