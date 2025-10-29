@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^6.1.2",
-    "@supabase/supabase-js": "^2.76.1"
+    "@supabase/supabase-js": "^2.76.1",
+    "vercel": "^48.6.7"
   }
 }
