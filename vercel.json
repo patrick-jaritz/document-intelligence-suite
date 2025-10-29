@@ -7,9 +7,9 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "frontend/dist",
+        "distDir": "dist",
         "installCommand": "cd frontend && npm install",
-        "buildCommand": "cd frontend && npm run build"
+        "buildCommand": "cd frontend && npm run build && cd .. && mkdir -p dist && cp -r frontend/dist/* dist/"
       }
     }
   ],
