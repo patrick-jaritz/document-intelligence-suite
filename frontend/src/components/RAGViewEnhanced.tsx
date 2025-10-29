@@ -313,7 +313,7 @@ export function RAGViewEnhanced() {
           Enhanced RAG Q&A with Markdown Processing
         </h2>
         <p className="text-gray-600">
-          Upload documents or URLs and ask questions. Enhanced with Markdown conversion for better LLM processing.
+          Upload documents or URLs and ask questions. Enhanced with Markdown conversion for better LLM processing. Select your OCR provider above.
         </p>
       </div>
 
