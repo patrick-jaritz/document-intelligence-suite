@@ -16,7 +16,6 @@
       "use": "@vercel/node"
     }
   ],
-  "outputDirectory": "frontend/dist",
   "routes": [
     {
       "src": "/api/(.*)",
