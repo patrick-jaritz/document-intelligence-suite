@@ -33,7 +33,7 @@ export function RAGViewEnhanced() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
-  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('openai-vision');
+  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('google-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
   const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
@@ -337,8 +337,8 @@ export function RAGViewEnhanced() {
               onChange={(e) => setOcrProvider(e.target.value as any)}
               className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
             >
-              <option value="openai-vision">OpenAI Vision API (Recommended)</option>
-              <option value="google-vision">Google Vision API</option>
+              <option value="google-vision">Google Vision API (Recommended for PDFs)</option>
+              <option value="openai-vision">OpenAI Vision API (Images only)</option>
               <option value="mistral-vision">Mistral Vision API</option>
               <option value="tesseract">Tesseract (Browser-based)</option>
               <option value="ocr-space">OCR.space (Free tier limited)</option>
@@ -347,7 +347,9 @@ export function RAGViewEnhanced() {
               <option value="deepseek-ocr">DeepSeek-OCR (Requires service)</option>
             </select>
             <p className="text-xs text-gray-600 mt-2 font-medium">
-              {ocrProvider === 'dots-ocr' || ocrProvider === 'paddleocr' || ocrProvider === 'deepseek-ocr' 
+              {ocrProvider === 'openai-vision' 
+                ? '⚠️ OpenAI Vision only supports images (PNG, JPG, WebP, GIF). For PDFs, use Google Vision or another provider.'
+                : ocrProvider === 'dots-ocr' || ocrProvider === 'paddleocr' || ocrProvider === 'deepseek-ocr' 
                 ? '⚠️ Self-hosted service - ensure service is deployed'
                 : '✅ API-based provider - ready to use'}
             </p>
