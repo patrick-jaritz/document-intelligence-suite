@@ -1,0 +1,19 @@
+Deployment triggered at: 2025-01-28 12:00:00 UTC
+
+Changes deployed:
+✅ Frontend: Updated file upload components to support .txt and .md files
+✅ Backend: Deployed all Supabase Edge Functions with plain text processing fixes
+✅ Git: Committed and pushed all changes to main branch
+
+Functions deployed:
+- process-pdf-ocr: Plain text processing fix
+- process-rag-markdown: Document record creation fix  
+- rag-query: DocumentId filtering fix
+- generate-embeddings: Foreign key constraint fix
+
+Frontend changes:
+- RAGViewEnhanced.tsx: Added .txt, .md support
+- DocumentUploader.tsx: Updated validation for text files
+- All file upload components now accept text files
+
+Status: All systems ready for .txt file uploads and processing

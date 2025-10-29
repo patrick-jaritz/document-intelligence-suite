@@ -29,7 +29,7 @@ export function RAGView() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
-  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('dots-ocr');
+  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('openai-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
   const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
@@ -432,7 +432,7 @@ export function RAGView() {
         body: JSON.stringify({
           question: inputMessage,
           documentId: selectedDocument === 'all' ? null : selectedDocument,
-          filename: selectedDocument === 'all' ? null : documents.find(doc => doc.id === selectedDocument)?.filename,
+          filename: selectedDocument === 'all' ? null : documents?.find(doc => doc.id === selectedDocument)?.filename,
           provider: ragProvider,
           model: ragModel,
           topK: 5
@@ -524,15 +524,20 @@ export function RAGView() {
                 onChange={(e) => setOcrProvider(e.target.value as any)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
+                <option value="openai-vision">OpenAI Vision API (Recommended)</option>
                 <option value="google-vision">Google Vision API</option>
-                <option value="ocr-space">OCR.space API</option>
-                <option value="openai-vision">OpenAI Vision API</option>
                 <option value="mistral-vision">Mistral Vision API</option>
-                <option value="tesseract">Tesseract (Browser)</option>
-                <option value="paddleocr">PaddleOCR</option>
-                <option value="dots-ocr">dots.ocr (SOTA)</option>
-                <option value="deepseek-ocr">DeepSeek-OCR (Premium)</option>
+                <option value="tesseract">Tesseract (Browser-based)</option>
+                <option value="ocr-space">OCR.space (Free tier limited)</option>
+                <option value="paddleocr">PaddleOCR (Requires service)</option>
+                <option value="dots-ocr">dots.ocr (Requires service)</option>
+                <option value="deepseek-ocr">DeepSeek-OCR (Requires service)</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {ocrProvider === 'dots-ocr' || ocrProvider === 'paddleocr' || ocrProvider === 'deepseek-ocr' 
+                  ? '⚠️ Self-hosted service - ensure service is deployed'
+                  : '✅ API-based provider - ready to use'}
+              </p>
             </div>
 
             {/* Crawler Provider Selection (for URL uploads) */}
@@ -742,7 +747,7 @@ export function RAGView() {
               Chat with Documents
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {selectedDocument === 'all' ? 'Searching all documents' : `Searching: ${documents.find(doc => doc.id === selectedDocument)?.filename || selectedDocument}`}
+              {selectedDocument === 'all' ? 'Searching all documents' : `Searching: ${documents?.find(doc => doc.id === selectedDocument)?.filename || selectedDocument}`}
             </p>
           </div>
 

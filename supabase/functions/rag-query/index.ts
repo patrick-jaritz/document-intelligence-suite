@@ -93,12 +93,42 @@ async function generateQueryEmbedding(
 }
 
 // =============================================================================
+// Utility Functions
+// =============================================================================
+
+function calculateCosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error('Vectors must have the same length');
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  normA = Math.sqrt(normA);
+  normB = Math.sqrt(normB);
+  
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+  
+  return dotProduct / (normA * normB);
+}
+
+// =============================================================================
 // Supabase pgvector Integration
 // =============================================================================
 
 async function querySupabase(
   embedding: number[],
   filename?: string,
+  documentId?: string,
   topK: number = 5
 ): Promise<any[]> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -118,78 +148,258 @@ async function querySupabase(
     });
 
   try {
-    // First try with filename filter if provided
+    // Query document_chunks table directly instead of using the RPC function
     let query = supabase
       .from('document_chunks')
-      .select('*')
-      .limit(topK);
+      .select('id, chunk_text, chunk_index, filename, document_id, embedding, metadata')
+      .limit(topK * 2); // Get more chunks to ensure we have enough for similarity calculation
 
-    if (filename) {
+    // Apply filters - prioritize documentId over filename
+    // If documentId is provided, use only documentId (filename might not match stored filename)
+    if (documentId) {
+      // Verify documentId is not null/undefined and is a valid UUID format
+      if (!documentId || documentId === 'null' || documentId === 'undefined') {
+        console.error('❌ INVALID documentId provided:', documentId);
+        throw new Error(`Invalid documentId: ${documentId}`);
+      }
+      
+      console.log('🔍 Applying documentId filter:', {
+        documentId: documentId,
+        documentIdType: typeof documentId,
+        documentIdLength: documentId?.length,
+        isUuidLike: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)
+      });
+      
+      // Apply filter - ensure document_id matches exactly
+      query = query.eq('document_id', documentId);
+    } else if (filename) {
+      // Only use filename filter if documentId is not provided
+      console.log('🔍 Applying filename filter:', filename);
       query = query.eq('filename', filename);
+    } else {
+      console.log('⚠️ No filters applied - will query all documents');
     }
 
-    // Use the match_document_chunks RPC function for vector similarity
-    // Note: The function expects query_embedding as a TEXT (JSON string)
-    const { data: matches, error } = await supabase.rpc('match_document_chunks', {
-      query_embedding: JSON.stringify(embedding),
-      match_threshold: 0.1, // Very low threshold for better semantic matching
-      match_count: topK,
-      filter_document_id: null,
-      filter_filename: filename || null
+    const { data: chunks, error } = await query;
+
+    console.log('🔍 Database query result:', {
+      hasError: !!error,
+      error: error,
+      chunksCount: chunks?.length || 0,
+      filters: { filename, documentId },
+      queryLimit: topK * 2,
+      allChunkDocumentIds: chunks?.map((c: any) => c.document_id) || [],
+      uniqueDocumentIds: [...new Set(chunks?.map((c: any) => c.document_id) || [])],
+      firstChunkDocumentId: chunks?.[0]?.document_id,
+      firstChunkFilename: chunks?.[0]?.filename,
+      documentIdMatch: chunks?.[0]?.document_id === documentId ? '✅ MATCH' : '❌ MISMATCH'
     });
+    
+    // CRITICAL CHECK: If documentId was provided but chunks have different IDs, this is a serious error
+    if (documentId && chunks && chunks.length > 0) {
+      const nonMatchingChunks = chunks.filter((c: any) => c.document_id !== documentId);
+      if (nonMatchingChunks.length > 0) {
+        console.error('🚨 DATABASE QUERY ERROR: Query returned chunks with wrong document_id!', {
+          requestedDocumentId: documentId,
+          returnedDocumentIds: [...new Set(chunks.map((c: any) => c.document_id))],
+          nonMatchingCount: nonMatchingChunks.length,
+          totalReturned: chunks.length,
+          message: 'This indicates the Supabase query filter is not working correctly'
+        });
+        // Don't return these chunks - they're wrong
+        return [];
+      }
+    }
 
     if (error) {
-      console.error('❌ RPC function error:', error);
-      throw new Error(`Supabase RPC error: ${error.message}`);
+      console.error('❌ Query error:', error);
+      throw new Error(`Supabase query error: ${error.message}`);
     }
+
+    if (!chunks || chunks.length === 0) {
+      console.log('⚠️ No chunks found with filters:', {
+        documentId,
+        filename,
+        filtersApplied: !!(documentId || filename)
+      });
+      
+      // Only fall back to all documents if NO filters were provided
+      // If documentId or filename were provided, return empty (document not found)
+      if (!documentId && !filename) {
+        console.log('🔄 No filters provided, querying all documents...');
+        
+        // Try without filters
+        const { data: allChunks, error: allError } = await supabase
+          .from('document_chunks')
+          .select('id, chunk_text, chunk_index, filename, document_id, embedding, metadata')
+          .limit(topK * 2);
+
+        if (allError) {
+          console.error('❌ Query error (no filter):', allError);
+          throw new Error(`Supabase query error (no filter): ${allError.message}`);
+        }
+
+        if (allChunks && allChunks.length > 0) {
+          console.log('✅ Found results without filters:', {
+            matches: allChunks.length,
+            foundFilenames: [...new Set(allChunks.map((c: any) => c.filename))]
+          });
+          
+          return allChunks;
+        }
+      } else {
+        // DocumentId or filename was provided but not found
+        console.log('⚠️ Document not found with provided filters:', {
+          documentId,
+          filename,
+          message: 'Returning empty results - document may not exist or may not have been processed yet'
+        });
+      }
+      
+      return [];
+    }
+
+    // Log document ID verification for all chunks
+    console.log('🔍 Verifying chunks match requested documentId:', {
+      requestedDocumentId: documentId,
+      chunksReceived: chunks.length,
+      chunkDocumentIds: chunks.map((c: any) => c.document_id),
+      chunkFilenames: chunks.map((c: any) => c.filename)
+    });
+
+    // Additional safety filter: remove any chunks that don't match documentId if provided
+    let filteredChunks = chunks;
+    if (documentId) {
+      const beforeFilter = filteredChunks.length;
+      filteredChunks = filteredChunks.filter((c: any) => {
+        const matches = c.document_id === documentId;
+        if (!matches) {
+          console.warn('🚫 Rejecting chunk - documentId mismatch:', {
+            chunkId: c.id,
+            chunkDocumentId: c.document_id,
+            requestedDocumentId: documentId,
+            chunkFilename: c.filename,
+            match: matches
+          });
+        }
+        return matches;
+      });
+      const afterFilter = filteredChunks.length;
+      
+      if (beforeFilter !== afterFilter) {
+        console.error('❌ CRITICAL: Database returned chunks from wrong document!', {
+          beforeFilter,
+          afterFilter,
+          removed: beforeFilter - afterFilter,
+          requestedDocumentId: documentId,
+          receivedDocumentIds: [...new Set(chunks.map((c: any) => c.document_id))]
+        });
+      }
+      
+      // If documentId was provided but no matching chunks found, return empty
+      if (filteredChunks.length === 0 && beforeFilter > 0) {
+        console.error('❌ No chunks matched the requested documentId:', {
+          requestedDocumentId: documentId,
+          receivedChunks: beforeFilter,
+          receivedDocumentIds: [...new Set(chunks.map((c: any) => c.document_id))],
+          receivedFilenames: [...new Set(chunks.map((c: any) => c.filename))]
+        });
+        return [];
+      }
+    }
+
+    // Calculate similarities for the filtered results
+    const matches = filteredChunks.map((chunk: any) => {
+      const chunkEmbedding = chunk.embedding;
+      
+      console.log('🔍 Chunk embedding analysis:', {
+        chunkId: chunk.id,
+        chunkDocumentId: chunk.document_id,
+        requestedDocumentId: documentId,
+        matchesDocument: documentId ? chunk.document_id === documentId : 'N/A',
+        hasEmbedding: !!chunkEmbedding,
+        embeddingType: typeof chunkEmbedding,
+        isArray: Array.isArray(chunkEmbedding),
+        embeddingLength: chunkEmbedding?.length,
+        embeddingPreview: JSON.stringify(chunkEmbedding).substring(0, 200) + '...',
+        chunkTextPreview: chunk.chunk_text?.substring(0, 100) + '...'
+      });
+      
+      if (!chunkEmbedding) {
+        console.log('⚠️ Chunk has no embedding');
+        return null;
+      }
+      
+      // Try to parse embedding if it's a string
+      let parsedEmbedding = chunkEmbedding;
+      if (typeof chunkEmbedding === 'string') {
+        try {
+          parsedEmbedding = JSON.parse(chunkEmbedding);
+          console.log('✅ Successfully parsed string embedding');
+        } catch (e) {
+          console.log('❌ Failed to parse string embedding:', e.message);
+          return null;
+        }
+      }
+      
+      if (!Array.isArray(parsedEmbedding)) {
+        console.log('⚠️ Chunk embedding is not an array after parsing');
+        return null;
+      }
+      
+      // Calculate cosine similarity
+      let similarity = calculateCosineSimilarity(embedding, parsedEmbedding);
+      
+      // Ensure similarity is a valid number (not NaN or undefined)
+      if (typeof similarity !== 'number' || isNaN(similarity)) {
+        console.warn('⚠️ Invalid similarity value, defaulting to 0:', similarity);
+        similarity = 0;
+      }
+      
+      console.log('🔍 Similarity calculation:', {
+        chunkId: chunk.id,
+        similarity: similarity,
+        queryEmbeddingLength: embedding.length,
+        chunkEmbeddingLength: parsedEmbedding.length,
+        chunkTextPreview: chunk.chunk_text?.substring(0, 100) + '...'
+      });
+      
+      return {
+        id: chunk.id,
+        chunk_text: chunk.chunk_text,
+        chunk_index: chunk.chunk_index,
+        filename: chunk.filename,
+        document_id: chunk.document_id,
+        similarity: similarity,
+        metadata: chunk.metadata
+      };
+    }).filter(Boolean).sort((a: any, b: any) => b.similarity - a.similarity).slice(0, topK);
+
+    // Apply no similarity threshold to see all results
+    const filteredMatches = matches;
+    
+    console.log('🔍 Similarity filtering:', {
+      totalMatches: matches.length,
+      filteredMatches: filteredMatches.length,
+      similarities: matches.map((m: any) => m.similarity),
+      threshold: 'none'
+    });
 
     console.log('✅ Supabase query successful:', {
       matches: matches?.length || 0,
+      filteredMatches: filteredMatches?.length || 0,
       withFilenameFilter: !!filename,
-      firstMatch: matches?.[0] ? {
-        filename: matches[0].filename,
-        similarity: matches[0].similarity,
-        textPreview: matches[0].chunk_text?.substring(0, 100) + '...'
+      withDocumentIdFilter: !!documentId,
+      filters: { filename, documentId },
+      firstMatch: filteredMatches?.[0] ? {
+        filename: filteredMatches[0].filename,
+        document_id: filteredMatches[0].document_id,
+        similarity: filteredMatches[0].similarity,
+        textPreview: filteredMatches[0].chunk_text?.substring(0, 100) + '...'
       } : null
     });
 
-    // If no results with filename filter, try without filter (search all documents)
-    if ((!matches || matches.length === 0) && filename) {
-      console.log('🔄 No results with filename filter, trying without filter...');
-      
-      const { data: allMatches, error: allError } = await supabase.rpc('match_document_chunks', {
-        query_embedding: JSON.stringify(embedding),
-        match_threshold: 0.1, // Very low threshold for better semantic matching
-        match_count: topK,
-        filter_document_id: null,
-        filter_filename: null // No filter - search all documents
-      });
-
-      if (allError) {
-        console.error('❌ RPC function error (no filter):', allError);
-        throw new Error(`Supabase RPC error (no filter): ${allError.message}`);
-      }
-
-      if (allMatches && allMatches.length > 0) {
-        console.log('✅ Found results without filename filter:', {
-          matches: allMatches.length,
-          foundFilenames: [...new Set(allMatches.map((m: any) => m.filename))],
-          requestedFilename: filename
-        });
-        
-        // Add a warning to the response that we're using a different document
-        const foundFilenames = [...new Set(allMatches.map((m: any) => m.filename))];
-        if (foundFilenames.length > 0 && !foundFilenames.includes(filename)) {
-          console.log('⚠️ WARNING: Using content from different document:', foundFilenames[0]);
-          // We'll add this warning to the final response
-          allMatches.warning = `Note: The requested document "${filename}" was not found. Showing results from "${foundFilenames[0]}" instead.`;
-        }
-        
-        return allMatches;
-      }
-    }
-
-    return matches || [];
+    return filteredMatches || [];
 
   } catch (error) {
     console.error('❌ Supabase query error:', error);
@@ -390,7 +600,7 @@ serve(async (req) => {
     };
 
     console.log(`🔍 RAG query: "${question}" (${provider}/${model})`);
-    console.log('📋 Filters:', { filename, topK });
+    console.log('📋 Filters:', { filename, documentId, topK });
     console.log('🔑 API Keys status:', {
       openai: apiKeys.OPENAI_API_KEY ? 'present' : 'missing',
       mistral: apiKeys.MISTRAL_API_KEY ? 'present' : 'missing',
@@ -404,12 +614,57 @@ serve(async (req) => {
 
     // Step 2: Query Supabase for similar chunks
     console.log('🗄️ Querying Supabase pgvector...');
-    const matches = await querySupabase(questionEmbedding, filename, topK);
+    let matches = await querySupabase(questionEmbedding, filename, documentId, topK);
     
     console.log('✅ Supabase search completed, found chunks:', matches.length);
     
+    // Final verification: ensure all matches belong to the requested document
+    if (documentId && matches.length > 0) {
+      const mismatchedMatches = matches.filter((m: any) => m.document_id !== documentId);
+      if (mismatchedMatches.length > 0) {
+        console.error('❌ CRITICAL ERROR: Found matches from wrong document!', {
+          requestedDocumentId: documentId,
+          totalMatches: matches.length,
+          mismatchedCount: mismatchedMatches.length,
+          mismatchedDocumentIds: [...new Set(mismatchedMatches.map((m: any) => m.document_id))],
+          allDocumentIds: [...new Set(matches.map((m: any) => m.document_id))]
+        });
+        
+        // Filter out mismatched chunks
+        const correctMatches = matches.filter((m: any) => m.document_id === documentId);
+        if (correctMatches.length === 0) {
+          console.error('❌ No correct matches found after filtering - returning empty');
+          return new Response(
+            JSON.stringify({
+              answer: 'No relevant information found in the document to answer this question. The requested document was not found in the database.',
+              sources: [],
+              model,
+              provider,
+              warning: `Document ID ${documentId} was requested but chunks from other documents were found.`
+            }),
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            }
+          );
+        }
+        
+        console.warn('⚠️ Using only correctly matched chunks:', {
+          originalCount: matches.length,
+          correctCount: correctMatches.length,
+          removed: mismatchedMatches.length
+        });
+        matches = correctMatches;
+      } else {
+        console.log('✅ All matches verified - belong to requested document:', documentId);
+      }
+    }
+    
     if (matches.length > 0) {
-      console.log('📊 Top similarities:', matches.map(m => m.similarity).slice(0, 3));
+      console.log('📊 Top similarities:', matches.map((m: any) => m.similarity).slice(0, 3));
+      console.log('📋 Match document IDs:', [...new Set(matches.map((m: any) => m.document_id))]);
     } else {
       console.log('⚠️ No chunks found - check filename filter:', filename);
     }
@@ -423,6 +678,7 @@ serve(async (req) => {
           provider,
           debug: {
             filename,
+            documentId,
             supabaseMatches: 0
           }
         }),
@@ -435,9 +691,29 @@ serve(async (req) => {
       );
     }
 
+    // Helper function to decode base64 if needed
+    const decodeIfBase64 = (text: string): string => {
+      if (!text || text.length === 0) return text;
+      
+      // Check if text looks like base64 (long string with base64 characters, no spaces)
+      if (text.length > 50 && !text.includes(' ') && !text.includes('\n')) {
+        try {
+          // Try to decode
+          const decoded = atob(text);
+          // If decoded result is shorter and contains readable characters, use it
+          if (decoded.length > 0 && decoded.length < text.length && /[\x20-\x7E]/.test(decoded)) {
+            return decoded;
+          }
+        } catch (e) {
+          // Not valid base64, return original
+        }
+      }
+      return text;
+    };
+
     // Step 3: Prepare context from retrieved chunks
     const context = matches
-      .map((match: any) => match.chunk_text || '')
+      .map((match: any) => decodeIfBase64(match.chunk_text || ''))
       .filter(text => text.length > 0)
       .join('\n\n---\n\n');
 
@@ -448,12 +724,17 @@ serve(async (req) => {
     console.log('✅ Generated answer');
 
     // Step 5: Prepare sources
-    const sources = matches.map((match: any) => ({
-      text: match.chunk_text || '',
-      score: match.similarity,
-      chunkIndex: match.chunk_index,
-      filename: match.filename
-    }));
+    const sources = matches.map((match: any) => {
+      const chunkText = match.chunk_text || '';
+      const decodedText = decodeIfBase64(chunkText);
+      
+      return {
+        text: decodedText,
+        score: typeof match.similarity === 'number' && !isNaN(match.similarity) ? match.similarity : 0,
+        chunkIndex: match.chunk_index,
+        filename: match.filename
+      };
+    });
 
     // Step 6: Store session in Supabase (optional)
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -475,6 +756,31 @@ serve(async (req) => {
     // Check if we have a warning about using different document
     const warning = matches.warning || null;
     
+    // Collect diagnostic information
+    const debugInfo = {
+      requestedDocumentId: documentId,
+      requestedFilename: filename,
+      retrievedChunks: matches.length,
+      actualDocumentIds: [...new Set(matches.map((m: any) => m.document_id))],
+      actualFilenames: [...new Set(matches.map((m: any) => m.filename))],
+      documentIdMatch: documentId && matches.length > 0 
+        ? matches.every((m: any) => m.document_id === documentId)
+        : 'N/A (no documentId or no chunks)'
+    };
+    
+    // Log diagnostic info
+    console.log('📊 FINAL DIAGNOSTIC:', debugInfo);
+    
+    // If documentId was requested but chunks are from different documents, add warning
+    let diagnosticWarning = null;
+    if (documentId && matches.length > 0) {
+      const mismatched = matches.filter((m: any) => m.document_id !== documentId);
+      if (mismatched.length > 0) {
+        diagnosticWarning = `⚠️ WARNING: Requested document ${documentId} but ${mismatched.length} chunks are from other documents (IDs: ${[...new Set(mismatched.map((m: any) => m.document_id))].join(', ')})`;
+        console.error('🚨 DIAGNOSTIC WARNING:', diagnosticWarning);
+      }
+    }
+    
     return new Response(
       JSON.stringify({
         answer: warning ? `${warning}\n\n${answer}` : answer,
@@ -482,7 +788,8 @@ serve(async (req) => {
         model,
         provider,
         retrievedChunks: matches.length,
-        warning: warning || undefined
+        warning: warning || diagnosticWarning || undefined,
+        debug: debugInfo  // Include diagnostic info in response
       }),
       {
         headers: {

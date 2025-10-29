@@ -133,19 +133,19 @@ AS $$
 BEGIN
   RETURN QUERY
   SELECT
-    document_embeddings.id,
-    document_embeddings.chunk_text,
-    document_embeddings.chunk_index,
-    document_embeddings.filename,
-    document_embeddings.document_id,
-    1 - (document_embeddings.embedding <=> query_embedding) AS similarity,
-    document_embeddings.metadata
-  FROM document_embeddings
+    document_chunks.id,
+    document_chunks.chunk_text,
+    document_chunks.chunk_index,
+    document_chunks.filename,
+    document_chunks.document_id,
+    1 - (document_chunks.embedding <=> query_embedding) AS similarity,
+    document_chunks.metadata
+  FROM document_chunks
   WHERE 
-    (filter_document_id IS NULL OR document_embeddings.document_id = filter_document_id)
-    AND (filter_filename IS NULL OR document_embeddings.filename = filter_filename)
-    AND 1 - (document_embeddings.embedding <=> query_embedding) > match_threshold
-  ORDER BY document_embeddings.embedding <=> query_embedding
+    (filter_document_id IS NULL OR document_chunks.document_id = filter_document_id)
+    AND (filter_filename IS NULL OR document_chunks.filename = filter_filename)
+    AND 1 - (document_chunks.embedding <=> query_embedding) > match_threshold
+  ORDER BY document_chunks.embedding <=> query_embedding
   LIMIT match_count;
 END;
 $$;

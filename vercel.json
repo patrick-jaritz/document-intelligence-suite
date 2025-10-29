@@ -1,21 +1,54 @@
 {
   "version": 2,
   "name": "document-intelligence-suite",
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "cleanUrls": true,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/admin",
-      "destination": "/index.html"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "frontend/dist",
+        "installCommand": "cd frontend && npm install",
+        "buildCommand": "cd frontend && npm run build"
+      }
     },
     {
-      "source": "/health",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
     }
-  ]
-} 
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/health",
+      "dest": "/frontend/dist/index.html"
+    },
+    {
+      "src": "/health.html",
+      "dest": "/frontend/dist/health.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/dist/$1"
+    }
+  ],
+  "functions": {
+    "api/paddleocr.js": {
+      "maxDuration": 30
+    },
+    "api/dots-ocr.js": {
+      "maxDuration": 30
+    },
+    "api/crawl4ai.js": {
+      "maxDuration": 30
+    },
+    "api/test.js": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

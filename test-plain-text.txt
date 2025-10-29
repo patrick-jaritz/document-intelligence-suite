@@ -1,0 +1,19 @@
+This is a test document to verify that plain text processing is working correctly.
+
+Key Information:
+- This document contains important test data
+- It should be processed correctly with the new fix
+- The text should be extracted without OCR conversion
+- Confidence should be 1.0 (perfect)
+
+Technical Details:
+- Content Type: text/plain
+- Processing Method: Direct text extraction
+- Expected Result: Full text preservation
+
+Questions to test:
+1. What is this document about?
+2. What are the key information points?
+3. What technical details are mentioned?
+
+This document should now process correctly and provide relevant answers to RAG queries.

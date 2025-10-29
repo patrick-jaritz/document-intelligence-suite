@@ -134,8 +134,36 @@ export const callEdgeFunction = async (
         sourcesCount: data.sources?.length || 0,
         retrievedChunks: data.retrievedChunks,
         model: data.model,
-        provider: data.provider
+        provider: data.provider,
+        warning: data.warning
       });
+      
+      // Log diagnostic/debug information if present
+      if (data.debug) {
+        console.group('🔍 RAG Diagnostic Information');
+        console.log('📋 Requested Document ID:', data.debug.requestedDocumentId);
+        console.log('📋 Requested Filename:', data.debug.requestedFilename);
+        console.log('📊 Retrieved Chunks:', data.debug.retrievedChunks);
+        console.log('📋 Actual Document IDs in Results:', data.debug.actualDocumentIds);
+        console.log('📋 Actual Filenames in Results:', data.debug.actualFilenames);
+        console.log('✅ Document ID Match:', data.debug.documentIdMatch);
+        
+        // Check if there's a mismatch
+        if (data.debug.requestedDocumentId && data.debug.actualDocumentIds && 
+            data.debug.actualDocumentIds.length > 0) {
+          const requestedId = data.debug.requestedDocumentId;
+          const actualIds = data.debug.actualDocumentIds;
+          const matches = actualIds.every((id: string) => id === requestedId);
+          
+          if (!matches) {
+            console.error('🚨 DOCUMENT ID MISMATCH DETECTED!');
+            console.error('   Requested:', requestedId);
+            console.error('   Got:', actualIds);
+            console.error('   This means chunks from wrong documents were returned!');
+          }
+        }
+        console.groupEnd();
+      }
       console.groupEnd();
     }
     

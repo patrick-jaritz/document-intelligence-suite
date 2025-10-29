@@ -549,7 +549,10 @@ async function processWithGoogleVision(pdfBuffer: ArrayBuffer, contentType: stri
   const chunkSize = 8192;
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const chunk = uint8Array.slice(i, i + chunkSize);
-    base64Content += String.fromCharCode(...chunk);
+    // Convert chunk without spread operator to avoid stack overflow
+    for (let j = 0; j < chunk.length; j++) {
+      base64Content += String.fromCharCode(chunk[j]);
+    }
   }
   base64Content = btoa(base64Content);
 
@@ -688,7 +691,10 @@ async function processWithOpenAIVision(pdfBuffer: ArrayBuffer, contentType: stri
   const chunkSize = 8192;
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const chunk = uint8Array.slice(i, i + chunkSize);
-    base64Content += String.fromCharCode(...chunk);
+    // Convert chunk without spread operator to avoid stack overflow
+    for (let j = 0; j < chunk.length; j++) {
+      base64Content += String.fromCharCode(chunk[j]);
+    }
   }
   base64Content = btoa(base64Content);
 
@@ -789,7 +795,10 @@ async function processWithMistral(pdfBuffer: ArrayBuffer, contentType: string = 
   const chunkSize = 8192;
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const chunk = uint8Array.slice(i, i + chunkSize);
-    base64Content += String.fromCharCode(...chunk);
+    // Convert chunk without spread operator to avoid stack overflow
+    for (let j = 0; j < chunk.length; j++) {
+      base64Content += String.fromCharCode(chunk[j]);
+    }
   }
   base64Content = btoa(base64Content);
 
@@ -988,7 +997,10 @@ async function processWithOCRSpace(pdfBuffer: ArrayBuffer, contentType: string =
   const chunkSize = 8192;
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const chunk = uint8Array.slice(i, i + chunkSize);
-    base64Content += String.fromCharCode(...chunk);
+    // Convert chunk without spread operator to avoid stack overflow
+    for (let j = 0; j < chunk.length; j++) {
+      base64Content += String.fromCharCode(chunk[j]);
+    }
   }
   base64Content = btoa(base64Content);
 
@@ -1114,7 +1126,26 @@ async function processWithOCRSpace(pdfBuffer: ArrayBuffer, contentType: string =
   };
 }
 
-async function processWithTesseract(_pdfBuffer: ArrayBuffer, _contentType: string = 'application/pdf'): Promise<OCRResult> {
+async function processWithTesseract(pdfBuffer: ArrayBuffer, contentType: string = 'application/pdf'): Promise<OCRResult> {
+  // Handle plain text files directly
+  if (contentType.startsWith('text/') || contentType === 'application/txt') {
+    // Convert ArrayBuffer to text
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(pdfBuffer);
+    
+    return {
+      text: text,
+      metadata: {
+        confidence: 1.0, // Perfect confidence for plain text
+        pages: 1,
+        provider: 'tesseract',
+        processingTime: 0,
+        layoutElements: 0
+      }
+    };
+  }
+
+  // For PDFs and images, return a mock result
   return {
     text: "[Tesseract.js OCR is not yet fully implemented in this Edge Function. Tesseract requires PDF-to-image conversion which is better handled client-side. For server-side OCR, please use Google Vision, AWS Textract, Azure Document Intelligence, Mistral, or OCR.space providers.]",
     metadata: {
@@ -1132,9 +1163,41 @@ async function processWithDotsOCR(pdfBuffer: ArrayBuffer, contentType: string, l
       contentType
     });
 
+    // Handle plain text files directly
+    if (contentType.startsWith('text/') || contentType === 'application/txt') {
+      logger?.info('ocr', 'Processing plain text file directly', { contentType });
+      
+      // Convert ArrayBuffer to text
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(pdfBuffer);
+      
+      return {
+        text: text,
+        metadata: {
+          confidence: 1.0, // Perfect confidence for plain text
+          pages: 1,
+          provider: 'dots-ocr',
+          processingTime: 0,
+          layoutElements: 0
+        }
+      };
+    }
+
     // Convert ArrayBuffer to base64 for dots.ocr processing
+    // Use chunked approach to avoid "Maximum call stack size exceeded" for large files
     const uint8Array = new Uint8Array(pdfBuffer);
-    const base64String = btoa(String.fromCharCode(...uint8Array));
+    let binaryString = '';
+    const chunkSize = 8192; // Process in 8KB chunks
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      // Convert chunk without spread operator to avoid stack overflow
+      for (let j = 0; j < chunk.length; j++) {
+        binaryString += String.fromCharCode(chunk[j]);
+      }
+    }
+    
+    const base64String = btoa(binaryString);
     
     // Try to call real dots.ocr service first
     try {
@@ -1146,18 +1209,14 @@ async function processWithDotsOCR(pdfBuffer: ArrayBuffer, contentType: string, l
       });
       return realResult;
     } catch (serviceError) {
-      logger?.warning('ocr', 'dots.ocr service unavailable, using simulation', serviceError);
+      logger?.error('ocr', 'dots.ocr service unavailable', serviceError);
       
-      // Fallback to simulation if service is not available
-      const mockResult = await simulateDotsOCRProcessing(base64String, contentType);
-      
-      logger?.info('ocr', 'dots.ocr simulation completed', {
-        textLength: mockResult.text.length,
-        confidence: mockResult.metadata.confidence,
-        pages: mockResult.metadata.pages
-      });
-
-      return mockResult;
+      // Don't fall back to simulation - throw an error instead
+      // This prevents storing mock content in the database
+      throw new Error(
+        `dots.ocr service is unavailable: ${serviceError instanceof Error ? serviceError.message : String(serviceError)}. ` +
+        `Please ensure the dots.ocr service is running and accessible, or try a different OCR provider (paddleocr, google-vision, etc.)`
+      );
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'dots.ocr processing failed';
@@ -1177,9 +1236,41 @@ async function processWithPaddleOCR(pdfBuffer: ArrayBuffer, contentType: string,
       contentType
     });
 
+    // Handle plain text files directly
+    if (contentType.startsWith('text/') || contentType === 'application/txt') {
+      logger?.info('ocr', 'Processing plain text file directly with PaddleOCR', { contentType });
+      
+      // Convert ArrayBuffer to text
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(pdfBuffer);
+      
+      return {
+        text: text,
+        metadata: {
+          confidence: 1.0, // Perfect confidence for plain text
+          pages: 1,
+          provider: 'paddleocr',
+          processingTime: 0,
+          layoutElements: 0
+        }
+      };
+    }
+
     // Convert ArrayBuffer to base64 for PaddleOCR processing
+    // Use chunked approach to avoid "Maximum call stack size exceeded" for large files
     const uint8Array = new Uint8Array(pdfBuffer);
-    const base64String = btoa(String.fromCharCode(...uint8Array));
+    let binaryString = '';
+    const chunkSize = 8192; // Process in 8KB chunks
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      // Convert chunk without spread operator to avoid stack overflow
+      for (let j = 0; j < chunk.length; j++) {
+        binaryString += String.fromCharCode(chunk[j]);
+      }
+    }
+    
+    const base64String = btoa(binaryString);
     
     // Try to call real PaddleOCR service first
     try {
@@ -1191,18 +1282,14 @@ async function processWithPaddleOCR(pdfBuffer: ArrayBuffer, contentType: string,
       });
       return realResult;
     } catch (serviceError) {
-      logger?.warning('ocr', 'PaddleOCR service unavailable, using simulation', serviceError);
+      logger?.error('ocr', 'PaddleOCR service unavailable', serviceError);
       
-      // Fallback to simulation if service is not available
-      const mockResult = await simulatePaddleOCRProcessing(base64String, contentType);
-      
-      logger?.info('ocr', 'PaddleOCR simulation completed', {
-        textLength: mockResult.text.length,
-        confidence: mockResult.metadata.confidence,
-        pages: mockResult.metadata.pages
-      });
-
-      return mockResult;
+      // Don't fall back to simulation - throw an error instead
+      // This prevents storing mock content in the database
+      throw new Error(
+        `PaddleOCR service is unavailable: ${serviceError instanceof Error ? serviceError.message : String(serviceError)}. ` +
+        `Please ensure the PaddleOCR service is running and accessible, or try a different OCR provider (dots-ocr, google-vision, etc.)`
+      );
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'PaddleOCR processing failed';

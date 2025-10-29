@@ -39,6 +39,8 @@ interface OCRResult {
 
 interface RAGProcessedResult {
   success: boolean;
+  documentId: string;
+  filename: string;
   extractedText: string;
   markdownText?: string;
   embeddingsGenerated: boolean;
@@ -241,7 +243,7 @@ Deno.serve(async (req: Request) => {
       logger.info('ocr', `Calling OCR provider: ${ocrProvider}`, { ocrProvider, bufferSize: pdfBuffer.byteLength });
 
       // Use existing OCR processing logic (simplified for integration)
-      const ocrResult = await processOCRWithProvider(ocrProvider, pdfBuffer, contentType, openaiVisionModel, logger);
+      const ocrResult = await processOCRWithProvider(ocrProvider, pdfBuffer, contentType, openaiVisionModel, logger, documentId, jobId);
       
       const ocrDuration = Date.now() - ocrStartTime;
       logger.info('ocr', `OCR processing completed`, {
@@ -273,7 +275,9 @@ Deno.serve(async (req: Request) => {
               'apikey': supabaseServiceKey,
             },
             body: JSON.stringify({
-              fileData: btoa(ocrResult.text),
+              // For plain text (OCR results), send as-is without base64 encoding
+              // The markdown converter will handle both base64 and plain text
+              fileData: ocrResult.text,
               contentType: 'text/plain',
               fileName: `rag-ocr-output-${documentId}.txt`,
               fileSize: ocrResult.text.length,
@@ -510,6 +514,8 @@ Deno.serve(async (req: Request) => {
       const finalText = markdownResult?.markdown || ocrResult.text;
       const result: RAGProcessedResult = {
         success: true,
+        documentId: documentId,
+        filename: filename,
         extractedText: ocrResult.text,
         markdownText: markdownResult?.markdown,
         embeddingsGenerated,
@@ -692,54 +698,91 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-// Simplified OCR processing function for integration
+// Real OCR processing function - calls the actual OCR edge function
 async function processOCRWithProvider(
   provider: string,
   buffer: ArrayBuffer,
   contentType: string,
   openaiVisionModel: string,
-  logger: EdgeLogger
+  logger: EdgeLogger,
+  documentId: string,
+  jobId: string
 ): Promise<OCRResult> {
-  // For now, return a simulated OCR result
-  // In a real implementation, this would call the actual OCR providers
-  logger.info('ocr-simulation', `Simulating OCR processing with ${provider}`, {
+  logger.info('ocr', `Calling real OCR processing with ${provider}`, {
     provider,
     bufferSize: buffer.byteLength,
     contentType
   });
 
-  // Simulate processing time
-  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-  const mockText = `# Document Content
-
-This is a simulated OCR result from ${provider}.
-
-## Key Information
-- Document processed successfully
-- Provider: ${provider}
-- Content type: ${contentType}
-- Buffer size: ${buffer.byteLength} bytes
-
-## Sample Content
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-### Tables (if any)
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|---------|
-| Data 1   | Data 2   | Data 3   |
-| Data 4   | Data 5   | Data 6   |
-
-## Conclusion
-This is a simulated OCR extraction that would normally be performed by the actual OCR provider.`;
-
-  return {
-    text: mockText,
-    metadata: {
-      confidence: 0.95,
-      pages: Math.ceil(buffer.byteLength / 50000),
-      language: 'en',
-      provider: provider
+  // Convert ArrayBuffer to base64 for the OCR function
+  // Use chunked approach to avoid "Maximum call stack size exceeded" for large files
+  const uint8Array = new Uint8Array(buffer);
+  let binaryString = '';
+  const chunkSize = 8192; // Process in 8KB chunks
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    // Convert chunk without spread operator to avoid stack overflow
+    for (let j = 0; j < chunk.length; j++) {
+      binaryString += String.fromCharCode(chunk[j]);
     }
-  };
+  }
+  
+  const base64String = btoa(binaryString);
+  const dataUrl = `data:${contentType};base64,${base64String}`;
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://joqnpibrfzqflyogrkht.supabase.co';
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+  try {
+    // Call the real OCR processing function
+    const ocrResponse = await fetch(`${supabaseUrl}/functions/v1/process-pdf-ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseServiceKey,
+      },
+      body: JSON.stringify({
+        documentId: documentId,
+        jobId: jobId,
+        fileDataUrl: dataUrl,
+        ocrProvider: provider,
+        openaiVisionModel: openaiVisionModel || 'gpt-4o'
+      }),
+    });
+
+    if (!ocrResponse.ok) {
+      const errorText = await ocrResponse.text();
+      logger.error('ocr', `OCR processing failed: ${ocrResponse.status}`, { errorText });
+      throw new Error(`OCR processing failed: ${ocrResponse.status} ${errorText}`);
+    }
+
+    const ocrResult = await ocrResponse.json();
+    
+    // process-pdf-ocr returns extractedText, not text
+    const extractedText = ocrResult.extractedText || ocrResult.text || '';
+    
+    logger.info('ocr', `Real OCR processing completed`, {
+      provider,
+      textLength: extractedText.length,
+      confidence: ocrResult.metadata?.confidence,
+      pages: ocrResult.metadata?.pages,
+      success: ocrResult.success,
+      hasExtractedText: !!ocrResult.extractedText,
+      hasText: !!ocrResult.text
+    });
+
+    return {
+      text: extractedText,
+      metadata: ocrResult.metadata || {
+        confidence: 0,
+        pages: 1,
+        provider: provider
+      }
+    };
+  } catch (error) {
+    logger.error('ocr', `OCR processing error`, error);
+    throw error;
+  }
 }
