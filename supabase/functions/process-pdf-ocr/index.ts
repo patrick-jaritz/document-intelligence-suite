@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
 };
 
-type OCRProvider = 'dots-ocr' | 'paddleocr' | 'google-vision' | 'mistral' | 'tesseract' | 'aws-textract' | 'azure-document-intelligence' | 'ocr-space' | 'openai-vision' | 'deepseek-ocr';
+type OCRProvider = 'dots-ocr' | 'paddleocr' | 'google-vision' | 'mistral' | 'tesseract' | 'aws-textract' | 'azure-document-intelligence' | 'ocr-space' | 'openai-vision' | 'deepseek-ocr' | 'easyocr';
 
 interface ProcessPDFRequest {
   documentId: string;
@@ -492,6 +492,8 @@ async function tryOCRProvider(
       return await processWithTesseract(pdfBuffer, contentType);
     case 'deepseek-ocr':
       return await processWithDeepSeekOCR(pdfBuffer, contentType, logger);
+    case 'easyocr':
+      return await processWithEasyOCR(pdfBuffer, contentType, logger);
     default:
       throw new Error(`Unsupported OCR provider: ${provider}`);
   }
@@ -512,7 +514,8 @@ function getFallbackProviders(primaryProvider: OCRProvider): OCRProvider[] {
     'deepseek-ocr': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
     'aws-textract': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
     'azure-document-intelligence': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
-    'tesseract': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space']
+    'tesseract': ['dots-ocr', 'paddleocr', 'google-vision', 'ocr-space'],
+    'easyocr': ['paddleocr', 'dots-ocr', 'google-vision', 'ocr-space']
   };
   
   // Ensure the primary provider is not in its own fallback list
@@ -1850,10 +1853,130 @@ async function processWithDeepSeekOCR(pdfBuffer: ArrayBuffer, contentType: strin
       statusText: ocrResponse.statusText
     });
     
-    throw new Error(`DeepSeek-OCR service unavailable (HTTP ${ocrResponse.status}). Please ensure the DeepSeek OCR service is running and configured. Error: ${errorText}`);
+    throw new Error(`DeepSeek-OCR service unavailable (HTTP ${ocrResponse.status}). Please ensure the DeepSeek OCR service is running and configured. Error: ${errorText}`);                                                                    
 
   } catch (error) {
     logger?.error('ocr', 'DeepSeek-OCR simulation failed', error, { contentType });
+    throw error;
+  }
+}
+
+async function processWithEasyOCR(pdfBuffer: ArrayBuffer, contentType: string, logger?: EdgeLogger): Promise<OCRResult> {
+  try {
+    logger?.info('ocr', 'Starting EasyOCR processing', {
+      bufferSize: pdfBuffer.byteLength,
+      contentType
+    });
+
+    // Handle plain text files directly
+    if (contentType.startsWith('text/') || contentType === 'application/txt') {
+      logger?.info('ocr', 'Processing plain text file directly with EasyOCR', { contentType });
+      
+      // Convert ArrayBuffer to text
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(pdfBuffer);
+      
+      return {
+        text: text,
+        metadata: {
+          confidence: 1.0, // Perfect confidence for plain text
+          pages: 1,
+          provider: 'easyocr',
+          processingTime: 0
+        }
+      };
+    }
+
+    // Convert ArrayBuffer to base64 for EasyOCR processing
+    const uint8Array = new Uint8Array(pdfBuffer);
+    let binaryString = '';
+    const chunkSize = 8192; // Process in 8KB chunks
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      // Convert chunk without spread operator to avoid stack overflow
+      for (let j = 0; j < chunk.length; j++) {
+        binaryString += String.fromCharCode(chunk[j]);
+      }
+    }
+    
+    const base64String = btoa(binaryString);
+    
+    // Try to call real EasyOCR service first
+    try {
+      const realResult = await callEasyOCRService(base64String, logger);
+      logger?.info('ocr', 'EasyOCR real processing completed', {
+        textLength: realResult.text.length,
+        confidence: realResult.metadata.confidence,
+        pages: realResult.metadata.pages
+      });
+      
+      return realResult;
+    } catch (serviceError) {
+      logger?.error('ocr', 'EasyOCR service call failed', serviceError);
+      throw new Error('EasyOCR service unavailable. Please ensure the EasyOCR service is running or select a different OCR provider.');
+    }
+  } catch (error) {
+    logger?.error('ocr', 'EasyOCR processing error', error);
+    throw error;
+  }
+}
+
+async function callEasyOCRService(base64Data: string, logger?: EdgeLogger): Promise<OCRResult> {
+  try {
+    logger?.info('ocr', 'Calling real EasyOCR service', {
+      dataSize: base64Data.length
+    });
+
+    // Get service URL from environment (defaults to localhost for Docker service)
+    const easyOcrServiceUrl = Deno.env.get('EASYOCR_SERVICE_URL') || 'http://localhost:8765';
+    
+    // Call real EasyOCR service
+    const response = await fetch(`${easyOcrServiceUrl}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileDataUrl: base64Data,
+        fileType: 'application/pdf'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`EasyOCR service error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(`EasyOCR processing failed: ${result.error}`);
+    }
+
+    logger?.info('ocr', 'Real EasyOCR service completed', {
+      textLength: result.text?.length || 0,
+      confidence: result.metadata?.confidence || 0
+    });
+
+    return {
+      text: result.text || '',
+      metadata: {
+        provider: 'easyocr',
+        confidence: result.metadata?.confidence || 0,
+        pages: result.metadata?.pages || 1,
+        language: result.metadata?.language || 'auto',
+        processing_method: 'easyocr_real',
+        total_boxes: result.metadata?.total_boxes || 0,
+        layout_elements: result.metadata?.layout_elements || 0,
+        processing_time: result.metadata?.processing_time || 0,
+        model: result.metadata?.model || 'EasyOCR',
+        architecture: result.metadata?.architecture || 'CNN + RNN',
+        languages_supported: result.metadata?.languages_supported || ['en'],
+        recognition_accuracy: result.metadata?.recognition_accuracy || 0
+      }
+    };
+  } catch (error) {
+    logger?.error('ocr', 'Real EasyOCR service failed', error);
     throw error;
   }
 }

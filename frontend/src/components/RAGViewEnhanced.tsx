@@ -33,7 +33,7 @@ export function RAGViewEnhanced() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
-  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('google-vision');
+  const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr' | 'easyocr'>('google-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
   const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
@@ -345,11 +345,12 @@ export function RAGViewEnhanced() {
               <option value="paddleocr">PaddleOCR (Requires service)</option>
               <option value="dots-ocr">dots.ocr (Requires service)</option>
               <option value="deepseek-ocr">DeepSeek-OCR (Requires service)</option>
+              <option value="easyocr">EasyOCR (Requires service)</option>
             </select>
             <p className="text-xs text-gray-600 mt-2 font-medium">
               {ocrProvider === 'openai-vision' 
                 ? '⚠️ OpenAI Vision only supports images (PNG, JPG, WebP, GIF). For PDFs, use Google Vision or another provider.'
-                : ocrProvider === 'dots-ocr' || ocrProvider === 'paddleocr' || ocrProvider === 'deepseek-ocr' 
+                : ocrProvider === 'dots-ocr' || ocrProvider === 'paddleocr' || ocrProvider === 'deepseek-ocr' || ocrProvider === 'easyocr' 
                 ? '⚠️ Self-hosted service - ensure service is deployed'
                 : '✅ API-based provider - ready to use'}
             </p>
