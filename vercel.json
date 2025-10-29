@@ -23,14 +23,6 @@
       "dest": "/api/$1"
     },
     {
-      "src": "/health",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/health.html",
-      "dest": "/health.html"
-    },
-    {
       "src": "/(.*)",
       "dest": "/$1"
     }
