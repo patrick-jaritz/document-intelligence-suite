@@ -1,10 +1,19 @@
-torch==2.6.0
-torchvision==0.21.0
-torchaudio==2.6.0
+# PyTorch (install via index-url)
+# torch==2.6.0
+# torchvision==0.21.0
+# torchaudio==2.6.0
+
+# Transformers and model support
 transformers>=4.51.1
 pillow>=10.0.0
-flask>=3.0.0
-gunicorn>=21.2.0
 pdf2image>=1.16.0
 numpy>=1.24.0
 accelerate>=0.20.0
+safetensors>=0.4.0
+
+# Web framework
+flask>=3.0.0
+gunicorn>=21.2.0
+
+# Optional: Flash Attention 2 for better performance
+flash-attn==2.7.3

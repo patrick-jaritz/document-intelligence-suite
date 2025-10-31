@@ -26,8 +26,11 @@ COPY requirements.txt .
 # Install PyTorch with CUDA support
 RUN pip3 install --no-cache-dir torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu118
 
-# Install other dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install other dependencies (excluding flash-attn for now)
+RUN pip3 install --no-cache-dir transformers pillow pdf2image numpy accelerate safetensors flask gunicorn
+
+# Install flash-attn separately (requires special build flags)
+RUN pip3 install --no-cache-dir flash-attn==2.7.3 --no-build-isolation || echo "Flash attention installation failed, continuing without it"
 
 # Copy service files
 COPY deepseek_ocr_service.py .
