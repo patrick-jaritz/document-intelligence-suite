@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FileJson, Plus, Loader2, Copy, Info } from 'lucide-react';
+import { FileJson, Plus, Loader2, Copy, Info, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { PromptBuilder } from './PromptBuilder';
+import { StructuredPrompt } from '../types/prompt';
 
 interface Template {
   id: string;
@@ -21,6 +23,8 @@ export function TemplateEditor({ onTemplateSelect, selectedTemplate }: TemplateE
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [customJson, setCustomJson] = useState('');
   const [jsonError, setJsonError] = useState('');
+  const [showPromptBuilder, setShowPromptBuilder] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState<StructuredPrompt | null>(null);
 
   useEffect(() => {
     loadTemplates();
@@ -237,7 +241,7 @@ export function TemplateEditor({ onTemplateSelect, selectedTemplate }: TemplateE
         </div>
       )}
 
-      {selectedTemplate && !showCustomEditor && (
+      {selectedTemplate && !showCustomEditor && !showPromptBuilder && (
         <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-sm font-medium text-gray-700 mb-2">Selected Schema:</p>
           <pre className="text-xs text-gray-600 overflow-x-auto">
@@ -245,6 +249,53 @@ export function TemplateEditor({ onTemplateSelect, selectedTemplate }: TemplateE
           </pre>
         </div>
       )}
+
+      {/* Prompt Builder Section */}
+      <div className="mt-6 border-t pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles size={20} className="text-blue-600" />
+              Custom Prompt Builder
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Build a custom prompt to enhance data extraction accuracy
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowPromptBuilder(!showPromptBuilder);
+              setShowCustomEditor(false);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Sparkles size={16} />
+            {showPromptBuilder ? 'Hide' : 'Show'} Prompt Builder
+          </button>
+        </div>
+
+        {showPromptBuilder && (
+          <div className="mt-4 border rounded-lg p-4 bg-white">
+            <PromptBuilder
+              mode="template"
+              initialPrompt={customPrompt || undefined}
+              onPromptExport={(prompt) => {
+                setCustomPrompt(prompt);
+                console.log('Prompt exported:', prompt);
+                // TODO: Save prompt and link to template
+              }}
+            />
+          </div>
+        )}
+
+        {customPrompt && !showPromptBuilder && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>✓ Custom prompt configured</strong> - Your extraction will use this optimized prompt.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

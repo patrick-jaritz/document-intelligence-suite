@@ -96,6 +96,8 @@ deploy_supabase() {
     supabase functions deploy rag-query
     supabase functions deploy process-pdf-ocr
     supabase functions deploy generate-structured-output
+    supabase functions deploy prompt-builder
+    supabase functions deploy test-prompt
     
     print_success "Supabase functions deployed"
 }

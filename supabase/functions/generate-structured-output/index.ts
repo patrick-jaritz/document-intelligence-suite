@@ -16,6 +16,7 @@ interface GenerateStructuredOutputRequest {
   structureTemplate: any;
   llmProvider?: LLMProvider;
   llmModel?: string;
+  customPromptId?: string; // NEW: Reference to prompt_templates
 }
 
 interface LLMResult {
@@ -67,13 +68,46 @@ Deno.serve(async (req: Request) => {
       structureTemplate,
       llmProvider = 'openai',
       llmModel,
+      customPromptId,
     }: GenerateStructuredOutputRequest = await req.json();
+
+    // Fetch custom prompt if provided
+    let customPrompt: any = null;
+    if (customPromptId) {
+      logger.info('prompt', `Fetching custom prompt: ${customPromptId}`, { customPromptId });
+      const { data: promptData, error: promptError } = await supabaseClient
+        .from('prompt_templates')
+        .select('*')
+        .eq('id', customPromptId)
+        .single();
+
+      if (!promptError && promptData) {
+        customPrompt = {
+          title: promptData.title || '',
+          role: promptData.role || '',
+          task: promptData.task || '',
+          context: promptData.context || '',
+          constraints: promptData.constraints || [],
+          examples: promptData.examples || [],
+        };
+        logger.info('prompt', `Custom prompt loaded: ${promptData.name}`, {
+          promptId: customPromptId,
+          hasRole: !!customPrompt.role,
+          hasTask: !!customPrompt.task,
+          constraintsCount: customPrompt.constraints.length,
+          examplesCount: customPrompt.examples.length,
+        });
+      } else {
+        logger.warn('prompt', `Custom prompt not found: ${customPromptId}`, { promptError });
+      }
+    }
 
     logger.info('llm', `Starting LLM processing for job ${jobId} using ${llmProvider}`, {
       jobId,
       llmProvider,
       textLength: extractedText?.length || 0,
       hasTemplate: !!structureTemplate,
+      hasCustomPrompt: !!customPrompt,
       requestId
     });
 
@@ -140,13 +174,13 @@ Deno.serve(async (req: Request) => {
               let chunkResult: LLMResult;
               switch (provider) {
                 case 'openai':
-                  chunkResult = await generateWithOpenAI(chunks[i], structureTemplate, llmModel);
+                  chunkResult = await generateWithOpenAI(chunks[i], structureTemplate, llmModel, customPrompt);
                   break;
                 case 'anthropic':
-                  chunkResult = await generateWithAnthropic(chunks[i], structureTemplate, llmModel);
+                  chunkResult = await generateWithAnthropic(chunks[i], structureTemplate, llmModel, customPrompt);
                   break;
                 case 'mistral-large':
-                  chunkResult = await generateWithMistralLarge(chunks[i], structureTemplate, llmModel);
+                  chunkResult = await generateWithMistralLarge(chunks[i], structureTemplate, llmModel, customPrompt);
                   break;
                 default:
                   continue;
@@ -174,13 +208,13 @@ Deno.serve(async (req: Request) => {
             // Process normally (no chunking)
             switch (provider) {
               case 'openai':
-                llmResult = await generateWithOpenAI(extractedText, structureTemplate, llmModel);
+                llmResult = await generateWithOpenAI(extractedText, structureTemplate, llmModel, customPrompt);
                 break;
               case 'anthropic':
-                llmResult = await generateWithAnthropic(extractedText, structureTemplate, llmModel);
+                llmResult = await generateWithAnthropic(extractedText, structureTemplate, llmModel, customPrompt);
                 break;
               case 'mistral-large':
-                llmResult = await generateWithMistralLarge(extractedText, structureTemplate, llmModel);
+                llmResult = await generateWithMistralLarge(extractedText, structureTemplate, llmModel, customPrompt);
                 break;
               default:
                 continue;
@@ -345,7 +379,8 @@ Deno.serve(async (req: Request) => {
 async function generateWithOpenAI(
   extractedText: string,
   structureTemplate: any,
-  model: string = 'gpt-4o-mini'
+  model: string = 'gpt-4o-mini',
+  customPrompt?: any
 ): Promise<LLMResult> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
@@ -357,7 +392,14 @@ async function generateWithOpenAI(
     };
   }
 
-  const prompt = buildPrompt(extractedText, structureTemplate);
+  const prompt = customPrompt
+    ? buildPromptFromStructured(customPrompt, extractedText, structureTemplate)
+    : buildPrompt(extractedText, structureTemplate);
+
+  // Build system message
+  const systemMessage = customPrompt?.role
+    ? `${customPrompt.role}. ${customPrompt.task || ''}`
+    : 'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text or markdown formatting.';
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
@@ -374,8 +416,7 @@ async function generateWithOpenAI(
         messages: [
           {
             role: 'system',
-            content:
-              'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text or markdown formatting.',
+            content: systemMessage,
           },
           {
             role: 'user',
@@ -423,7 +464,8 @@ async function generateWithOpenAI(
 async function generateWithAnthropic(
   extractedText: string,
   structureTemplate: any,
-  model: string = 'claude-3-5-sonnet-20241022'
+  model: string = 'claude-3-5-sonnet-20241022',
+  customPrompt?: any
 ): Promise<LLMResult> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) {
@@ -435,7 +477,13 @@ async function generateWithAnthropic(
     };
   }
 
-  const prompt = buildPrompt(extractedText, structureTemplate);
+  const prompt = customPrompt
+    ? buildPromptFromStructured(customPrompt, extractedText, structureTemplate)
+    : buildPrompt(extractedText, structureTemplate);
+
+  const systemMessage = customPrompt?.role
+    ? `${customPrompt.role}. ${customPrompt.task || ''}`
+    : 'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text or markdown formatting.';
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -448,10 +496,11 @@ async function generateWithAnthropic(
       model: model || 'claude-3-5-sonnet-20241022',
       max_tokens: 4096,
       temperature: 0,
+      system: systemMessage,
       messages: [
         {
           role: 'user',
-          content: `You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text or markdown formatting.\n\n${prompt}`,
+          content: prompt,
         },
       ],
     }),
@@ -489,7 +538,8 @@ async function generateWithAnthropic(
 async function generateWithMistralLarge(
   extractedText: string,
   structureTemplate: any,
-  model: string = 'mistral-large-latest'
+  model: string = 'mistral-large-latest',
+  customPrompt?: any
 ): Promise<LLMResult> {
   const apiKey = Deno.env.get('MISTRAL_API_KEY');
   if (!apiKey) {
@@ -501,7 +551,13 @@ async function generateWithMistralLarge(
     };
   }
 
-  const prompt = buildPrompt(extractedText, structureTemplate);
+  const prompt = customPrompt
+    ? buildPromptFromStructured(customPrompt, extractedText, structureTemplate)
+    : buildPrompt(extractedText, structureTemplate);
+
+  const systemMessage = customPrompt?.role
+    ? `${customPrompt.role}. ${customPrompt.task || ''}`
+    : 'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text.';
 
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -514,8 +570,7 @@ async function generateWithMistralLarge(
       messages: [
         {
           role: 'system',
-          content:
-            'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text.',
+          content: systemMessage,
         },
         {
           role: 'user',
@@ -555,6 +610,59 @@ function buildPrompt(extractedText: string, structureTemplate: any): string {
   const schemaDescription = JSON.stringify(structureTemplate, null, 2);
 
   return `Extract information from the following text and structure it according to the provided JSON schema.\n\nJSON Schema:\n${schemaDescription}\n\nExtracted Text:\n${extractedText}\n\nReturn the extracted information as a valid JSON object matching the schema above. If a field cannot be found in the text, use null for strings/objects or an empty array for array types. Ensure all field names match the schema exactly.`;
+}
+
+/**
+ * Build prompt from structured prompt template
+ */
+function buildPromptFromStructured(
+  customPrompt: any,
+  extractedText: string,
+  structureTemplate: any
+): string {
+  const schemaDescription = JSON.stringify(structureTemplate, null, 2);
+  const parts: string[] = [];
+
+  // Add task
+  if (customPrompt.task) {
+    parts.push(customPrompt.task);
+  } else {
+    parts.push('Extract information from the following text and structure it according to the provided JSON schema.');
+  }
+
+  // Add context if provided
+  if (customPrompt.context) {
+    parts.push(`\nContext: ${customPrompt.context}`);
+  }
+
+  // Add schema
+  parts.push(`\n\nJSON Schema:\n${schemaDescription}`);
+
+  // Add constraints
+  if (customPrompt.constraints && customPrompt.constraints.length > 0) {
+    parts.push('\n\nConstraints:');
+    customPrompt.constraints.forEach((constraint: string, index: number) => {
+      parts.push(`${index + 1}. ${constraint}`);
+    });
+  }
+
+  // Add examples
+  if (customPrompt.examples && customPrompt.examples.length > 0) {
+    parts.push('\n\nExamples:');
+    customPrompt.examples.forEach((example: any, index: number) => {
+      parts.push(`\nExample ${index + 1}:`);
+      parts.push(`Input: ${example.input}`);
+      parts.push(`Output: ${example.output}`);
+    });
+  }
+
+  // Add extracted text
+  parts.push(`\n\nExtracted Text:\n${extractedText}`);
+
+  // Add closing instruction
+  parts.push('\n\nReturn the extracted information as a valid JSON object matching the schema above. If a field cannot be found in the text, use null for strings/objects or an empty array for array types. Ensure all field names match the schema exactly.');
+
+  return parts.join('\n');
 }
 
 // Helper function to estimate tokens (rough approximation: 1 token ≈ 4 characters)
