@@ -399,7 +399,13 @@ Provide specific, actionable insights that would help an entrepreneur or investo
 
         if (response.ok) {
           const data = await response.json();
-          const analysisText = data.choices[0].message.content;
+          let analysisText = data.choices[0].message.content;
+          
+          // Extract JSON from markdown code blocks if present
+          const jsonMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+          if (jsonMatch) {
+            analysisText = jsonMatch[1];
+          }
           
           // Try to parse JSON response
           try {
@@ -407,7 +413,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
             console.log('✅ OpenAI analysis successful');
             return analysis;
           } catch (parseError) {
-            const errorMsg = `OpenAI: Failed to parse JSON response - ${parseError.message}`;
+            const errorMsg = `OpenAI: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
           }
@@ -438,7 +444,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
             'anthropic-version': '2023-06-01' // Keep API version for compatibility
           },
           body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022', // Updated to current model
+            model: 'claude-3-5-sonnet-20240620', // Correct model name
             max_tokens: 8192, // Claude 3.5 Sonnet supports up to 8192 tokens
             messages: [
               {
@@ -451,14 +457,20 @@ Provide specific, actionable insights that would help an entrepreneur or investo
 
         if (response.ok) {
           const data = await response.json();
-          const analysisText = data.content[0].text;
+          let analysisText = data.content[0].text;
+          
+          // Extract JSON from markdown code blocks if present
+          const jsonMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+          if (jsonMatch) {
+            analysisText = jsonMatch[1];
+          }
           
           try {
             const analysis = JSON.parse(analysisText);
             console.log('✅ Anthropic analysis successful');
             return analysis;
           } catch (parseError) {
-            const errorMsg = `Anthropic: Failed to parse JSON response - ${parseError.message}`;
+            const errorMsg = `Anthropic: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
           }
@@ -506,14 +518,20 @@ Provide specific, actionable insights that would help an entrepreneur or investo
 
         if (response.ok) {
           const data = await response.json();
-          const analysisText = data.choices[0].message.content;
+          let analysisText = data.choices[0].message.content;
+          
+          // Extract JSON from markdown code blocks if present
+          const jsonMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+          if (jsonMatch) {
+            analysisText = jsonMatch[1];
+          }
           
           try {
             const analysis = JSON.parse(analysisText);
             console.log('✅ Mistral analysis successful');
             return analysis;
           } catch (parseError) {
-            const errorMsg = `Mistral: Failed to parse JSON response - ${parseError.message}`;
+            const errorMsg = `Mistral: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
           }
