@@ -361,6 +361,8 @@ VALIDATION: Before finalizing, review each section and ask:
 Provide specific, actionable insights that would help an entrepreneur or investor make informed decisions about this technology.
 `;
 
+  const errors: string[] = [];
+
   try {
     console.log('🔑 API Keys status:', {
       openai: !!openaiApiKey,
@@ -368,130 +370,174 @@ Provide specific, actionable insights that would help an entrepreneur or investo
       mistral: !!mistralApiKey
     });
 
-    // Try OpenAI first
+    // Try OpenAI first (using GPT-4o for better token limits)
     if (openaiApiKey) {
-      console.log('🤖 Trying OpenAI GPT-4...');
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
-            },
-            {
-              role: 'user',
-              content: analysisPrompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 6000
-        })
-      });
+      console.log('🤖 Trying OpenAI GPT-4o...');
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o', // Using GPT-4o which has 128k context
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
+              },
+              {
+                role: 'user',
+                content: analysisPrompt
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 8000 // Increased for GPT-4o, but still within safe limits
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const analysisText = data.choices[0].message.content;
-        
-        // Try to parse JSON response
-        try {
-          const analysis = JSON.parse(analysisText);
-          console.log('✅ OpenAI analysis successful');
-          return analysis;
-        } catch (parseError) {
-          console.log('❌ Failed to parse OpenAI response as JSON:', parseError.message);
+        if (response.ok) {
+          const data = await response.json();
+          const analysisText = data.choices[0].message.content;
+          
+          // Try to parse JSON response
+          try {
+            const analysis = JSON.parse(analysisText);
+            console.log('✅ OpenAI analysis successful');
+            return analysis;
+          } catch (parseError) {
+            const errorMsg = `OpenAI: Failed to parse JSON response - ${parseError.message}`;
+            console.log('❌', errorMsg);
+            errors.push(errorMsg);
+          }
+        } else {
+          const errorText = await response.text().catch(() => response.statusText);
+          const errorMsg = `OpenAI: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`;
+          console.log('❌', errorMsg);
+          errors.push(errorMsg);
         }
-      } else {
-        console.log('❌ OpenAI API error:', response.status, response.statusText);
+      } catch (fetchError) {
+        const errorMsg = `OpenAI: Network error - ${fetchError.message}`;
+        console.log('❌', errorMsg);
+        errors.push(errorMsg);
       }
+    } else {
+      errors.push('OpenAI: API key not configured');
     }
 
     // Fallback to Anthropic
     if (anthropicApiKey) {
-      console.log('🤖 Trying Anthropic Claude-3-Sonnet...');
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': anthropicApiKey,
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 6000,
-          messages: [
-            {
-              role: 'user',
-              content: analysisPrompt
-            }
-          ]
-        })
-      });
+      console.log('🤖 Trying Anthropic Claude-3.5-Sonnet...');
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': anthropicApiKey,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01' // Keep API version for compatibility
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022', // Updated to current model
+            max_tokens: 8192, // Claude 3.5 Sonnet supports up to 8192 tokens
+            messages: [
+              {
+                role: 'user',
+                content: analysisPrompt
+              }
+            ]
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const analysisText = data.content[0].text;
-        
-        try {
-          const analysis = JSON.parse(analysisText);
-          console.log('✅ Anthropic analysis successful');
-          return analysis;
-        } catch (parseError) {
-          console.log('❌ Failed to parse Anthropic response as JSON:', parseError.message);
+        if (response.ok) {
+          const data = await response.json();
+          const analysisText = data.content[0].text;
+          
+          try {
+            const analysis = JSON.parse(analysisText);
+            console.log('✅ Anthropic analysis successful');
+            return analysis;
+          } catch (parseError) {
+            const errorMsg = `Anthropic: Failed to parse JSON response - ${parseError.message}`;
+            console.log('❌', errorMsg);
+            errors.push(errorMsg);
+          }
+        } else {
+          const errorText = await response.text().catch(() => response.statusText);
+          const errorMsg = `Anthropic: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`;
+          console.log('❌', errorMsg);
+          errors.push(errorMsg);
         }
-      } else {
-        console.log('❌ Anthropic API error:', response.status, response.statusText);
+      } catch (fetchError) {
+        const errorMsg = `Anthropic: Network error - ${fetchError.message}`;
+        console.log('❌', errorMsg);
+        errors.push(errorMsg);
       }
+    } else {
+      errors.push('Anthropic: API key not configured');
     }
 
     // Fallback to Mistral
     if (mistralApiKey) {
       console.log('🤖 Trying Mistral Large...');
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${mistralApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'mistral-large-latest',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
-            },
-            {
-              role: 'user',
-              content: analysisPrompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 6000
-        })
-      });
+      try {
+        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${mistralApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'mistral-large-latest',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
+              },
+              {
+                role: 'user',
+                content: analysisPrompt
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 6000
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const analysisText = data.choices[0].message.content;
-        
-        try {
-          const analysis = JSON.parse(analysisText);
-          console.log('✅ Mistral analysis successful');
-          return analysis;
-        } catch (parseError) {
-          console.log('❌ Failed to parse Mistral response as JSON:', parseError.message);
+        if (response.ok) {
+          const data = await response.json();
+          const analysisText = data.choices[0].message.content;
+          
+          try {
+            const analysis = JSON.parse(analysisText);
+            console.log('✅ Mistral analysis successful');
+            return analysis;
+          } catch (parseError) {
+            const errorMsg = `Mistral: Failed to parse JSON response - ${parseError.message}`;
+            console.log('❌', errorMsg);
+            errors.push(errorMsg);
+          }
+        } else {
+          const errorText = await response.text().catch(() => response.statusText);
+          const errorMsg = `Mistral: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`;
+          console.log('❌', errorMsg);
+          errors.push(errorMsg);
         }
-      } else {
-        console.log('❌ Mistral API error:', response.status, response.statusText);
+      } catch (fetchError) {
+        const errorMsg = `Mistral: Network error - ${fetchError.message}`;
+        console.log('❌', errorMsg);
+        errors.push(errorMsg);
       }
+    } else {
+      errors.push('Mistral: API key not configured');
     }
 
-    throw new Error('All LLM providers failed to generate analysis');
+    // All providers failed - throw detailed error
+    const errorDetails = errors.length > 0 
+      ? `\n\nProvider Errors:\n${errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}`
+      : '\n\nNo API keys configured. Please set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY';
+    
+    throw new Error(`All LLM providers failed to generate analysis.${errorDetails}`);
 
   } catch (error) {
     console.error('Error in LLM analysis:', error);
