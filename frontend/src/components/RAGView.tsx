@@ -31,7 +31,7 @@ export function RAGView() {
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('openai-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
-  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
+  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini' | 'pageindex-vision'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
   const [debugMode, setDebugMode] = useState(false);
 
@@ -412,10 +412,11 @@ export function RAGView() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isQuerying) return;
 
+    const question = inputMessage.trim();
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
-      content: inputMessage
+      content: question
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -423,34 +424,73 @@ export function RAGView() {
     setIsQuerying(true);
 
     try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/rag-query`, {
+      // Check if using PageIndex Vision RAG
+      const isVisionRAG = ragProvider === 'pageindex-vision';
+      const endpoint = isVisionRAG ? 'vision-rag-query' : 'rag-query';
+      
+      const selectedDoc = documents?.find(doc => doc.id === selectedDocument);
+      const documentId = selectedDocument === 'all' ? null : selectedDocument;
+      const filename = selectedDocument === 'all' ? null : selectedDoc?.filename;
+
+      if (isVisionRAG && !documentId) {
+        throw new Error('PageIndex Vision RAG requires a specific document to be selected');
+      }
+
+      const requestBody = isVisionRAG
+        ? {
+            question,
+            documentId: documentId!,
+            filename: filename || 'document',
+            vlmModel: ragModel || 'gpt-4o'
+          }
+        : {
+            question,
+            documentId,
+            filename,
+            provider: ragProvider,
+            model: ragModel,
+            topK: 5
+          };
+
+      console.log(`🔍 ${isVisionRAG ? 'Vision RAG' : 'Vector RAG'} Query:`, requestBody);
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({
-          question: inputMessage,
-          documentId: selectedDocument === 'all' ? null : selectedDocument,
-          filename: selectedDocument === 'all' ? null : documents?.find(doc => doc.id === selectedDocument)?.filename,
-          provider: ragProvider,
-          model: ragModel,
-          topK: 5
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error(`Query failed: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Query failed: ${response.statusText} - ${errorText}`);
       }
 
       const result = await response.json();
       
+      // Handle Vision RAG response format (different from Vector RAG)
+      const answer = result.answer || result.error || 'No answer generated';
+      const sources = isVisionRAG && result.sources
+        ? result.sources.map((src: any) => ({
+            text: src.title || src.summary || '',
+            score: 1.0, // Vision RAG doesn't use similarity scores
+            filename: `${src.pageRange || 'Unknown pages'}`
+          }))
+        : result.sources || [];
+      
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
-        content: result.answer,
-        sources: result.sources
+        content: answer,
+        sources: sources
       };
+
+      // Add reasoning if available (Vision RAG feature)
+      if (isVisionRAG && result.reasoning) {
+        assistantMessage.content += `\n\n💭 **Reasoning Process:**\n${result.reasoning}`;
+      }
 
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -565,14 +605,25 @@ export function RAGView() {
                   else if (e.target.value === 'anthropic') setRagModel('claude-3-haiku-20240307');
                   else if (e.target.value === 'mistral') setRagModel('mistral-small-latest');
                   else if (e.target.value === 'gemini') setRagModel('gemini-1.5-flash');
+                  else if (e.target.value === 'pageindex-vision') setRagModel('gpt-4o');
                 }}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="mistral">Mistral</option>
-                <option value="gemini">Google Gemini</option>
+                <optgroup label="Vector-Based RAG">
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="mistral">Mistral</option>
+                  <option value="gemini">Google Gemini</option>
+                </optgroup>
+                <optgroup label="Vision-Based RAG">
+                  <option value="pageindex-vision">PageIndex Vision RAG ⭐</option>
+                </optgroup>
               </select>
+              {ragProvider === 'pageindex-vision' && (
+                <p className="text-xs text-blue-600 mt-1">
+                  🎯 Vision-based retrieval - ideal for complex documents with figures & diagrams
+                </p>
+              )}
             </div>
 
             {/* RAG Model Selection */}
@@ -582,6 +633,7 @@ export function RAGView() {
                 value={ragModel}
                 onChange={(e) => setRagModel(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={ragProvider === 'pageindex-vision'}
               >
                 {ragProvider === 'openai' && (
                   <>
@@ -611,7 +663,18 @@ export function RAGView() {
                     <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                   </>
                 )}
+                {ragProvider === 'pageindex-vision' && (
+                  <>
+                    <option value="gpt-4o">GPT-4o (Vision)</option>
+                    <option value="gpt-4.1">GPT-4.1 (Vision) - Premium</option>
+                  </>
+                )}
               </select>
+              {ragProvider === 'pageindex-vision' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Vision models automatically selected for document reasoning
+                </p>
+              )}
             </div>
           </div>
 

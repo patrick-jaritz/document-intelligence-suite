@@ -332,12 +332,49 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get PageIndex document ID from mapping table
+    const { data: mapping, error: mappingError } = await supabase
+      .from('pageindex_documents')
+      .select('pageindex_doc_id, status')
+      .eq('document_id', documentId)
+      .single();
+
+    if (mappingError || !mapping) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Document not found in PageIndex. Please submit the document to PageIndex first.',
+          suggestion: 'The document needs to be indexed by PageIndex before Vision RAG queries can be performed.'
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (mapping.status !== 'ready') {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Document is still being processed by PageIndex',
+          status: mapping.status,
+          suggestion: 'Please wait for the document to finish indexing. This usually takes 10-30 seconds.'
+        }),
+        { 
+          status: 503, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Initialize PageIndex client
     const piClient = new PageIndexClient(pageIndexKey);
-
-    // Check if document is ready (assume documentId maps to PageIndex doc_id)
-    // In production, you'd store this mapping in your database
-    const docId = documentId; // This assumes documentId is the PageIndex doc_id
+    const docId = mapping.pageindex_doc_id;
     
     const isReady = await piClient.isRetrievalReady(docId);
     if (!isReady) {

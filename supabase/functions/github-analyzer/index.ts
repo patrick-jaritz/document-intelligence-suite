@@ -235,6 +235,8 @@ ${repoData.pulls.slice(0, 5).map(pr => `- ${pr.title} (${pr.state})`).join('\n')
 Contributors (${repoData.contributors.length}):
 ${repoData.contributors.slice(0, 10).map(contrib => `- ${contrib.login} (${contrib.contributions} contributions)`).join('\n')}
 
+CRITICAL INSTRUCTIONS: Provide SPECIFIC, REPOSITORY-TAILORED insights. Avoid generic statements that could apply to any project. Reference actual code structure, files, patterns, and unique characteristics visible in this repository.
+
 Please provide a comprehensive analysis in the following JSON format:
 
 {
@@ -256,27 +258,27 @@ Please provide a comprehensive analysis in the following JSON format:
   },
   "technicalAnalysis": {
     "techStack": ["Technology1", "Technology2"],
-    "architecture": "Architecture description",
-    "codeQuality": "Code quality assessment",
-    "documentation": "Documentation quality assessment",
-    "testing": "Testing strategy and coverage",
-    "security": "Security considerations",
-    "performance": "Performance characteristics"
+    "architecture": "SPECIFIC: Describe actual architecture patterns visible in repository structure. Reference specific directories/files. Explain HOW this architecture achieves the project's goals. Compare to common patterns in similar projects. Example: 'Reflex uses a compiler-based architecture (see /reflex directory) where Python components are transpiled to React, enabling...'",
+    "codeQuality": "QUANTITATIVE + QUALITATIVE: Provide specific metrics if visible (test files count, CI/CD presence, linting config). Analyze contributor patterns, commit frequency, issue resolution patterns. Reference specific code quality indicators. Count test directories/files from repository structure. Example: 'Code quality indicators: [X] test directories found, contributing guidelines present, active maintenance (" + repoData.issues.length + " issues with avg X days resolution)...'",
+    "documentation": "SPECIFIC: Assess actual documentation quality. Reference specific documentation files found (README, docs directory, API docs, tutorials). Note gaps or strengths. Example: 'Comprehensive documentation: detailed README (" + repoData.readme.length + " chars), dedicated /docs directory with [count] files covering...'",
+    "testing": "SPECIFIC: Identify test frameworks, test structure, coverage approach. Reference test directories/files visible. Example: 'Testing strategy: [framework name] used, [count] test files found in /tests directory, CI/CD integration suggests automated testing...'",
+    "security": "SPECIFIC: Check for security files (.github/security, security policies, dependency scanning). Analyze security practices visible. Example: 'Security: [Security policy found/No security policy], dependency scanning [enabled via Dependabot/not visible]...'",
+    "performance": "SPECIFIC: Identify performance-related patterns (caching, optimization strategies, benchmarks). Reference specific code patterns if visible. Example: 'Performance: [Optimization patterns found in.../No specific performance optimizations visible]...'"
   },
   "useCases": {
-    "primary": ["Primary use case 1", "Primary use case 2"],
-    "secondary": ["Secondary use case 1", "Secondary use case 2"],
-    "integrations": ["Integration possibility 1", "Integration possibility 2"],
-    "industries": ["Industry 1", "Industry 2"],
-    "targetAudience": ["Audience 1", "Audience 2"],
-    "businessModels": ["Business model 1", "Business model 2"],
-    "marketOpportunities": ["Market opportunity 1", "Market opportunity 2"],
-    "competitiveAdvantages": ["Competitive advantage 1", "Competitive advantage 2"],
-    "scalingPotential": "Scaling potential assessment",
-    "monetizationStrategies": ["Monetization strategy 1", "Monetization strategy 2"],
-    "partnershipOpportunities": ["Partnership opportunity 1", "Partnership opportunity 2"],
-    "investmentPotential": "Investment potential assessment",
-    "exitStrategies": ["Exit strategy 1", "Exit strategy 2"]
+    "primary": ["SPECIFIC: Reference actual features visible in README/code. Explain HOW this repository enables each use case differently than alternatives. Example: 'Building Python-first web apps where developers can write both frontend and backend in Python (enabled by Reflex's component compilation model)'"],
+    "secondary": ["SPECIFIC: Connect to actual capabilities, not generic applications"],
+    "integrations": ["SPECIFIC: Identify actual tools/services that would integrate well based on technology stack. Explain HOW integration would work. Example: 'Integrates with Supabase because both use Python-first approach, enabling seamless data layer integration'"],
+    "industries": ["SPECIFIC: Identify sub-industries with concrete examples. Explain WHY this repository is suitable. Example: 'Healthcare: Clinical trial data dashboards where Python ML models need web UIs without JavaScript expertise'"],
+    "targetAudience": ["SPECIFIC: Define narrow user segments. Explain WHY each segment would choose this over alternatives. Example: 'Data scientists who need interactive web UIs without learning JavaScript, as evidenced by Reflex's pure Python approach'"],
+    "businessModels": ["SPECIFIC: Connect business models to actual architecture/features. Example: 'SaaS model enabled by Reflex Cloud deployment capabilities (see deployment docs)'"],
+    "marketOpportunities": ["SPECIFIC: Cite trends relevant to THIS technology type, not generic web dev trends. Connect to unique features. Example: 'Growing Python ML community (3M+ users) needs web UIs - Reflex addresses this gap with pure Python approach, differentiating from Streamlit's dashboard focus'"],
+    "competitiveAdvantages": ["SPECIFIC: Compare to 2-3 direct competitors (identify based on topics/description). Explain UNIQUE features not found in competitors. Example: 'Unlike Streamlit (read-only dashboards) and Dash (requires JavaScript), Reflex enables full-stack Python apps with React-level interactivity via component compilation'"],
+    "scalingPotential": "SPECIFIC: Reference actual architecture capabilities. Explain scalability characteristics based on technology choices.",
+    "monetizationStrategies": ["SPECIFIC: Suggest features based on actual architecture. Connect monetization to technical capabilities. Example: 'Premium: Advanced component library (builds on Reflex's component model in /reflex/components)'"],
+    "partnershipOpportunities": ["SPECIFIC: Identify actual companies/tools that would benefit. Explain WHY each partnership would be valuable. Example: 'Partnership with Jupyter project: Reflex could enable Jupyter notebooks to export interactive web apps'"],
+    "investmentPotential": "SPECIFIC: Assess based on competitive positioning, market gap addressed, and technical differentiation. Reference actual metrics (stars growth, community size, market demand indicators).",
+    "exitStrategies": ["SPECIFIC: Consider realistic acquisition targets based on technology fit and market position. Example: 'Acquisition by Vercel (frontend focus) or Anaconda (Python ecosystem) could integrate Reflex into their platforms'"]
   },
   "rankedApplications": [
     {
@@ -301,30 +303,60 @@ Please provide a comprehensive analysis in the following JSON format:
     "tlDr": "One-sentence summary"
   },
   "analysisMetadata": {
-    "analyzedAt": "${new Date().toISOString()}",
-    "analysisVersion": "1.0",
-    "confidence": 0.85,
-    "dataCompleteness": 0.90
+    "analyzedAt": "[current ISO timestamp]",
+    "analysisVersion": "1.1",
+    "confidence": 0.75,
+    "dataCompleteness": 0.85,
+    "note": "Confidence reflects repository-specific analysis depth. Lower confidence indicates limited data availability, not analysis quality."
   }
 }
 
+CRITICAL QUALITY REQUIREMENTS:
+
+1. **AVOID GENERIC STATEMENTS**: If a statement could describe 10+ similar projects, make it more specific.
+   - ❌ BAD: "High code quality with consistent contributions"
+   - ✅ GOOD: "High code quality evidenced by 85% test coverage, comprehensive type hints, and modular architecture visible in /src structure"
+
+2. **REFERENCE CONCRETE DETAILS**: Always connect claims to visible evidence.
+   - ❌ BAD: "Good documentation"
+   - ✅ GOOD: "Comprehensive documentation: detailed README (" + repoData.readme.length + " chars), dedicated /docs directory with API references and tutorials"
+
+3. **COMPARE TO COMPETITORS**: Every business section should reference 2-3 direct competitors.
+   - Identify competitors based on: topics "${(repoData.repo.topics || []).join(', ') || 'None'}", description "${repoData.repo.description || 'No description'}", language "${repoData.repo.language || 'Unknown'}"
+   - For each competitor: What this repo does BETTER, what it does WORSE, market positioning
+
+4. **USE QUANTITATIVE METRICS**: Where possible, provide numbers, counts, percentages.
+   - Test files: Count visible test directories
+   - Documentation: Estimate coverage based on files found
+   - Activity: Analyze commit frequency, contributor engagement
+   - Security: Count security-related files/policies
+
+5. **CONNECT FEATURES TO USE CASES**: Don't just list use cases - explain HOW this repository's features enable them.
+   - Reference actual code patterns, architecture decisions, or unique capabilities
+
 Be thorough, accurate, and provide actionable insights. Focus on:
 
-1. **Entrepreneurial Perspective**: Analyze this as a potential business opportunity, considering market size, competitive landscape, and scalability
-2. **Technical Excellence**: Evaluate the code quality, architecture, and technical sophistication
-3. **Market Viability**: Assess the market demand, target customers, and business model potential
-4. **Investment Potential**: Consider funding requirements, growth potential, and exit strategies
-5. **Strategic Opportunities**: Identify partnerships, integrations, and market positioning strategies
+1. **Entrepreneurial Perspective**: Analyze as a SPECIFIC business opportunity. Compare to identified competitors. Reference actual market gaps this addresses.
+2. **Technical Excellence**: Evaluate SPECIFIC code patterns, architecture decisions visible in repository structure. Use metrics where available.
+3. **Market Viability**: Assess SPECIFIC market demand based on unique features. Identify narrow target segments, not broad categories.
+4. **Investment Potential**: Consider SPECIFIC competitive positioning and differentiation. Reference actual metrics (stars growth, community indicators).
+5. **Strategic Opportunities**: Identify SPECIFIC partnerships based on technology fit. Explain WHY each opportunity is valuable.
 
 CRITICAL: Generate "rankedApplications" with 8 SPECIFIC, CREATIVE application ideas tailored to this repository's unique characteristics. Consider:
-- Unique features of this repository
-- Technology stack capabilities
-- Industry applications
-- Integration opportunities
-- Competitive transformations
-- Market gaps this could fill
+- Unique features visible in repository structure
+- Technology stack capabilities and how they're used
+- Specific industry applications with concrete examples
+- Integration opportunities with specific tools/services
+- Competitive transformations this technology enables
+- Specific market gaps this fills based on competitive analysis
 
-Each application idea MUST be specific to this repo, not generic. Think creatively about how this technology could be transformed or applied.
+Each application idea MUST be specific to this repo, not generic. Think creatively about how this technology could be transformed or applied based on its ACTUAL architecture and capabilities.
+
+VALIDATION: Before finalizing, review each section and ask:
+- Could this statement apply to 10+ similar projects? If yes, make it more specific.
+- Does this reference concrete details from the repository? If no, add specific references.
+- Is this comparing to competitors? If no, add competitive context.
+- Are there quantitative metrics I can include? If yes, add them.
 
 Provide specific, actionable insights that would help an entrepreneur or investor make informed decisions about this technology.
 `;
@@ -358,7 +390,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
             }
           ],
           temperature: 0.3,
-          max_tokens: 4000
+          max_tokens: 6000
         })
       });
 
@@ -391,7 +423,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
         },
         body: JSON.stringify({
           model: 'claude-3-sonnet-20240229',
-          max_tokens: 4000,
+          max_tokens: 6000,
           messages: [
             {
               role: 'user',
@@ -439,7 +471,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
             }
           ],
           temperature: 0.3,
-          max_tokens: 4000
+          max_tokens: 6000
         })
       });
 

@@ -3,11 +3,13 @@
  * Tests prompts with OpenRouter API (100+ models)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play, Loader2, Copy, Check, Settings, TrendingUp, Zap } from 'lucide-react';
 import { StructuredPrompt } from '../../types/prompt';
 import { generatePreview } from '../../utils/promptFormatters';
 import { supabaseUrl, supabaseAnonKey } from '../../lib/supabase';
+import { PromptBuilderTheme } from '../../utils/promptBuilderThemes';
+import { PROMPT_BUILDER_THEMES } from '../../utils/promptBuilderThemes';
 
 interface Model {
   id: string;
@@ -51,13 +53,16 @@ interface PromptBuilderTestPanelProps {
   prompt: StructuredPrompt;
   testInput?: string;
   apiKey?: string;
+  theme?: PromptBuilderTheme;
 }
 
 export function PromptBuilderTestPanel({
   prompt,
   testInput = '',
   apiKey: providedApiKey,
+  theme = 'default',
 }: PromptBuilderTestPanelProps) {
+  const themeConfig = PROMPT_BUILDER_THEMES[theme];
   const [models, setModels] = useState<Model[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');

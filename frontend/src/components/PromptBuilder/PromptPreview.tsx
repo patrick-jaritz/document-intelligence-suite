@@ -7,14 +7,18 @@ import { useState } from 'react';
 import { FileText, Code, FileJson, Copy, Check } from 'lucide-react';
 import { StructuredPrompt, PromptFormat } from '../../types/prompt';
 import { generatePreview, estimateTokens } from '../../utils/promptFormatters';
+import { PromptBuilderTheme } from '../../utils/promptBuilderThemes';
+import { PROMPT_BUILDER_THEMES } from '../../utils/promptBuilderThemes';
 
 interface PromptPreviewProps {
   prompt: StructuredPrompt;
+  theme?: PromptBuilderTheme;
 }
 
-export function PromptPreview({ prompt }: PromptPreviewProps) {
+export function PromptPreview({ prompt, theme = 'default' }: PromptPreviewProps) {
   const [format, setFormat] = useState<PromptFormat>('markdown');
   const [copied, setCopied] = useState(false);
+  const themeConfig = PROMPT_BUILDER_THEMES[theme];
 
   const preview = generatePreview(prompt, format);
   const tokenCount = estimateTokens(preview);
@@ -36,19 +40,19 @@ export function PromptPreview({ prompt }: PromptPreviewProps) {
   ];
 
   return (
-    <div className="prompt-preview border rounded-lg overflow-hidden">
+    <div className={`prompt-preview border ${themeConfig.colors.border} rounded-lg overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md ${themeConfig.colors.card}`}>
       {/* Format Selector */}
-      <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+      <div className={`flex items-center justify-between p-3 ${themeConfig.colors.previewBg} border-b ${themeConfig.colors.border} transition-colors`}>
         <div className="flex gap-2">
           {formatButtons.map(({ format: fmt, label, icon: Icon }) => (
             <button
               key={fmt}
               onClick={() => setFormat(fmt)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                 format === fmt
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
+                  ? `${themeConfig.colors.buttonPrimary} text-white shadow-sm`
+                  : `${themeConfig.colors.card} ${themeConfig.colors.text} hover:bg-opacity-50 hover:bg-blue-500 hover:text-white`
+              } hover:scale-105 active:scale-95`}
             >
               <Icon size={16} />
               {label}
@@ -56,12 +60,12 @@ export function PromptPreview({ prompt }: PromptPreviewProps) {
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">
+          <span className={`text-xs ${themeConfig.colors.textMuted} transition-colors`}>
             ~{tokenCount.toLocaleString()} tokens
           </span>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-white border hover:bg-gray-50 transition-colors"
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm ${themeConfig.colors.card} border ${themeConfig.colors.border} ${themeConfig.colors.text} hover:bg-opacity-10 hover:bg-blue-500 transition-all duration-200 hover:scale-105 active:scale-95`}
             title="Copy to clipboard"
           >
             {copied ? (
@@ -80,17 +84,17 @@ export function PromptPreview({ prompt }: PromptPreviewProps) {
       </div>
 
       {/* Preview Content */}
-      <div className="p-4 bg-white">
+      <div className={`p-4 ${themeConfig.colors.card} transition-colors`}>
         {format === 'json' ? (
-          <pre className="text-sm font-mono overflow-x-auto bg-gray-50 p-4 rounded border">
+          <pre className={`text-sm font-mono overflow-x-auto ${themeConfig.colors.previewCodeBg} p-4 rounded border ${themeConfig.colors.border} ${themeConfig.colors.text} transition-colors`}>
             {preview}
           </pre>
         ) : format === 'markdown' ? (
           <div className="prose prose-sm max-w-none">
-            <div className="whitespace-pre-wrap text-sm">{preview}</div>
+            <div className={`whitespace-pre-wrap text-sm ${themeConfig.colors.text} transition-colors`}>{preview}</div>
           </div>
         ) : (
-          <pre className="text-sm font-mono whitespace-pre-wrap overflow-x-auto bg-gray-50 p-4 rounded border">
+          <pre className={`text-sm font-mono whitespace-pre-wrap overflow-x-auto ${themeConfig.colors.previewCodeBg} p-4 rounded border ${themeConfig.colors.border} ${themeConfig.colors.text} transition-colors`}>
             {preview}
           </pre>
         )}
@@ -98,7 +102,7 @@ export function PromptPreview({ prompt }: PromptPreviewProps) {
 
       {/* Empty State */}
       {!prompt.title && !prompt.role && !prompt.task && (
-        <div className="p-8 text-center text-gray-500">
+        <div className={`p-8 text-center ${themeConfig.colors.textMuted} transition-colors`}>
           <FileText size={48} className="mx-auto mb-3 opacity-50" />
           <p>Preview will appear here as you build your prompt</p>
         </div>

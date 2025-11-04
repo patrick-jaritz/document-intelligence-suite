@@ -98,6 +98,9 @@ deploy_supabase() {
     supabase functions deploy generate-structured-output
     supabase functions deploy prompt-builder
     supabase functions deploy test-prompt
+    supabase functions deploy github-analyzer
+    supabase functions deploy vision-rag-query
+    supabase functions deploy submit-to-pageindex
     
     print_success "Supabase functions deployed"
 }
