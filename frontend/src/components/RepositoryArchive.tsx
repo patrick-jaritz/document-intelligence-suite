@@ -112,9 +112,9 @@ const RepositoryArchive: React.FC = () => {
           setAnalyses(getDemoData());
         }
       } catch (error) {
-        console.error('Error fetching analyses:', error);
-        // Use demo data as fallback
-        setAnalyses(getDemoData());
+        console.error('❌ Error fetching analyses:', error);
+        // Don't use demo data - show empty state instead
+        setAnalyses([]);
       } finally {
         setLoading(false);
       }
@@ -354,16 +354,18 @@ const RepositoryArchive: React.FC = () => {
           Browse and analyze previously analyzed GitHub repositories with comprehensive business insights.
         </p>
         
-        {/* Demo Notice */}
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-blue-900">Demo Mode</span>
+        {/* Info Notice */}
+        {analyses.length === 0 && !loading && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span className="text-sm font-medium text-yellow-900">No Analyses Found</span>
+            </div>
+            <p className="text-sm text-yellow-800 mt-1">
+              No repository analyses found. Analyze a GitHub repository to see it here.
+            </p>
           </div>
-          <p className="text-sm text-blue-800 mt-1">
-            Currently showing sample repository analyses. Real analyses will appear here once the database is fully configured.
-          </p>
-        </div>
+        )}
       </div>
 
       {/* Filters and Search */}
