@@ -8,6 +8,7 @@ import { sanitizeForDisplay } from '../utils/sanitize';
 import { validateTextInput } from '../utils/inputValidation';
 import { ChatMessageSkeleton } from './SkeletonLoader';
 import { SourceViewer } from './SourceViewer';
+import { RAGDebugPanel } from './RAGDebugPanel';
 
 interface Document {
   id: string;
@@ -25,6 +26,13 @@ interface ChatMessage {
     score: number;
     filename: string;
   }>;
+  debugInfo?: {
+    queryTime?: number;
+    retrievedChunks?: number;
+    totalChunks?: number;
+    model?: string;
+    provider?: string;
+  };
 }
 
 export function RAGView() {
@@ -463,6 +471,9 @@ export function RAGView() {
     // Create new AbortController for this request
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    // Track query start time
+    const queryStartTime = Date.now();
 
     try {
       // Check if using PageIndex Vision RAG
@@ -936,6 +947,21 @@ export function RAGView() {
                           }))}
                           query={undefined}
                           enableVisualizations={true}
+                        />
+                      </div>
+                    )}
+
+                    {/* Debug Panel */}
+                    {debugMode && message.debugInfo && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <RAGDebugPanel
+                          sources={message.sources || []}
+                          query={undefined}
+                          queryTime={message.debugInfo.queryTime}
+                          retrievedChunks={message.debugInfo.retrievedChunks}
+                          totalChunks={message.debugInfo.totalChunks}
+                          model={message.debugInfo.model}
+                          provider={message.debugInfo.provider}
                         />
                       </div>
                     )}
