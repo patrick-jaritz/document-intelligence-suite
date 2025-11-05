@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Resolve env variables - SECURITY: No hardcoded fallbacks
 // These must be set via environment variables in Vercel/production
@@ -7,18 +7,32 @@ export const supabaseUrl: string =
 export const supabaseAnonKey: string =
   (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY || '';
 
+// Check if configuration is valid
+export const isSupabaseConfigured = (): boolean => {
+  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'undefined' && supabaseAnonKey !== 'undefined');
+};
+
 // Validate required environment variables
-if (typeof window !== 'undefined' && (!supabaseUrl || !supabaseAnonKey)) {
+if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
   console.error('❌ Security: Missing required environment variables. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your deployment environment.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+// Create Supabase client only if configured, otherwise create a dummy client
+export const supabase: SupabaseClient = isSupabaseConfigured()
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
+  : createClient('https://placeholder.supabase.co', 'placeholder-key', {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
 
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 

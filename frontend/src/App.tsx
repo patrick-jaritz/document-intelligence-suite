@@ -1,7 +1,9 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ConfigurationError } from './components/ConfigurationError';
 import { Loader2 } from 'lucide-react';
+import { isSupabaseConfigured } from './lib/supabase';
 
 // Lazy load routes for code splitting
 const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
@@ -19,6 +21,11 @@ const LoadingFallback = () => (
 );
 
 function App() {
+  // Check if Supabase is configured
+  if (!isSupabaseConfigured()) {
+    return <ConfigurationError />;
+  }
+
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
