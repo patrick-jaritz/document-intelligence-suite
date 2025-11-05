@@ -563,11 +563,21 @@ export function RAGView() {
             }
           }));
       
+      // Calculate query time
+      const queryTime = Date.now() - queryStartTime;
+
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
         content: answer,
-        sources: sources
+        sources: sources,
+        debugInfo: {
+          queryTime,
+          retrievedChunks: result.retrievedChunks || sources.length,
+          totalChunks: undefined, // Would need to fetch from API
+          model: ragModel,
+          provider: ragProvider,
+        }
       };
 
       // Add reasoning if available (Vision RAG feature)
