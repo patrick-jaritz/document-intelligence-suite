@@ -548,6 +548,28 @@ export function RAGView() {
         5 * 60 * 1000 // 5 minute cache
       );
       
+      // Check if this is a "No matches found" error with debug info
+      if (result.answer && result.answer.includes('No relevant information found') && result.debug) {
+        console.warn('⚠️ No matches found - Debug info:', result.debug);
+        console.log('💡 Suggestions:', result.debug.suggestion);
+        
+        // Show enhanced error message with debug info
+        const debugMessage = result.debug.suggestion 
+          ? `\n\n**💡 Troubleshooting:**\n${result.debug.suggestion}`
+          : '';
+        
+        const assistantMessage: ChatMessage = {
+          id: `assistant_${Date.now()}`,
+          role: 'assistant',
+          content: result.answer + debugMessage,
+          sources: []
+        };
+        
+        setMessages(prev => [...prev, assistantMessage]);
+        setIsQuerying(false);
+        return;
+      }
+      
       // Handle Vision RAG response format (different from Vector RAG)
       const answer = result.answer || result.error || 'No answer generated';
       const sources = isVisionRAG && result.sources
