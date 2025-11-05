@@ -603,30 +603,30 @@ Deno.serve(async (req: Request) => {
     }
 
     // SECURITY: Limit request size
-  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
-  let requestText = '';
-  try {
-    requestText = await req.text();
-    if (requestText.length > MAX_REQUEST_SIZE) {
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+    let requestText = '';
+    try {
+      requestText = await req.text();
+      if (requestText.length > MAX_REQUEST_SIZE) {
+        return new Response(
+          JSON.stringify({ error: 'Request too large' }),
+          { 
+            status: 413, 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } catch (error) {
       return new Response(
-        JSON.stringify({ error: 'Request too large' }),
+        JSON.stringify({ error: 'Failed to read request body' }),
         { 
-          status: 413, 
+          status: 400, 
           headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: 'Failed to read request body' }),
-      { 
-        status: 400, 
-        headers: { ...headers, 'Content-Type': 'application/json' } 
-      }
-    );
-  }
 
-  try {
+    try {
     const { url } = JSON.parse(requestText)
 
     // SECURITY: Validate input
@@ -719,14 +719,29 @@ Deno.serve(async (req: Request) => {
       }),
       { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
+    } catch (error) {
+      // Catch any unhandled errors that might occur outside the inner try-catch
+      console.error('❌ Unhandled error in github-analyzer:', error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : 'An unexpected error occurred',
+          type: 'unhandled_error'
+        }),
+        { 
+          status: 500, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
   } catch (outerError) {
-    // Catch any unhandled errors that might occur outside the main try-catch
-    console.error('❌ Unhandled error in github-analyzer:', outerError);
+    // Catch any errors that occur outside the main try block
+    console.error('❌ Outer error in github-analyzer:', outerError);
     return new Response(
       JSON.stringify({
         success: false,
         error: outerError instanceof Error ? outerError.message : 'An unexpected error occurred',
-        type: 'unhandled_error'
+        type: 'outer_error'
       }),
       { 
         status: 500, 
