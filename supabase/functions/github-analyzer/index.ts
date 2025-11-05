@@ -580,29 +580,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-  // Apply rate limiting
-  const rateLimitResponse = withRateLimit(
-    rateLimiters.github,
-    'GitHub analysis rate limit exceeded. Please try again in a minute.'
-  )(req);
+    // Apply rate limiting
+    const rateLimitResponse = await withRateLimit(
+      rateLimiters.github,
+      'GitHub analysis rate limit exceeded. Please try again in a minute.'
+    )(req);
   
-  if (rateLimitResponse) {
-    // Update rate limit response with merged headers (CORS + security)
-    const rateLimitHeaders = new Headers(rateLimitResponse.headers);
-    Object.entries(headers).forEach(([key, value]) => {
-      rateLimitHeaders.set(key, value);
-    });
-    // Ensure rate limit response has valid JSON body
-    const rateLimitBody = rateLimitResponse.body 
-      ? (typeof rateLimitResponse.body === 'string' ? rateLimitResponse.body : JSON.stringify({ error: 'Rate limit exceeded' }))
-      : JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a minute.' });
-    return new Response(rateLimitBody, {
-      status: rateLimitResponse.status,
-      headers: { ...rateLimitHeaders, 'Content-Type': 'application/json' }
-    });
-  }
+    if (rateLimitResponse) {
+      // Update rate limit response with merged headers (CORS + security)
+      const rateLimitHeaders = new Headers(rateLimitResponse.headers);
+      Object.entries(headers).forEach(([key, value]) => {
+        rateLimitHeaders.set(key, value);
+      });
+      // Ensure rate limit response has valid JSON body
+      const rateLimitBody = rateLimitResponse.body 
+        ? (typeof rateLimitResponse.body === 'string' ? rateLimitResponse.body : JSON.stringify({ error: 'Rate limit exceeded' }))
+        : JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a minute.' });
+      return new Response(rateLimitBody, {
+        status: rateLimitResponse.status,
+        headers: { ...rateLimitHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-  // SECURITY: Limit request size
+    // SECURITY: Limit request size
   const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
   let requestText = '';
   try {
