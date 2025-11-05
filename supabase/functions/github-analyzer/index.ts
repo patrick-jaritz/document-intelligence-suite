@@ -719,21 +719,6 @@ Deno.serve(async (req: Request) => {
       }),
       { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
-    } catch (error) {
-      // Catch any unhandled errors that might occur outside the inner try-catch
-      console.error('❌ Unhandled error in github-analyzer:', error);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: error instanceof Error ? error.message : 'An unexpected error occurred',
-          type: 'unhandled_error'
-        }),
-        { 
-          status: 500, 
-          headers: { ...headers, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
   } catch (outerError) {
     // Catch any errors that occur outside the main try block
     console.error('❌ Outer error in github-analyzer:', outerError);
