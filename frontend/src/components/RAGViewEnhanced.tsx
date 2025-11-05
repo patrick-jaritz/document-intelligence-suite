@@ -636,6 +636,8 @@ export function RAGViewEnhanced() {
                         filename: source.filename,
                       }
                     }))}
+                    query={message.content}
+                    enableVisualizations={true}
                   />
                 </div>
               )}

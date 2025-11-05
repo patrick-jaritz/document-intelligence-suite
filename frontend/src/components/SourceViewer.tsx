@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, FileText, ExternalLink, TrendingUp, MapPin } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, ExternalLink, TrendingUp, MapPin, Grid3x3, Network, BarChart3, List } from 'lucide-react';
+import { RAGVisualization } from './RAGVisualization';
 
 interface Source {
   text: string;
@@ -12,10 +13,13 @@ interface Source {
 
 interface SourceViewerProps {
   sources: Source[];
+  query?: string;
+  enableVisualizations?: boolean;
 }
 
-export function SourceViewer({ sources }: SourceViewerProps) {
+export function SourceViewer({ sources, query, enableVisualizations = true }: SourceViewerProps) {
   const [expandedSources, setExpandedSources] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<'list' | 'heatmap' | 'graph' | 'comparison'>('list');
 
   // Normalize sources and sort by similarity/score (highest first)
   const normalizedSources = useMemo(() => {
@@ -76,10 +80,75 @@ export function SourceViewer({ sources }: SourceViewerProps) {
           <FileText className="w-4 h-4" />
           Retrieved Sources ({normalizedSources.length})
         </h3>
-        <span className="text-xs text-gray-500">
-          Sorted by relevance
-        </span>
+        <div className="flex items-center gap-2">
+          {enableVisualizations && (
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('heatmap')}
+                className={`p-1.5 rounded transition-colors ${
+                  viewMode === 'heatmap'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Heatmap View"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('graph')}
+                className={`p-1.5 rounded transition-colors ${
+                  viewMode === 'graph'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Graph View"
+              >
+                <Network className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('comparison')}
+                className={`p-1.5 rounded transition-colors ${
+                  viewMode === 'comparison'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Comparison View"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          <span className="text-xs text-gray-500">
+            Sorted by relevance
+          </span>
+        </div>
       </div>
+
+      {/* Visualization Views */}
+      {enableVisualizations && viewMode !== 'list' && (
+        <div className="mb-4">
+          <RAGVisualization
+            sources={normalizedSources}
+            query={query}
+            viewMode={viewMode}
+          />
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <div className="space-y-3">
 
       {normalizedSources.map((source, index) => {
         const similarity = source.similarity;
@@ -227,6 +296,8 @@ export function SourceViewer({ sources }: SourceViewerProps) {
           </div>
         );
       })}
+        </div>
+      )}
     </div>
   );
 }

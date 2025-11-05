@@ -934,6 +934,8 @@ export function RAGView() {
                               filename: source.filename,
                             }
                           }))}
+                          query={undefined}
+                          enableVisualizations={true}
                         />
                       </div>
                     )}
