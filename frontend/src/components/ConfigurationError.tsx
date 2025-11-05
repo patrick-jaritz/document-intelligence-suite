@@ -16,11 +16,17 @@ export function ConfigurationError() {
           
           <div className="bg-gray-50 rounded-md p-4 space-y-2">
             <div>
+              <p className="text-sm font-semibold text-gray-800 mb-2">Option 1 (Vite - Recommended):</p>
               <code className="text-sm font-mono text-gray-800">VITE_SUPABASE_URL</code>
               <p className="text-sm text-gray-600 mt-1">Your Supabase project URL</p>
-            </div>
-            <div>
               <code className="text-sm font-mono text-gray-800">VITE_SUPABASE_ANON_KEY</code>
+              <p className="text-sm text-gray-600 mt-1">Your Supabase anonymous key</p>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-300">
+              <p className="text-sm font-semibold text-gray-800 mb-2">Option 2 (Supabase Integration):</p>
+              <code className="text-sm font-mono text-gray-800">NEXT_PUBLIC_SUPABASE_URL</code>
+              <p className="text-sm text-gray-600 mt-1">Your Supabase project URL</p>
+              <code className="text-sm font-mono text-gray-800">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
               <p className="text-sm text-gray-600 mt-1">Your Supabase anonymous key</p>
             </div>
           </div>

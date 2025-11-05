@@ -19,7 +19,21 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Validate required environment variables
 if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
-  console.error('❌ Security: Missing required environment variables. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your deployment environment.');
+  const hasVite = !!(import.meta as any)?.env?.VITE_SUPABASE_URL && !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY;
+  const hasNext = !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL && !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  console.error('❌ Security: Missing required environment variables.');
+  console.error('   Please configure one of the following in Vercel:');
+  console.error('   Option 1: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  console.error('   Option 2: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  console.error('   Current status:', {
+    hasVite,
+    hasNext,
+    viteUrl: !!(import.meta as any)?.env?.VITE_SUPABASE_URL,
+    viteKey: !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY,
+    nextUrl: !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL,
+    nextKey: !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
 }
 
 // Create Supabase client only if configured, otherwise create a dummy client
