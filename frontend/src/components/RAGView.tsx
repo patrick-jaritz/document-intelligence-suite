@@ -903,16 +903,7 @@ export function RAGView() {
         {/* Document List */}
         {documents.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Documents</h3>
-              {selectedDocument !== 'all' && (
-                <RAGDiagnosticButton
-                  documentId={selectedDocument}
-                  filename={documents.find(d => d.id === selectedDocument)?.filename}
-                  documentType={documents.find(d => d.id === selectedDocument)?.type || 'file'}
-                />
-              )}
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
             <div className="space-y-2">
               <button
                 onClick={() => setSelectedDocument('all')}
@@ -927,36 +918,46 @@ export function RAGView() {
               </button>
               
               {documents.map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() => setSelectedDocument(doc.id)}
-                  disabled={doc.status !== 'ready'}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
-                    selectedDocument === doc.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {doc.type === 'url' ? (
-                      <Globe className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-gray-500" />
-                    )}
-                    <div className="font-medium text-gray-900 truncate">{doc.filename}</div>
-                    {doc.status === 'processing' && (
-                      <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-                    )}
-                    {doc.status === 'failed' && (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {doc.status === 'processing' && 'Processing...'}
-                    {doc.status === 'ready' && 'Ready for questions'}
-                    {doc.status === 'failed' && 'Processing failed'}
-                  </div>
-                </button>
+                <div key={doc.id} className="space-y-2">
+                  <button
+                    onClick={() => setSelectedDocument(doc.id)}
+                    disabled={doc.status !== 'ready'}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
+                      selectedDocument === doc.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {doc.type === 'url' ? (
+                        <Globe className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-gray-500" />
+                      )}
+                      <div className="font-medium text-gray-900 truncate">{doc.filename}</div>
+                      {doc.status === 'processing' && (
+                        <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                      )}
+                      {doc.status === 'failed' && (
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {doc.status === 'processing' && 'Processing...'}
+                      {doc.status === 'ready' && 'Ready for questions'}
+                      {doc.status === 'failed' && 'Processing failed'}
+                    </div>
+                  </button>
+                  {selectedDocument === doc.id && doc.status === 'ready' && (
+                    <div className="ml-4">
+                      <RAGDiagnosticButton
+                        documentId={doc.id}
+                        filename={doc.filename}
+                        documentType={doc.type}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
