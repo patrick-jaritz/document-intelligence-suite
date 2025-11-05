@@ -431,7 +431,7 @@ export function GitHubAnalyzer() {
     setAnalysisResult(null);
 
     try {
-      console.log('🔍 Analyzing GitHub repository:', urlInput);
+      console.log('🔍 Analyzing GitHub repository:', normalizedUrl, '(original input:', urlInput, ')');
       
       // Use fetchWithTimeout for better timeout handling  
       const response = await fetchWithTimeout(
@@ -443,7 +443,7 @@ export function GitHubAnalyzer() {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
-            url: urlInput
+            url: normalizedUrl
           }),
           timeout: 120000, // 2 minute timeout
         }
