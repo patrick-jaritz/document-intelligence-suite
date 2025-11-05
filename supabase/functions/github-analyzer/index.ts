@@ -565,22 +565,20 @@ Provide specific, actionable insights that would help an entrepreneur or investo
 }
 
 Deno.serve(async (req: Request) => {
-  // SECURITY: Handle CORS preflight requests FIRST
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.get('Origin');
-    const corsHeaders = getCorsHeaders(origin);
-    const securityHeaders = getSecurityHeaders();
-    const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
-    return new Response(null, {
-      status: 204,
-      headers: headers,
-    });
-  }
-
+  // SECURITY: Initialize headers early for error responses
   const origin = req.headers.get('Origin');
   const corsHeaders = getCorsHeaders(origin);
   const securityHeaders = getSecurityHeaders();
   const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  try {
+    // SECURITY: Handle CORS preflight requests FIRST
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: headers,
+      });
+    }
 
   // Apply rate limiting
   const rateLimitResponse = withRateLimit(
@@ -721,5 +719,19 @@ Deno.serve(async (req: Request) => {
       }),
       { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
+  } catch (outerError) {
+    // Catch any unhandled errors that might occur outside the main try-catch
+    console.error('❌ Unhandled error in github-analyzer:', outerError);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: outerError instanceof Error ? outerError.message : 'An unexpected error occurred',
+        type: 'unhandled_error'
+      }),
+      { 
+        status: 500, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 })
