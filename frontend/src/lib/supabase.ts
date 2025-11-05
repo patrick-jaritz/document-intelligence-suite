@@ -19,8 +19,13 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Validate required environment variables
 if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
-  const hasVite = !!(import.meta as any)?.env?.VITE_SUPABASE_URL && !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY;
-  const hasNext = !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL && !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const viteUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL;
+  const viteKey = (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY;
+  const nextUrl = (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL;
+  const nextKey = (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  const hasVite = !!(viteUrl && viteKey && viteUrl !== 'undefined' && viteKey !== 'undefined');
+  const hasNext = !!(nextUrl && nextKey && nextUrl !== 'undefined' && nextKey !== 'undefined');
   
   console.error('❌ Security: Missing required environment variables.');
   console.error('   Please configure one of the following in Vercel:');
@@ -29,10 +34,15 @@ if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
   console.error('   Current status:', {
     hasVite,
     hasNext,
-    viteUrl: !!(import.meta as any)?.env?.VITE_SUPABASE_URL,
-    viteKey: !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY,
-    nextUrl: !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL,
-    nextKey: !!(import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    viteUrl: !!viteUrl,
+    viteKey: !!viteKey,
+    nextUrl: !!nextUrl,
+    nextKey: !!nextKey,
+    // Debug: Show actual values (truncated for security)
+    viteUrlValue: viteUrl ? `${viteUrl.substring(0, 30)}...` : 'undefined',
+    nextUrlValue: nextUrl ? `${nextUrl.substring(0, 30)}...` : 'undefined',
+    viteKeyValue: viteKey ? `${viteKey.substring(0, 20)}...` : 'undefined',
+    nextKeyValue: nextKey ? `${nextKey.substring(0, 20)}...` : 'undefined',
   });
 }
 
