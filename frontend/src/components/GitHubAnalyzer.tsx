@@ -126,16 +126,52 @@ export function GitHubAnalyzer() {
   const [versionData, setVersionData] = useState<any>(null);
   const [loadingVersion, setLoadingVersion] = useState(false);
 
+  /**
+   * Normalize GitHub repository URL to full format
+   * Accepts: https://github.com/owner/repo, github.com/owner/repo, or owner/repo
+   */
+  const normalizeGitHubUrl = (url: string): string => {
+    // Remove leading/trailing whitespace
+    url = url.trim();
+    
+    // If it's already a full URL, return as-is
+    if (url.startsWith('https://github.com/') || url.startsWith('http://github.com/')) {
+      return url.replace('http://', 'https://');
+    }
+    
+    // If it starts with github.com/, add https://
+    if (url.startsWith('github.com/')) {
+      return `https://${url}`;
+    }
+    
+    // If it's just owner/repo, add https://github.com/
+    if (/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9._-]+$/.test(url)) {
+      return `https://github.com/${url}`;
+    }
+    
+    // Return as-is if it doesn't match any pattern (will be caught by validation)
+    return url;
+  };
+
   const isGitHubUrl = (url: string): boolean => {
     try {
-      const urlObj = new URL(url);
-      const pathParts = urlObj.pathname.split('/').filter(part => part);
+      // Normalize the URL first
+      const normalizedUrl = normalizeGitHubUrl(url);
       
-      // Must be github.com with at least owner/repo
-      return urlObj.hostname === 'github.com' && 
-             pathParts.length >= 2 && 
-             pathParts[0].length > 0 && 
-             pathParts[1].length > 0;
+      try {
+        const urlObj = new URL(normalizedUrl);
+        const pathParts = urlObj.pathname.split('/').filter(part => part);
+        
+        // Must be github.com with at least owner/repo
+        return urlObj.hostname === 'github.com' && 
+               pathParts.length >= 2 && 
+               pathParts[0].length > 0 && 
+               pathParts[1].length > 0;
+      } catch {
+        // If URL parsing fails, check if it's owner/repo format
+        const ownerRepoMatch = url.match(/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+)$/);
+        return !!ownerRepoMatch;
+      }
     } catch {
       return false;
     }
@@ -354,9 +390,12 @@ export function GitHubAnalyzer() {
     if (!urlInput.trim()) return;
     
     if (!isGitHubUrl(urlInput)) {
-      setError('Please enter a valid GitHub repository URL in the format: https://github.com/owner/repository');
+      setError('Please enter a valid GitHub repository URL. Accepted formats:\n- https://github.com/owner/repository\n- github.com/owner/repository\n- owner/repository');
       return;
     }
+
+    // Normalize the URL before sending to API
+    const normalizedUrl = normalizeGitHubUrl(urlInput);
 
     // Check if repository already exists in archive
     const existingAnalysis = archivedAnalyses.find(

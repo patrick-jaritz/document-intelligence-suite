@@ -92,18 +92,55 @@ const mistralApiKey = Deno.env.get('MISTRAL_API_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
+ * Normalize GitHub repository URL to full format
+ * Accepts: https://github.com/owner/repo, github.com/owner/repo, or owner/repo
+ */
+function normalizeGitHubUrl(url: string): string {
+  // Remove leading/trailing whitespace
+  url = url.trim();
+  
+  // If it's already a full URL, return as-is
+  if (url.startsWith('https://github.com/') || url.startsWith('http://github.com/')) {
+    return url.replace('http://', 'https://');
+  }
+  
+  // If it starts with github.com/, add https://
+  if (url.startsWith('github.com/')) {
+    return `https://${url}`;
+  }
+  
+  // If it's just owner/repo, add https://github.com/
+  if (/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9._-]+$/.test(url)) {
+    return `https://github.com/${url}`;
+  }
+  
+  // Return as-is if it doesn't match any pattern (will be caught by validation)
+  return url;
+}
+
+/**
  * Check if URL is a GitHub repository
+ * Accepts: https://github.com/owner/repo, github.com/owner/repo, or owner/repo
  */
 function isGitHubRepo(url: string): boolean {
   try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/').filter(part => part);
+    // Normalize the URL first
+    const normalizedUrl = normalizeGitHubUrl(url);
     
-    // Must be github.com with at least owner/repo
-    return urlObj.hostname === 'github.com' && 
-           pathParts.length >= 2 && 
-           pathParts[0].length > 0 && 
-           pathParts[1].length > 0;
+    try {
+      const urlObj = new URL(normalizedUrl);
+      const pathParts = urlObj.pathname.split('/').filter(part => part);
+      
+      // Must be github.com with at least owner/repo
+      return urlObj.hostname === 'github.com' && 
+             pathParts.length >= 2 && 
+             pathParts[0].length > 0 && 
+             pathParts[1].length > 0;
+    } catch {
+      // If URL parsing fails, check if it's owner/repo format
+      const ownerRepoMatch = url.match(/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+)$/);
+      return !!ownerRepoMatch;
+    }
   } catch {
     return false;
   }
@@ -111,22 +148,38 @@ function isGitHubRepo(url: string): boolean {
 
 /**
  * Extract owner and repo from GitHub URL
+ * Accepts: https://github.com/owner/repo, github.com/owner/repo, or owner/repo
  */
 function extractGitHubInfo(url: string): { owner: string; repo: string } {
-  const urlObj = new URL(url);
-  const pathParts = urlObj.pathname.split('/').filter(part => part);
+  // Normalize the URL first
+  const normalizedUrl = normalizeGitHubUrl(url);
   
-  if (pathParts.length < 2) {
-    throw new Error('Invalid GitHub repository URL. Please provide a URL in the format: https://github.com/owner/repository');
+  try {
+    const urlObj = new URL(normalizedUrl);
+    const pathParts = urlObj.pathname.split('/').filter(part => part);
+    
+    if (pathParts.length < 2) {
+      throw new Error('Invalid GitHub repository URL. Please provide a URL in the format: https://github.com/owner/repository or owner/repository');
+    }
+    
+    // Remove .git suffix if present
+    const repo = pathParts[1].replace(/\.git$/, '');
+    
+    return {
+      owner: pathParts[0],
+      repo: repo
+    };
+  } catch {
+    // Fallback: try to parse owner/repo format directly
+    const ownerRepoMatch = url.match(/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+)$/);
+    if (ownerRepoMatch) {
+      return {
+        owner: ownerRepoMatch[1],
+        repo: ownerRepoMatch[3].replace(/\.git$/, '')
+      };
+    }
+    throw new Error('Invalid GitHub repository URL. Please provide a URL in the format: https://github.com/owner/repository or owner/repository');
   }
-  
-  // Remove .git suffix if present
-  const repo = pathParts[1].replace(/\.git$/, '');
-  
-  return {
-    owner: pathParts[0],
-    repo: repo
-  };
 }
 
 /**
@@ -645,18 +698,22 @@ Deno.serve(async (req: Request) => {
         );
     }
 
-    // Validate GitHub repository URL
-    if (!isGitHubRepo(url)) {
-      return new Response(
-        JSON.stringify({ error: 'URL must be a valid GitHub repository' }),
+      // Validate GitHub repository URL
+      if (!isGitHubRepo(url)) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid GitHub repository URL. Please provide a URL in one of these formats:\n- https://github.com/owner/repository\n- github.com/owner/repository\n- owner/repository'
+          }),
           { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
         );
-    }
+      }
 
-    console.log(`🔍 Analyzing GitHub repository: ${url}`);
+      // Normalize the URL for consistent storage
+      const normalizedUrl = normalizeGitHubUrl(url);
+      console.log(`🔍 Analyzing GitHub repository: ${normalizedUrl} (original: ${url})`);
 
-    // Extract repository information
-    const { owner, repo } = extractGitHubInfo(url);
+      // Extract repository information (use normalized URL)
+      const { owner, repo } = extractGitHubInfo(normalizedUrl);
     console.log(`📁 Repository: ${owner}/${repo}`);
 
     // Fetch repository data
