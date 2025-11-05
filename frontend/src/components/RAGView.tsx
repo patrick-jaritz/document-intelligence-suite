@@ -7,6 +7,7 @@ import { requestCache } from '../utils/requestCache';
 import { sanitizeForDisplay } from '../utils/sanitize';
 import { validateTextInput } from '../utils/inputValidation';
 import { ChatMessageSkeleton } from './SkeletonLoader';
+import { SourceViewer } from './SourceViewer';
 
 interface Document {
   id: string;
@@ -531,9 +532,25 @@ export function RAGView() {
         ? result.sources.map((src: any) => ({
             text: src.title || src.summary || '',
             score: 1.0, // Vision RAG doesn't use similarity scores
-            filename: `${src.pageRange || 'Unknown pages'}`
+            filename: `${src.pageRange || 'Unknown pages'}`,
+            metadata: {
+              pageRange: src.pageRange,
+              page_number: src.pageNumber,
+            }
           }))
-        : result.sources || [];
+        : (result.sources || []).map((src: any) => ({
+            text: src.text || '',
+            score: src.score || src.similarity || 0,
+            filename: src.filename || 'Unknown',
+            chunkIndex: src.chunkIndex || src.chunk_index,
+            metadata: {
+              filename: src.filename,
+              chunk_index: src.chunkIndex || src.chunk_index,
+              page_number: src.metadata?.page_number,
+              source_url: src.metadata?.source_url,
+              ...src.metadata,
+            }
+          }));
       
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
@@ -903,17 +920,21 @@ export function RAGView() {
                       }}
                     />
                     
-                    {/* Sources */}
+                    {/* Enhanced Sources Visualization */}
                     {message.sources && message.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <div className="text-xs font-medium text-gray-600 mb-2">Sources:</div>
-                        {message.sources.map((source, index) => (
-                          <div key={index} className="text-xs text-gray-500 mb-1">
-                            <div className="font-medium">{source.filename}</div>
-                            <div className="truncate">{source.text.substring(0, 100)}...</div>
-                            <div className="text-blue-600">Score: {source.score.toFixed(2)}</div>
-                          </div>
-                        ))}
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <SourceViewer 
+                          sources={message.sources.map((source) => ({
+                            text: source.text || '',
+                            score: source.score || 0,
+                            similarity: source.score || 0,
+                            filename: source.filename || 'Unknown',
+                            chunkIndex: source.chunkIndex,
+                            metadata: source.metadata || {
+                              filename: source.filename,
+                            }
+                          }))}
+                        />
                       </div>
                     )}
                   </div>

@@ -3,6 +3,7 @@ import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe, Set
 import { supabase, supabaseUrl, ragHelpers } from '../lib/supabase';
 import { sanitizeForDisplay } from '../utils/sanitize';
 import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
+import { SourceViewer } from './SourceViewer';
 
 interface Document {
   id: string;
@@ -624,13 +625,18 @@ export function RAGViewEnhanced() {
                 }}
               />
               {message.sources && message.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-300">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Sources:</p>
-                  {message.sources.map((source, index) => (
-                    <div key={index} className="text-xs text-gray-600 mb-1">
-                      <span className="font-medium">Score: {source.score != null ? source.score.toFixed(3) : 'N/A'}</span> - {source.text ? source.text.substring(0, 100) + '...' : 'No text available'}
-                    </div>
-                  ))}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <SourceViewer 
+                    sources={message.sources.map((source) => ({
+                      text: source.text || '',
+                      score: source.score || 0,
+                      similarity: source.score || 0,
+                      filename: source.filename || 'Unknown',
+                      metadata: {
+                        filename: source.filename,
+                      }
+                    }))}
+                  />
                 </div>
               )}
               {message.role === 'assistant' && (

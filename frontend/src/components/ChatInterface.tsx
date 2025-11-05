@@ -185,11 +185,18 @@ export function ChatInterface({ provider, docId, documentName }: ChatInterfacePr
                   }}
                 />
                 
-                {/* Sources */}
+                {/* Enhanced Sources Visualization */}
                 {message.sources && message.sources.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600 mb-2 font-medium">Sources:</p>
-                    <SourceViewer sources={message.sources} />
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <SourceViewer 
+                      sources={message.sources.map((source) => ({
+                        text: source.text || '',
+                        similarity: source.similarity || 0,
+                        score: source.similarity || 0,
+                        metadata: source.metadata || {},
+                        filename: source.metadata?.filename || 'Unknown',
+                      }))}
+                    />
                   </div>
                 )}
               </div>
