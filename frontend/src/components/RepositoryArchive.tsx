@@ -100,16 +100,20 @@ const RepositoryArchive: React.FC = () => {
 
         if (response.ok) {
           const result = await response.json();
-          if (result.data && result.data.length > 0) {
+          console.log('📊 Repository archive response:', result);
+          if (result.success && result.data && result.data.length > 0) {
+            console.log(`✅ Loaded ${result.data.length} repository analyses from database`);
             setAnalyses(result.data);
           } else {
-            // Use demo data if no real data is available
-            setAnalyses(getDemoData());
+            console.log('⚠️ No repository analyses found in database');
+            // Don't use demo data - show empty state instead
+            setAnalyses([]);
           }
         } else {
-          console.error('Failed to fetch analyses:', response.statusText);
-          // Use demo data as fallback
-          setAnalyses(getDemoData());
+          const errorText = await response.text();
+          console.error('❌ Failed to fetch analyses:', response.status, errorText);
+          // Don't use demo data - show empty state instead
+          setAnalyses([]);
         }
       } catch (error) {
         console.error('❌ Error fetching analyses:', error);
