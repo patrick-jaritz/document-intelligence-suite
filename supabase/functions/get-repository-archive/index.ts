@@ -24,10 +24,15 @@ serve(async (req) => {
   const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   try {
-    // Create Supabase client
+    // Create Supabase client with service role key to bypass RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    console.log('🔍 Using Supabase client with:', {
+      url: supabaseUrl ? '✓ Set' : '✗ Missing',
+      keyType: supabaseServiceKey === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? 'Service Role' : 'Anon Key',
+    });
 
     // Get query parameters
     const url = new URL(req.url);
@@ -45,10 +50,21 @@ serve(async (req) => {
       offset
     });
 
-    // Build query
+    // Build query - select all columns from github_analyses
+    console.log('📊 Building query for github_analyses table...');
     let query = supabase
       .from('github_analyses')
       .select('*');
+    
+    // First, let's check if the table exists and has data
+    const { count, error: countError } = await supabase
+      .from('github_analyses')
+      .select('*', { count: 'exact', head: true });
+    
+    console.log('📊 Table count check:', {
+      count: count ?? 0,
+      error: countError?.message || null,
+    });
 
     // Apply filters
     if (search) {
@@ -80,8 +96,19 @@ serve(async (req) => {
 
     if (error) {
       console.error('❌ Database error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch repository archive' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to fetch repository archive',
+          details: error.message,
+          code: error.code,
+        }),
         { 
           status: 500, 
           headers: { ...headers, 'Content-Type': 'application/json' } 
@@ -90,6 +117,13 @@ serve(async (req) => {
     }
 
     console.log(`✅ Successfully fetched ${analyses?.length || 0} repository analyses`);
+    if (analyses && analyses.length > 0) {
+      console.log('📋 Sample analysis:', {
+        id: analyses[0].id,
+        repository_name: analyses[0].repository_name,
+        has_analysis_data: !!analyses[0].analysis_data,
+      });
+    }
 
     // Return the analyses
     return new Response(
