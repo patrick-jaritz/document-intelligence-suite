@@ -720,7 +720,7 @@ Deno.serve(async (req: Request) => {
       { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
   } catch (outerError) {
-    // Catch any errors that occur outside the main try block
+    // Catch any errors that occur outside the inner try block
     console.error('❌ Outer error in github-analyzer:', outerError);
     return new Response(
       JSON.stringify({
