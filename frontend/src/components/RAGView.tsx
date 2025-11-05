@@ -9,6 +9,7 @@ import { validateTextInput } from '../utils/inputValidation';
 import { ChatMessageSkeleton } from './SkeletonLoader';
 import { SourceViewer } from './SourceViewer';
 import { RAGDebugPanel } from './RAGDebugPanel';
+import { RAGDiagnosticButton } from './RAGDiagnosticButton';
 
 interface Document {
   id: string;
@@ -902,7 +903,16 @@ export function RAGView() {
         {/* Document List */}
         {documents.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Documents</h3>
+              {selectedDocument !== 'all' && (
+                <RAGDiagnosticButton
+                  documentId={selectedDocument}
+                  filename={documents.find(d => d.id === selectedDocument)?.filename}
+                  documentType={documents.find(d => d.id === selectedDocument)?.type || 'file'}
+                />
+              )}
+            </div>
             <div className="space-y-2">
               <button
                 onClick={() => setSelectedDocument('all')}
