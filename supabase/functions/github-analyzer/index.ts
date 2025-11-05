@@ -375,31 +375,31 @@ Provide specific, actionable insights that would help an entrepreneur or investo
     if (openaiApiKey) {
       console.log('🤖 Trying OpenAI GPT-4o...');
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
             model: 'gpt-4o', // Using GPT-4o which has 128k context
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
-              },
-              {
-                role: 'user',
-                content: analysisPrompt
-              }
-            ],
-            temperature: 0.3,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
+            },
+            {
+              role: 'user',
+              content: analysisPrompt
+            }
+          ],
+          temperature: 0.3,
             max_tokens: 8000 // Increased for GPT-4o, but still within safe limits
-          })
-        });
+        })
+      });
 
-        if (response.ok) {
-          const data = await response.json();
+      if (response.ok) {
+        const data = await response.json();
           let analysisText = data.choices[0].message.content;
           
           // Extract JSON from markdown code blocks if present
@@ -407,13 +407,13 @@ Provide specific, actionable insights that would help an entrepreneur or investo
           if (jsonMatch) {
             analysisText = jsonMatch[1];
           }
-          
-          // Try to parse JSON response
-          try {
-            const analysis = JSON.parse(analysisText);
-            console.log('✅ OpenAI analysis successful');
-            return analysis;
-          } catch (parseError) {
+        
+        // Try to parse JSON response
+        try {
+          const analysis = JSON.parse(analysisText);
+          console.log('✅ OpenAI analysis successful');
+          return analysis;
+        } catch (parseError) {
             const errorMsg = `OpenAI: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
@@ -437,27 +437,27 @@ Provide specific, actionable insights that would help an entrepreneur or investo
     if (anthropicApiKey) {
       console.log('🤖 Trying Anthropic Claude-3.5-Sonnet...');
       try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': anthropicApiKey,
-            'Content-Type': 'application/json',
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': anthropicApiKey,
+          'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01' // Keep API version for compatibility
-          },
-          body: JSON.stringify({
+        },
+        body: JSON.stringify({
             model: 'claude-3-5-sonnet-20240620', // Correct model name
             max_tokens: 8192, // Claude 3.5 Sonnet supports up to 8192 tokens
-            messages: [
-              {
-                role: 'user',
-                content: analysisPrompt
-              }
-            ]
-          })
-        });
+          messages: [
+            {
+              role: 'user',
+              content: analysisPrompt
+            }
+          ]
+        })
+      });
 
-        if (response.ok) {
-          const data = await response.json();
+      if (response.ok) {
+        const data = await response.json();
           let analysisText = data.content[0].text;
           
           // Extract JSON from markdown code blocks if present
@@ -465,12 +465,12 @@ Provide specific, actionable insights that would help an entrepreneur or investo
           if (jsonMatch) {
             analysisText = jsonMatch[1];
           }
-          
-          try {
-            const analysis = JSON.parse(analysisText);
-            console.log('✅ Anthropic analysis successful');
-            return analysis;
-          } catch (parseError) {
+        
+        try {
+          const analysis = JSON.parse(analysisText);
+          console.log('✅ Anthropic analysis successful');
+          return analysis;
+        } catch (parseError) {
             const errorMsg = `Anthropic: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
@@ -494,31 +494,31 @@ Provide specific, actionable insights that would help an entrepreneur or investo
     if (mistralApiKey) {
       console.log('🤖 Trying Mistral Large...');
       try {
-        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${mistralApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'mistral-large-latest',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
-              },
-              {
-                role: 'user',
-                content: analysisPrompt
-              }
-            ],
-            temperature: 0.3,
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mistralApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'mistral-large-latest',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
+            },
+            {
+              role: 'user',
+              content: analysisPrompt
+            }
+          ],
+          temperature: 0.3,
             max_tokens: 6000
-          })
-        });
+        })
+      });
 
-        if (response.ok) {
-          const data = await response.json();
+      if (response.ok) {
+        const data = await response.json();
           let analysisText = data.choices[0].message.content;
           
           // Extract JSON from markdown code blocks if present
@@ -526,12 +526,12 @@ Provide specific, actionable insights that would help an entrepreneur or investo
           if (jsonMatch) {
             analysisText = jsonMatch[1];
           }
-          
-          try {
-            const analysis = JSON.parse(analysisText);
-            console.log('✅ Mistral analysis successful');
-            return analysis;
-          } catch (parseError) {
+        
+        try {
+          const analysis = JSON.parse(analysisText);
+          console.log('✅ Mistral analysis successful');
+          return analysis;
+        } catch (parseError) {
             const errorMsg = `Mistral: Failed to parse JSON response - ${parseError.message}. First 200 chars: ${analysisText.substring(0, 200)}`;
             console.log('❌', errorMsg);
             errors.push(errorMsg);
@@ -573,20 +573,20 @@ Deno.serve(async (req: Request) => {
 
   try {
     // SECURITY: Handle CORS preflight requests FIRST
-    if (req.method === 'OPTIONS') {
+  if (req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
         headers: headers,
       });
-    }
+  }
 
-    // Apply rate limiting
+  // Apply rate limiting
     const rateLimitResponse = await withRateLimit(
-      rateLimiters.github,
-      'GitHub analysis rate limit exceeded. Please try again in a minute.'
-    )(req);
+    rateLimiters.github,
+    'GitHub analysis rate limit exceeded. Please try again in a minute.'
+  )(req);
   
-    if (rateLimitResponse) {
+  if (rateLimitResponse) {
       // Update rate limit response with merged headers (CORS + security)
       const rateLimitHeaders = new Headers(rateLimitResponse.headers);
       Object.entries(headers).forEach(([key, value]) => {
@@ -627,30 +627,30 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-      const { url } = JSON.parse(requestText)
+      const { url } = JSON.parse(requestText);
 
-    // SECURITY: Validate input
-    if (!url || typeof url !== 'string' || url.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'URL is required and must be a non-empty string' }),
-        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
-      )
-    }
+      // SECURITY: Validate input
+      if (!url || typeof url !== 'string' || url.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'URL is required and must be a non-empty string' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    // SECURITY: Validate URL length
-    if (url.length > 2048) {
-      return new Response(
-        JSON.stringify({ error: 'URL too long (max 2048 characters)' }),
-        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
-      )
+      // SECURITY: Validate URL length
+      if (url.length > 2048) {
+        return new Response(
+          JSON.stringify({ error: 'URL too long (max 2048 characters)' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
     }
 
     // Validate GitHub repository URL
     if (!isGitHubRepo(url)) {
       return new Response(
         JSON.stringify({ error: 'URL must be a valid GitHub repository' }),
-        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
-      )
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
     }
 
     console.log(`🔍 Analyzing GitHub repository: ${url}`);
@@ -700,25 +700,26 @@ Deno.serve(async (req: Request) => {
           confidence: analysis.analysisMetadata?.confidence || 0.8
         }
       }),
-      { headers: { ...headers, 'Content-Type': 'application/json' } }
-    )
+        { headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('GitHub analyzer error:', error);
     
-    // SECURITY: Don't expose stack traces in production
-    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
-    
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to analyze GitHub repository',
-        ...(isProduction ? {} : { 
-          details: error instanceof Error ? error.stack : String(error)
-        })
-      }),
-      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
-    )
+      // SECURITY: Don't expose stack traces in production
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to analyze GitHub repository',
+          ...(isProduction ? {} : { 
+            details: error instanceof Error ? error.stack : String(error)
+          })
+        }),
+        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
   } catch (outerError) {
     // Catch any errors that occur outside the inner try block
     console.error('❌ Outer error in github-analyzer:', outerError);
