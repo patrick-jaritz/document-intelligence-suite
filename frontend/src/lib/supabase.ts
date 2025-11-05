@@ -3,14 +3,14 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // Resolve env variables - SECURITY: No hardcoded fallbacks
 // These must be set via environment variables in Vercel/production
 // Support both VITE_ (Vite) and NEXT_PUBLIC_ (Supabase integration) prefixes
-export const supabaseUrl: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_URL ||
-  (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL ||
-  '';
-export const supabaseAnonKey: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY ||
-  (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+// Note: import.meta.env is replaced at build time by Vite's define block
+const viteUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const nextUrl = import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const nextKey = import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+export const supabaseUrl: string = viteUrl || nextUrl || '';
+export const supabaseAnonKey: string = viteKey || nextKey || '';
 
 // Check if configuration is valid
 export const isSupabaseConfigured = (): boolean => {
@@ -19,10 +19,11 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Validate required environment variables
 if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
-  const viteUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL;
-  const viteKey = (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY;
-  const nextUrl = (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL;
-  const nextKey = (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Direct access to import.meta.env (replaced at build time by Vite)
+  const viteUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const nextUrl = import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const nextKey = import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   
   const hasVite = !!(viteUrl && viteKey && viteUrl !== 'undefined' && viteKey !== 'undefined');
   const hasNext = !!(nextUrl && nextKey && nextUrl !== 'undefined' && nextKey !== 'undefined');
@@ -43,6 +44,9 @@ if (typeof window !== 'undefined' && !isSupabaseConfigured()) {
     nextUrlValue: nextUrl ? `${nextUrl.substring(0, 30)}...` : 'undefined',
     viteKeyValue: viteKey ? `${viteKey.substring(0, 20)}...` : 'undefined',
     nextKeyValue: nextKey ? `${nextKey.substring(0, 20)}...` : 'undefined',
+    // Raw values for debugging (first 50 chars)
+    rawViteUrl: String(viteUrl).substring(0, 50),
+    rawNextUrl: String(nextUrl).substring(0, 50),
   });
 }
 
