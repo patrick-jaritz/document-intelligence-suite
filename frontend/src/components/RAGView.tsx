@@ -488,6 +488,17 @@ export function RAGView() {
         throw new Error('PageIndex Vision RAG requires a specific document to be selected');
       }
 
+      // Warn user if querying all documents (may return unexpected results)
+      if (selectedDocument === 'all' && documents.length > 1) {
+        const confirmed = confirm(
+          `You have selected "All Documents" (${documents.length} documents). This will search across all documents and may return results from any document. Do you want to continue, or select a specific document?`
+        );
+        if (!confirmed) {
+          setIsQuerying(false);
+          return;
+        }
+      }
+
       const requestBody = isVisionRAG
         ? {
             question,
@@ -497,8 +508,8 @@ export function RAGView() {
           }
         : {
             question,
-            documentId,
-            filename,
+            ...(documentId ? { documentId } : {}), // Only include documentId if it's not null
+            ...(filename ? { filename } : {}), // Only include filename if it's not null
             provider: ragProvider,
             model: ragModel,
             topK: 5

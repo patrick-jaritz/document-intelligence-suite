@@ -160,28 +160,31 @@ async function querySupabase(
 
     // Apply filters - prioritize documentId over filename
     // If documentId is provided, use only documentId (filename might not match stored filename)
-    if (documentId) {
-      // Verify documentId is not null/undefined and is a valid UUID format
-      if (!documentId || documentId === 'null' || documentId === 'undefined') {
-        console.error('❌ INVALID documentId provided:', documentId);
-        throw new Error(`Invalid documentId: ${documentId}`);
+    if (documentId && documentId !== 'null' && documentId !== 'undefined' && documentId.trim() !== '') {
+      // Verify documentId is a valid UUID format
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidPattern.test(documentId)) {
+        console.error('❌ INVALID documentId format:', documentId);
+        throw new Error(`Invalid documentId format: ${documentId}`);
       }
       
       console.log('🔍 Applying documentId filter:', {
         documentId: documentId,
         documentIdType: typeof documentId,
         documentIdLength: documentId?.length,
-        isUuidLike: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)
+        isUuidLike: uuidPattern.test(documentId)
       });
       
       // Apply filter - ensure document_id matches exactly
       query = query.eq('document_id', documentId);
-    } else if (filename) {
-      // Only use filename filter if documentId is not provided
+    } else if (filename && filename !== 'all' && filename.trim() !== '') {
+      // Fallback to filename filter if documentId is not provided
       console.log('🔍 Applying filename filter:', filename);
       query = query.eq('filename', filename);
     } else {
-      console.log('⚠️ No filters applied - will query all documents');
+      // No filter - searching across ALL documents
+      console.warn('⚠️ WARNING: No documentId or filename filter applied. Searching across ALL documents in database.');
+      console.log('📊 This may return results from any document. Consider specifying documentId or filename for more targeted results.');
     }
 
     const { data: chunks, error } = await query;
@@ -313,6 +316,12 @@ async function querySupabase(
     }
 
     // Calculate similarities for the filtered results
+    console.log('🔍 Calculating similarities:', {
+      filteredChunksCount: filteredChunks.length,
+      embeddingLength: embedding.length,
+      topK
+    });
+    
     const matches = filteredChunks.map((chunk: any) => {
       const chunkEmbedding = chunk.embedding;
       
@@ -705,6 +714,21 @@ serve(async (req) => {
     }
 
     if (matches.length === 0) {
+      console.error('❌ No matches found after similarity calculation:', {
+        questionLength: question.length,
+        questionPreview: question.substring(0, 100),
+        embeddingGenerated: !!questionEmbedding,
+        embeddingLength: questionEmbedding?.length || 0,
+        matchesFound: matches.length,
+        documentId,
+        filename,
+        filtersApplied: !!(documentId || filename),
+        topK,
+        suggestion: documentId 
+          ? 'Document may not exist or may not have been processed. Check if embeddings were generated successfully.'
+          : 'Try selecting a specific document instead of "All Documents".'
+      });
+      
       return new Response(
         JSON.stringify({
           answer: 'No relevant information found in the document to answer this question. Try asking a different question or check if the document was processed correctly.',
@@ -714,7 +738,13 @@ serve(async (req) => {
           debug: {
             filename,
             documentId,
-            supabaseMatches: 0
+            supabaseMatches: 0,
+            questionLength: question.length,
+            embeddingGenerated: !!questionEmbedding,
+            embeddingLength: questionEmbedding?.length || 0,
+            suggestion: documentId 
+              ? 'Document may not exist or may not have been processed. Check if embeddings were generated successfully.'
+              : 'Try selecting a specific document instead of "All Documents".'
           }
         }),
         {

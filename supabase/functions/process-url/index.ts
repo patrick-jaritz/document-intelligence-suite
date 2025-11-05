@@ -26,16 +26,19 @@ interface UrlResult {
 }
 
 Deno.serve(async (req: Request) => {
-  // SECURITY: Handle CORS preflight requests
-  const preflightResponse = handleCorsPreflight(req);
-  if (preflightResponse) {
-    return preflightResponse;
-  }
-
+  // SECURITY: Initialize headers early for error responses
   const origin = req.headers.get('Origin');
   const corsHeaders = getCorsHeaders(origin);
   const securityHeaders = getSecurityHeaders();
   const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Handle CORS preflight requests FIRST
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: headers,
+    });
+  }
 
   // Track API usage metrics
   const startTime = Date.now();
@@ -46,20 +49,24 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Apply rate limiting
-    const rateLimitResponse = withRateLimit(
+    const rateLimitResponse = await withRateLimit(
       rateLimiters.url,
       'URL processing rate limit exceeded. Please try again in a minute.'
     )(req);
     
     if (rateLimitResponse) {
-      // Update rate limit response with security headers
+      // Update rate limit response with merged headers (CORS + security)
       const rateLimitHeaders = new Headers(rateLimitResponse.headers);
-      Object.entries(securityHeaders).forEach(([key, value]) => {
+      Object.entries(headers).forEach(([key, value]) => {
         rateLimitHeaders.set(key, value);
       });
-      return new Response(rateLimitResponse.body, {
+      // Ensure rate limit response has valid JSON body
+      const rateLimitBody = rateLimitResponse.body 
+        ? (typeof rateLimitResponse.body === 'string' ? rateLimitResponse.body : JSON.stringify({ error: 'Rate limit exceeded' }))
+        : JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a minute.' });
+      return new Response(rateLimitBody, {
         status: rateLimitResponse.status,
-        headers: rateLimitHeaders
+        headers: { ...rateLimitHeaders, 'Content-Type': 'application/json' }
       });
     }
 
