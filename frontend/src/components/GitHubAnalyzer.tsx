@@ -407,13 +407,29 @@ export function GitHubAnalyzer() {
         }
       );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error:', response.status, response.statusText, errorText);
-        throw new Error(`Analysis failed: ${response.statusText} (${response.status})`);
+      // Read response body once (can only be consumed once)
+      const responseText = await response.text();
+      
+      // Check if response has content
+      if (!responseText || responseText.trim().length === 0) {
+        throw new Error('Empty response from server');
       }
 
-      const result = await response.json();
+      // Try to parse JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError, 'Response text:', responseText.substring(0, 200));
+        throw new Error(`Invalid response format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+
+      // Check if response indicates an error
+      if (!response.ok) {
+        const errorMessage = result.error || result.message || `Analysis failed: ${response.statusText} (${response.status})`;
+        console.error('❌ API Error:', response.status, response.statusText, errorMessage);
+        throw new Error(errorMessage);
+      }
       
       if (result.success) {
         setAnalysisResult(result);

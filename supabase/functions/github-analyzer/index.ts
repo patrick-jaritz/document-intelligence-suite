@@ -594,9 +594,13 @@ Deno.serve(async (req: Request) => {
     Object.entries(headers).forEach(([key, value]) => {
       rateLimitHeaders.set(key, value);
     });
-    return new Response(rateLimitResponse.body, {
+    // Ensure rate limit response has valid JSON body
+    const rateLimitBody = rateLimitResponse.body 
+      ? (typeof rateLimitResponse.body === 'string' ? rateLimitResponse.body : JSON.stringify({ error: 'Rate limit exceeded' }))
+      : JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a minute.' });
+    return new Response(rateLimitBody, {
       status: rateLimitResponse.status,
-      headers: rateLimitHeaders
+      headers: { ...rateLimitHeaders, 'Content-Type': 'application/json' }
     });
   }
 
