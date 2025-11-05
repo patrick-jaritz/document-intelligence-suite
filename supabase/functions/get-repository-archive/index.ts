@@ -1,5 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
@@ -11,11 +11,17 @@ interface RepositoryAnalysis {
   created_at: string;
 }
 
-serve(async (req) => {
-  // SECURITY: Handle CORS preflight requests
-  const preflightResponse = handleCorsPreflight(req);
-  if (preflightResponse) {
-    return preflightResponse;
+Deno.serve(async (req: Request) => {
+  // SECURITY: Handle CORS preflight requests FIRST
+  if (req.method === 'OPTIONS') {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
+    const securityHeaders = getSecurityHeaders();
+    const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+    return new Response(null, {
+      status: 204,
+      headers: headers,
+    });
   }
 
   const origin = req.headers.get('Origin');
