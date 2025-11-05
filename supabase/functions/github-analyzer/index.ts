@@ -589,9 +589,9 @@ Deno.serve(async (req: Request) => {
   )(req);
   
   if (rateLimitResponse) {
-    // Update rate limit response with security headers
+    // Update rate limit response with merged headers (CORS + security)
     const rateLimitHeaders = new Headers(rateLimitResponse.headers);
-    Object.entries(securityHeaders).forEach(([key, value]) => {
+    Object.entries(headers).forEach(([key, value]) => {
       rateLimitHeaders.set(key, value);
     });
     return new Response(rateLimitResponse.body, {
