@@ -1506,7 +1506,7 @@ export function GitHubAnalyzer() {
                 type="url"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="Enter GitHub repository URL (e.g., https://github.com/owner/repo)"
+                placeholder="Enter GitHub repo (e.g., owner/repo, github.com/owner/repo, or https://github.com/owner/repo)"
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isAnalyzing}
               />
@@ -1533,7 +1533,7 @@ export function GitHubAnalyzer() {
               <textarea
                 value={bulkUrlsInput}
                 onChange={(e) => setBulkUrlsInput(e.target.value)}
-                placeholder="Enter multiple GitHub repository URLs (one per line):&#10;https://github.com/owner1/repo1&#10;https://github.com/owner2/repo2&#10;https://github.com/owner3/repo3"
+                placeholder="Enter multiple GitHub repositories (one per line):&#10;owner1/repo1&#10;github.com/owner2/repo2&#10;https://github.com/owner3/repo3"
                 rows={6}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
                 disabled={isBulkAnalyzing}
