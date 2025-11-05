@@ -397,9 +397,12 @@ export function GitHubAnalyzer() {
     // Normalize the URL before sending to API
     const normalizedUrl = normalizeGitHubUrl(urlInput);
 
-    // Check if repository already exists in archive
+    // Check if repository already exists in archive (compare normalized URLs)
     const existingAnalysis = archivedAnalyses.find(
-      analysis => analysis.repository_url.toLowerCase() === urlInput.toLowerCase()
+      analysis => {
+        const normalizedArchiveUrl = normalizeGitHubUrl(analysis.repository_url);
+        return normalizedArchiveUrl.toLowerCase() === normalizedUrl.toLowerCase();
+      }
     );
 
     if (existingAnalysis) {
