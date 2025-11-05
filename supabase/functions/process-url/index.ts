@@ -1,12 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { withRateLimit, rateLimiters } from "../_shared/rate-limiter.ts";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 interface ProcessUrlRequest {
   documentId: string;
@@ -28,12 +26,16 @@ interface UrlResult {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   // Track API usage metrics
   const startTime = Date.now();
@@ -50,7 +52,15 @@ Deno.serve(async (req: Request) => {
     )(req);
     
     if (rateLimitResponse) {
-      return rateLimitResponse;
+      // Update rate limit response with security headers
+      const rateLimitHeaders = new Headers(rateLimitResponse.headers);
+      Object.entries(securityHeaders).forEach(([key, value]) => {
+        rateLimitHeaders.set(key, value);
+      });
+      return new Response(rateLimitResponse.body, {
+        status: rateLimitResponse.status,
+        headers: rateLimitHeaders
+      });
     }
 
     const supabaseClient = createClient(
@@ -58,21 +68,168 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const requestText = await req.text();
-    requestSize = requestText.length;
-    const { documentId, jobId, url, crawler = 'default' }: ProcessUrlRequest = JSON.parse(requestText);
-    crawlerUsed = crawler;
+    // SECURITY: Limit request size
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+    let requestText = '';
+    try {
+      requestText = await req.text();
+      requestSize = requestText.length;
+      
+      if (requestSize > MAX_REQUEST_SIZE) {
+        return new Response(
+          JSON.stringify({ error: 'Request too large' }),
+          { 
+            status: 413, 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } catch (readError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to read request body' }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
-    if (!url || !documentId || !jobId) {
+    let requestBody: ProcessUrlRequest;
+    try {
+      requestBody = JSON.parse(requestText);
+    } catch (parseError) {
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
       return new Response(
         JSON.stringify({ 
-          success: false, 
-          error: "Missing required fields: url, documentId, jobId" 
+          error: 'Invalid JSON in request body',
+          ...(isProduction ? {} : { details: parseError instanceof Error ? parseError.message : String(parseError) })
         }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    const { documentId, jobId, url, crawler = 'default' } = requestBody;
+    crawlerUsed = crawler;
+
+    // SECURITY: Validate input
+    if (!url || typeof url !== 'string' || url.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing or invalid required field: url" 
+        }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!documentId || typeof documentId !== 'string' || documentId.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing or invalid required field: documentId" 
+        }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!jobId || typeof jobId !== 'string' || jobId.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing or invalid required field: jobId" 
+        }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // SECURITY: Validate URL to prevent SSRF
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.length > 2048) {
+      return new Response(
+        JSON.stringify({ error: 'URL too long (max 2048 characters)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Reject dangerous protocols
+    const dangerousProtocols = ['javascript:', 'file:', 'data:', 'vbscript:', 'about:'];
+    const lowerUrl = trimmedUrl.toLowerCase();
+    for (const protocol of dangerousProtocols) {
+      if (lowerUrl.startsWith(protocol)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid URL protocol' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Must be http or https
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      return new Response(
+        JSON.stringify({ error: 'URL must start with http:// or https://' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      const urlObj = new URL(trimmedUrl);
+      const hostname = urlObj.hostname.toLowerCase();
+      
+      // Block internal IPs and localhost
+      const blockedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
+      if (blockedHosts.includes(hostname)) {
+        return new Response(
+          JSON.stringify({ error: 'Internal URLs are not allowed' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Block private IP ranges
+      if (
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') ||
+        hostname.startsWith('172.18.') ||
+        hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.20.') ||
+        hostname.startsWith('172.21.') ||
+        hostname.startsWith('172.22.') ||
+        hostname.startsWith('172.23.') ||
+        hostname.startsWith('172.24.') ||
+        hostname.startsWith('172.25.') ||
+        hostname.startsWith('172.26.') ||
+        hostname.startsWith('172.27.') ||
+        hostname.startsWith('172.28.') ||
+        hostname.startsWith('172.29.') ||
+        hostname.startsWith('172.30.') ||
+        hostname.startsWith('172.31.')
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'Private IP addresses are not allowed' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (urlError) {
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid URL format',
+          ...(isProduction ? {} : { details: urlError instanceof Error ? urlError.message : String(urlError) })
+        }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -128,7 +285,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify(responseData),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
 
@@ -163,7 +320,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify(errorData),
       { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
   }

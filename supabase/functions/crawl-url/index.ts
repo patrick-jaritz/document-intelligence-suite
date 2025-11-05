@@ -1,16 +1,14 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
 interface CrawlRequest {
   url: string;
   mode?: 'basic' | 'llm-enhanced' | 'screenshots';
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Request-Id',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 // Helper functions for HTML parsing
 function extractTitleFromHTML(html: string): string {
@@ -106,9 +104,29 @@ function extractTopics(text: string): string {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  const requestText = await req.text();
+  
+  if (requestText.length > MAX_REQUEST_SIZE) {
+    return new Response(
+      JSON.stringify({ error: 'Request too large' }),
+      { 
+        status: 413, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
@@ -118,9 +136,14 @@ serve(async (req) => {
       console.log('📥 Received crawl request:', { url: body.url, mode: body.mode });
     } catch (parseError) {
       console.error('❌ JSON parse error:', parseError)
+      // SECURITY: Don't expose internal error details in production
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          ...(isProduction ? {} : { details: parseError.message })
+        }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -129,34 +152,93 @@ serve(async (req) => {
     if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.trim() === '') {
       console.error('❌ No URL provided in request');
       return new Response(
-        JSON.stringify({ error: 'URL is required and must be a non-empty string', received: body }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'URL is required and must be a non-empty string' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Normalize URL - add https:// if no protocol is provided
-    let normalizedUrl = rawUrl.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = 'https://' + normalizedUrl;
-      console.log('📝 Added https:// protocol to URL:', { original: rawUrl, normalized: normalizedUrl });
+    // SECURITY: Validate URL to prevent SSRF attacks
+    const trimmedUrl = rawUrl.trim();
+    
+    // Reject dangerous protocols
+    const dangerousProtocols = ['javascript:', 'file:', 'data:', 'vbscript:', 'about:'];
+    const lowerUrl = trimmedUrl.toLowerCase();
+    for (const protocol of dangerousProtocols) {
+      if (lowerUrl.startsWith(protocol)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid URL protocol' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Must be http or https
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      return new Response(
+        JSON.stringify({ error: 'URL must start with http:// or https://' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Validate URL format
     let urlObj;
     let domain;
     let path;
-    let finalUrl = normalizedUrl;
+    let finalUrl = trimmedUrl;
     try {
-      urlObj = new URL(normalizedUrl);
+      urlObj = new URL(trimmedUrl);
       domain = urlObj.hostname;
       path = urlObj.pathname;
       finalUrl = urlObj.toString();
+
+      // SECURITY: Block internal IPs and localhost
+      const hostname = domain.toLowerCase();
+      const blockedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
+      
+      if (blockedHosts.includes(hostname)) {
+        return new Response(
+          JSON.stringify({ error: 'Internal URLs are not allowed' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Block private IP ranges
+      if (
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') ||
+        hostname.startsWith('172.18.') ||
+        hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.20.') ||
+        hostname.startsWith('172.21.') ||
+        hostname.startsWith('172.22.') ||
+        hostname.startsWith('172.23.') ||
+        hostname.startsWith('172.24.') ||
+        hostname.startsWith('172.25.') ||
+        hostname.startsWith('172.26.') ||
+        hostname.startsWith('172.27.') ||
+        hostname.startsWith('172.28.') ||
+        hostname.startsWith('172.29.') ||
+        hostname.startsWith('172.30.') ||
+        hostname.startsWith('172.31.')
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'Private IP addresses are not allowed' }),
+          { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.log('✅ URL validated:', { domain, path, finalUrl });
     } catch (urlError) {
-      console.error('❌ Invalid URL format after normalization:', urlError);
+      console.error('❌ Invalid URL format:', urlError);
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
       return new Response(
-        JSON.stringify({ error: 'Invalid URL format', url: rawUrl, details: urlError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Invalid URL format',
+          ...(isProduction ? {} : { details: urlError.message })
+        }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -351,20 +433,23 @@ ${textContent}
             statusCode: response.status,
           },
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
 
     } catch (fetchError) {
       console.error('❌ Failed to fetch webpage:', fetchError);
       
-      // Return error with details
+      // SECURITY: Don't expose internal error details in production
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
       return new Response(
         JSON.stringify({
           error: 'Failed to fetch webpage content',
-          details: fetchError.message,
-          url: finalUrl,
+          ...(isProduction ? {} : { 
+            details: fetchError.message,
+            url: finalUrl 
+          }),
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -379,13 +464,18 @@ ${textContent}
       errorUrl = 'unknown';
     }
     
-    // Return error response with CORS headers
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
+    // Return error response with security headers
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error instanceof Error ? error.stack : String(error),
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        }),
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
   }
 })

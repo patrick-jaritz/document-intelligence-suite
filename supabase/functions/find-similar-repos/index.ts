@@ -1,28 +1,76 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0"
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
-    const { repository_url, limit = 5 } = await req.json()
+    const requestBody = JSON.parse(requestText);
+    const { repository_url, limit = 5 } = requestBody;
 
-    if (!repository_url) {
+    // SECURITY: Validate input
+    if (!repository_url || typeof repository_url !== 'string' || repository_url.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing repository_url parameter' }),
+        JSON.stringify({ error: 'Missing or invalid required field: repository_url' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       )
+    }
+
+    // SECURITY: Validate URL length
+    if (repository_url.length > 2048) {
+      return new Response(
+        JSON.stringify({ error: 'Repository URL too long (max 2048 characters)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Validate limit
+    const limitNum = typeof limit === 'number' ? limit : parseInt(limit);
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      return new Response(
+        JSON.stringify({ error: 'Limit must be between 1 and 100' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseClient = createClient(
@@ -47,7 +95,7 @@ serve(async (req) => {
         JSON.stringify({ error: 'Repository not found in archive' }),
         { 
           status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       )
     }

@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts'
 import { withRateLimit, rateLimiters } from '../_shared/rate-limiter.ts'
 
 interface GitHubRepoAnalysis {
@@ -564,10 +565,16 @@ Provide specific, actionable insights that would help an entrepreneur or investo
 }
 
 serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   // Apply rate limiting
   const rateLimitResponse = withRateLimit(
@@ -576,16 +583,57 @@ serve(async (req) => {
   )(req);
   
   if (rateLimitResponse) {
-    return rateLimitResponse;
+    // Update rate limit response with security headers
+    const rateLimitHeaders = new Headers(rateLimitResponse.headers);
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+      rateLimitHeaders.set(key, value);
+    });
+    return new Response(rateLimitResponse.body, {
+      status: rateLimitResponse.status,
+      headers: rateLimitHeaders
+    });
+  }
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
-    const { url } = await req.json()
+    const { url } = JSON.parse(requestText)
 
-    if (!url || typeof url !== 'string') {
+    // SECURITY: Validate input
+    if (!url || typeof url !== 'string' || url.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'URL is required and must be a non-empty string' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // SECURITY: Validate URL length
+    if (url.length > 2048) {
+      return new Response(
+        JSON.stringify({ error: 'URL too long (max 2048 characters)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -593,7 +641,7 @@ serve(async (req) => {
     if (!isGitHubRepo(url)) {
       return new Response(
         JSON.stringify({ error: 'URL must be a valid GitHub repository' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -644,18 +692,24 @@ serve(async (req) => {
           confidence: analysis.analysisMetadata?.confidence || 0.8
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...headers, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('GitHub analyzer error:', error);
     
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Failed to analyze GitHub repository'
+        error: error instanceof Error ? error.message : 'Failed to analyze GitHub repository',
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     )
   }
 })

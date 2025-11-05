@@ -45,7 +45,7 @@ serve(async (req) => {
       JSON.stringify({ error: 'Method not allowed' }),
       { 
         status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
       }
     );
   }
@@ -66,22 +66,31 @@ serve(async (req) => {
       openrouter_api_key,
     } = await req.json();
 
-    if (!prompt) {
+    // SECURITY: Validate input
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Prompt is required' }),
+        JSON.stringify({ error: 'Prompt is required and must be a non-empty string' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    if (!model) {
+    // SECURITY: Validate prompt length
+    if (prompt.length > 100000) { // 100KB limit for prompt
+      return new Response(
+        JSON.stringify({ error: 'Prompt too long (max 100KB)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!model || typeof model !== 'string' || model.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: 'Model is required' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -91,7 +100,7 @@ serve(async (req) => {
         JSON.stringify({ error: 'OpenRouter API key is required' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -176,7 +185,7 @@ serve(async (req) => {
         }),
         { 
           status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -218,21 +227,26 @@ serve(async (req) => {
         duration,
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
     console.error('Test prompt error:', error);
     
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Internal server error',
-        details: error instanceof Error ? error.stack : undefined
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
   }

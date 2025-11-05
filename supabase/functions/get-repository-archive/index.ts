@@ -15,10 +15,16 @@ interface RepositoryAnalysis {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   try {
     // Create Supabase client
@@ -81,7 +87,7 @@ serve(async (req) => {
         JSON.stringify({ error: 'Failed to fetch repository archive' }),
         { 
           status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }

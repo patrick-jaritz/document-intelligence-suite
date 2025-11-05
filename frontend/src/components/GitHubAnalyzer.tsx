@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3, Upload } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { RepoComparison } from './RepoComparison';
 
 interface RankedApplication {
@@ -390,23 +391,21 @@ export function GitHubAnalyzer() {
     try {
       console.log('🔍 Analyzing GitHub repository:', urlInput);
       
-      // Create an AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/github-analyzer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          url: urlInput
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
+      // Use fetchWithTimeout for better timeout handling  
+      const response = await fetchWithTimeout(
+        `${supabaseUrl}/functions/v1/github-analyzer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            url: urlInput
+          }),
+          timeout: 120000, // 2 minute timeout
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -420,13 +419,23 @@ export function GitHubAnalyzer() {
         setAnalysisResult(result);
         console.log('✅ Analysis completed successfully');
         
-        // Auto-save to archive
-        try {
-          await saveAnalysisToArchive(result);
+        // Parallelize independent operations
+        const [saveResult, similarReposResult] = await Promise.allSettled([
+          saveAnalysisToArchive(result).catch(err => {
+            console.error('Failed to save to archive:', err);
+            return null;
+          }),
+          fetchSimilarRepos(result.repository).catch(err => {
+            console.error('Failed to fetch similar repos:', err);
+            return null;
+          }),
+        ]);
+        
+        if (saveResult.status === 'fulfilled') {
           console.log('✅ Analysis saved to archive');
-        } catch (saveError) {
-          console.error('Failed to save to archive:', saveError);
-          // Don't block the UI on save failure
+        }
+        if (similarReposResult.status === 'fulfilled') {
+          console.log('✅ Similar repos fetched');
         }
       } else {
         throw new Error(result.error || 'Analysis failed');

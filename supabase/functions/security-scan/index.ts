@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts'
 
 interface SecurityScanResult {
   security_score: number;
@@ -30,16 +31,54 @@ interface LicenseInfo {
   compatibility_warnings: string[];
 }
 
+// SECURITY: CORS headers are now generated dynamically with origin validation
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
-    const { repository_data, package_files } = await req.json()
+    const requestBody = JSON.parse(requestText);
+    const { repository_data, package_files } = requestBody;
 
-    if (!repository_data) {
-      throw new Error('repository_data is required')
+    // SECURITY: Validate input
+    if (!repository_data || typeof repository_data !== 'object') {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: repository_data' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Perform security analysis
@@ -48,18 +87,23 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(securityAnalysis),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.toString()
+        error: error instanceof Error ? error.message : 'Internal server error',
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...headers, 'Content-Type': 'application/json' },
         status: 500
       }
     )

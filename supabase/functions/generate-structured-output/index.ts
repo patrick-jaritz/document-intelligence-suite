@@ -1,12 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { EdgeLogger, generateRequestId, updateProviderHealth } from "../_shared/logger.ts";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 type LLMProvider = 'openai' | 'anthropic' | 'mistral-large';
 
@@ -41,13 +39,17 @@ Deno.serve(async (req: Request) => {
     'content-type': req.headers.get('Content-Type'),
   });
   
-  if (req.method === "OPTIONS") {
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
     console.log(`✅ [${requestId}] Responding to OPTIONS preflight`);
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -62,6 +64,30 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
     const logger = new EdgeLogger(supabaseClient, requestId);
 
+    // SECURITY: Limit request size
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+    let requestText = '';
+    try {
+      requestText = await req.text();
+      if (requestText.length > MAX_REQUEST_SIZE) {
+        return new Response(
+          JSON.stringify({ error: 'Request too large' }),
+          { 
+            status: 413, 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to read request body' }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const {
       jobId,
       extractedText,
@@ -69,7 +95,30 @@ Deno.serve(async (req: Request) => {
       llmProvider = 'openai',
       llmModel,
       customPromptId,
-    }: GenerateStructuredOutputRequest = await req.json();
+    }: GenerateStructuredOutputRequest = JSON.parse(requestText);
+
+    // SECURITY: Validate input
+    if (!jobId || typeof jobId !== 'string' || jobId.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: jobId' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!extractedText || typeof extractedText !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: extractedText' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Validate input length
+    if (extractedText.length > 5000000) { // 5MB limit for text
+      return new Response(
+        JSON.stringify({ error: 'Extracted text too long (max 5MB)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch custom prompt if provided
     let customPrompt: any = null;
@@ -326,7 +375,7 @@ Deno.serve(async (req: Request) => {
         processingTime,
         metadata: llmResult.metadata,
         requestId
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
+      }), { headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'LLM processing failed';
       logger.critical('llm', 'LLM processing failed with error', error, {
@@ -366,13 +415,26 @@ Deno.serve(async (req: Request) => {
       }
 
       // Return error response with proper CORS headers instead of throwing
-      return new Response(JSON.stringify({ success: false, error: errorMessage, requestId }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
+      return new Response(JSON.stringify({ success: false, error: errorMessage, requestId }), { status: 500, headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId } });
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[CRITICAL] Function error:', errorMessage, error);
 
-    return new Response(JSON.stringify({ success: false, error: errorMessage }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // SECURITY: Don't expose internal error details in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage,
+        ...(isProduction ? {} : { details: error instanceof Error ? error.stack : String(error) })
+      }), 
+      { 
+        status: 500, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });
 

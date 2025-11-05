@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts'
 
 interface CategoryResult {
   categories: string[];
@@ -9,16 +10,54 @@ interface CategoryResult {
   purpose: string;
 }
 
+// SECURITY: CORS headers are now generated dynamically with origin validation
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
-    const { repository_data } = await req.json()
+    const requestBody = JSON.parse(requestText);
+    const { repository_data } = requestBody;
 
-    if (!repository_data) {
-      throw new Error('repository_data is required')
+    // SECURITY: Validate input
+    if (!repository_data || typeof repository_data !== 'object') {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: repository_data' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Intelligent categorization based on metadata
@@ -27,7 +66,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(categories),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
       }
     )
 
@@ -38,7 +77,7 @@ serve(async (req) => {
         details: error.toString()
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...headers, 'Content-Type': 'application/json' },
         status: 500
       }
     )

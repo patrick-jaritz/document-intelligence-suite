@@ -12,18 +12,22 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   try {
     // Initialize Supabase client
@@ -43,7 +47,7 @@ serve(async (req) => {
         JSON.stringify({ error: 'Unauthorized' }),
         { 
           status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -77,7 +81,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ prompts: data || [] }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -97,7 +101,7 @@ serve(async (req) => {
             JSON.stringify({ error: 'Prompt not found' }),
             { 
               status: 404, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              headers: { ...headers, 'Content-Type': 'application/json' } 
             }
           );
         }
@@ -107,7 +111,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ prompt: data }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -134,7 +138,7 @@ serve(async (req) => {
           JSON.stringify({ error: 'Name is required' }),
           { 
             status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
           }
         );
       }
@@ -184,7 +188,7 @@ serve(async (req) => {
         JSON.stringify({ prompt: data }),
         {
           status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -205,7 +209,7 @@ serve(async (req) => {
           JSON.stringify({ error: 'Not authorized to update this prompt' }),
           { 
             status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
           }
         );
       }
@@ -267,7 +271,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ prompt: data }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -286,7 +290,7 @@ serve(async (req) => {
           JSON.stringify({ error: 'Not authorized to delete this prompt' }),
           { 
             status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
           }
         );
       }
@@ -303,7 +307,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: true }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }

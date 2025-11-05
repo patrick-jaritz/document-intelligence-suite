@@ -13,6 +13,7 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react';
+import { supabaseUrl, supabaseAnonKey } from '../lib/supabase';
 
 interface RepositoryAnalysis {
   id: string;
@@ -82,12 +83,18 @@ const RepositoryArchive: React.FC = () => {
       try {
         setLoading(true);
         
-        const supabaseUrl = 'https://joqnpibrfzqflyogrkht.supabase.co';
+        // SECURITY: Use environment variables instead of hardcoded keys
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error('Security: Missing Supabase configuration');
+          setLoading(false);
+          return;
+        }
+        
         const response = await fetch(`${supabaseUrl}/functions/v1/get-repository-archive`, {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcW5waWJyZnpxZmx5b2dya2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mjg5NTIsImV4cCI6MjA3NjAwNDk1Mn0.pIFvi2XRo1xmK3oZ-XBVpR6WvBye65a3ACE6wuFsxQk',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcW5waWJyZnpxZmx5b2dya2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mjg5NTIsImV4cCI6MjA3NjAwNDk1Mn0.pIFvi2XRo1xmK3oZ-XBVpR6WvBye65a3ACE6wuFsxQk'
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'apikey': supabaseAnonKey
           }
         });
 

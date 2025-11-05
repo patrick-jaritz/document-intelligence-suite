@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe, Settings, CheckCircle } from 'lucide-react';
 import { supabase, supabaseUrl, ragHelpers } from '../lib/supabase';
+import { sanitizeForDisplay } from '../utils/sanitize';
 import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
 
 interface Document {
@@ -616,7 +617,12 @@ export function RAGViewEnhanced() {
                   : 'bg-gray-100 mr-8'
               }`}
             >
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <div 
+                className="whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ 
+                  __html: sanitizeForDisplay(message.content) 
+                }}
+              />
               {message.sources && message.sources.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-gray-300">
                   <p className="text-sm font-medium text-gray-700 mb-1">Sources:</p>

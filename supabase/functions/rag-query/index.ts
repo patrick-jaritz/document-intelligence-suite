@@ -9,6 +9,10 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
+import { validateRequestId, validateRequestHeaders, detectSuspiciousPattern } from '../_shared/request-validation.ts';
+import { logSecurityEvent, getClientIP, getUserAgent } from '../_shared/security-events.ts';
 
 // =============================================================================
 // Embedding Generation
@@ -563,18 +567,42 @@ async function generateAnswer(
 // =============================================================================
 
 serve(async (req) => {
-  try {
-    // CORS headers
-    if (req.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id',
-        },
-      });
-    }
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
 
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
+  try {
     // Parse request
     const {
       question,
@@ -583,14 +611,24 @@ serve(async (req) => {
       model = 'gpt-4o-mini',
       provider = 'openai',
       topK = 5
-    } = await req.json();
+    } = JSON.parse(requestText);
 
-    if (!question) {
+    // SECURITY: Validate input
+    if (!question || typeof question !== 'string' || question.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required field: question' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing or invalid required field: question' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
+
+    // SECURITY: Validate input length
+    if (question.length > 10000) {
+      return new Response(
+        JSON.stringify({ error: 'Question too long (max 10000 characters)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
 
     // Get API keys from environment
     const apiKeys = {
@@ -643,10 +681,7 @@ serve(async (req) => {
               warning: `Document ID ${documentId} was requested but chunks from other documents were found.`
             }),
             {
-              headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-              }
+              headers: { ...headers, 'Content-Type': 'application/json' }
             }
           );
         }
@@ -683,10 +718,7 @@ serve(async (req) => {
           }
         }),
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
+          headers: { ...headers, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -781,6 +813,9 @@ serve(async (req) => {
       }
     }
     
+    // SECURITY: Don't expose debug info in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({
         answer: warning ? `${warning}\n\n${answer}` : answer,
@@ -789,30 +824,27 @@ serve(async (req) => {
         provider,
         retrievedChunks: matches.length,
         warning: warning || diagnosticWarning || undefined,
-        debug: debugInfo  // Include diagnostic info in response
+        ...(isProduction ? {} : { debug: debugInfo })
       }),
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error: any) {
     console.error('❌ Error in rag-query function:', error);
     
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({
         error: error.message || 'Failed to process RAG query',
-        details: error.toString()
+        ...(isProduction ? {} : { details: error.toString() })
       }),
       {
         status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
   }

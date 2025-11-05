@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts'
 
 interface WebhookPayload {
   event_type: string;
@@ -9,16 +10,53 @@ interface WebhookPayload {
   metadata?: Record<string, any>;
 }
 
+// SECURITY: CORS headers are now generated dynamically with origin validation
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
-    const payload: WebhookPayload = await req.json()
+    const payload: WebhookPayload = JSON.parse(requestText);
 
-    if (!payload.event_type) {
-      throw new Error('event_type is required')
+    // SECURITY: Validate input
+    if (!payload.event_type || typeof payload.event_type !== 'string' || payload.event_type.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: event_type' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('🔔 Webhook received:', payload.event_type)
@@ -49,19 +87,24 @@ serve(async (req) => {
         result
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...headers, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message,
-        details: error.toString()
+        error: error instanceof Error ? error.message : 'Internal server error',
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...headers, 'Content-Type': 'application/json' },
         status: 500
       }
     )

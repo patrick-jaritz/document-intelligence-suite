@@ -2,12 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { EdgeLogger, generateRequestId } from "../_shared/logger.ts";
 import { withRateLimit, rateLimiters } from "../_shared/rate-limiter.ts";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 interface ConvertToMarkdownRequest {
   filePath?: string;
@@ -36,12 +34,16 @@ interface MarkdownResult {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   const inboundReqId = req.headers.get('X-Request-Id') || undefined;
   const requestId = inboundReqId || generateRequestId();
@@ -60,7 +62,15 @@ Deno.serve(async (req: Request) => {
     )(req);
     
     if (rateLimitResponse) {
-      return rateLimitResponse;
+      // Update rate limit response with security headers
+      const rateLimitHeaders = new Headers(rateLimitResponse.headers);
+      Object.entries(securityHeaders).forEach(([key, value]) => {
+        rateLimitHeaders.set(key, value);
+      });
+      return new Response(rateLimitResponse.body, {
+        status: rateLimitResponse.status,
+        headers: rateLimitHeaders
+      });
     }
 
     // Check environment variables
@@ -78,17 +88,45 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
     const logger = new EdgeLogger(supabaseClient, requestId);
 
+    // SECURITY: Limit request size
+    const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+    let requestText = '';
+    try {
+      requestText = await req.text();
+      requestSize = requestText.length;
+      
+      if (requestSize > MAX_REQUEST_SIZE) {
+        return new Response(
+          JSON.stringify({ error: 'Request too large' }),
+          { 
+            status: 413, 
+            headers: { ...headers, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } catch (readError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to read request body' }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Parse request body with better error handling
     let requestBody: ConvertToMarkdownRequest;
     try {
-      const requestText = await req.text();
-      requestSize = requestText.length;
       requestBody = JSON.parse(requestText);
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
+      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          ...(isProduction ? {} : { details: parseError instanceof Error ? parseError.message : String(parseError) })
+        }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -185,7 +223,7 @@ Deno.serve(async (req: Request) => {
       });
       
       return new Response(JSON.stringify(responseData), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+          headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
       });
 
     } catch (conversionError) {
@@ -209,7 +247,7 @@ Deno.serve(async (req: Request) => {
       
       return new Response(JSON.stringify(errorData), { 
         status: 400, // Bad Request instead of 500 for user guidance
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+          headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
       });
     }
 
@@ -239,7 +277,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify(errorData), { 
       status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+          headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
     });
   }
 });

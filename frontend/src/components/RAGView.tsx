@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe } from 'lucide-react';
 import { supabase, supabaseUrl } from '../lib/supabase';
+import { useDebounce } from '../utils/debounce';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { requestCache } from '../utils/requestCache';
+import { sanitizeForDisplay } from '../utils/sanitize';
+import { validateTextInput } from '../utils/inputValidation';
+import { ChatMessageSkeleton } from './SkeletonLoader';
 
 interface Document {
   id: string;
@@ -409,19 +415,53 @@ export function RAGView() {
     }
   };
 
+  // AbortController for request cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isQuerying) return;
 
-    const question = inputMessage.trim();
+    // SECURITY: Validate input length
+    const validation = validateTextInput(inputMessage, {
+      maxLength: 10000,
+      fieldName: 'Message',
+      allowEmpty: false,
+    });
+
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
+    // Cancel previous request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const question = validation.sanitized || inputMessage.trim();
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
       content: question
     };
 
+    // Optimistic update: immediately show user message
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsQuerying(true);
+
+    // Create new AbortController for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       // Check if using PageIndex Vision RAG
@@ -454,21 +494,36 @@ export function RAGView() {
 
       console.log(`🔍 ${isVisionRAG ? 'Vision RAG' : 'Vector RAG'} Query:`, requestBody);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      // Create cache key for this query
+      const cacheKey = `${endpoint}:${JSON.stringify(requestBody)}`;
+      
+      // Use request cache (with 5 minute TTL for RAG queries)
+      const result = await requestCache.get(
+        cacheKey,
+        async () => {
+          const response = await fetchWithTimeout(
+            `${supabaseUrl}/functions/v1/${endpoint}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              },
+              body: JSON.stringify(requestBody),
+              timeout: 60000, // 60 second timeout
+              signal: controller.signal,
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Query failed: ${response.statusText} - ${errorText}`);
+          }
+
+          return await response.json();
         },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Query failed: ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json();
+        5 * 60 * 1000 // 5 minute cache
+      );
       
       // Handle Vision RAG response format (different from Vector RAG)
       const answer = result.answer || result.error || 'No answer generated';
@@ -495,6 +550,12 @@ export function RAGView() {
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
+      // Don't show error if request was cancelled
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request cancelled');
+        return;
+      }
+
       console.error('❌ Query failed:', error);
       
       const errorMessage: ChatMessage = {
@@ -506,6 +567,7 @@ export function RAGView() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsQuerying(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -816,7 +878,7 @@ export function RAGView() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
+            {messages.length === 0 && !isQuerying ? (
               <div className="text-center text-gray-500 mt-8">
                 <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>Upload a document and start asking questions!</p>
@@ -834,7 +896,12 @@ export function RAGView() {
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div 
+                      className="whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ 
+                        __html: sanitizeForDisplay(message.content) 
+                      }}
+                    />
                     
                     {/* Sources */}
                     {message.sources && message.sources.length > 0 && (
@@ -854,16 +921,7 @@ export function RAGView() {
               ))
             )}
             
-            {isQuerying && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Thinking...
-                  </div>
-                </div>
-              </div>
-            )}
+            {isQuerying && <ChatMessageSkeleton />}
           </div>
 
           {/* Input */}

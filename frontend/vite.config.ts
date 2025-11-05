@@ -13,13 +13,36 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'pdf-vendor': ['pdfjs-dist', 'pdf-lib'],
+          'tesseract-vendor': ['tesseract.js'],
+          // Feature chunks
+          'rag-components': [
+            './src/components/RAGView.tsx',
+            './src/components/RAGViewEnhanced.tsx',
+          ],
+          'github-components': [
+            './src/components/GitHubAnalyzer.tsx',
+          ],
+        },
+      },
+    },
+    // Increase chunk size warning limit since we're using manual chunks
+    chunkSizeWarningLimit: 600,
+  },
   define: {
     // Embed environment variables at build time for Vercel
+    // SECURITY: Do not hardcode API keys - use environment variables only
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
-      process.env.VITE_SUPABASE_URL || 'https://joqnpibrfzqflyogrkht.supabase.co'
+      process.env.VITE_SUPABASE_URL || ''
     ),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
-      process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcW5waWJyZnpxZmx5b2dya2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mjg5NTIsImV4cCI6MjA3NjAwNDk1Mn0.pIFvi2XRo1xmK3oZ-XBVpR6WvBye65a3ACE6wuFsxQk'
+      process.env.VITE_SUPABASE_ANON_KEY || ''
     ),
     'import.meta.env.VITE_DISABLE_CLIENT_LOGS': JSON.stringify(
       process.env.VITE_DISABLE_CLIENT_LOGS || 'true'

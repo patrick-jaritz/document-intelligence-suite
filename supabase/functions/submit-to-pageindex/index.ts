@@ -9,6 +9,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
 interface SubmitRequest {
   documentId: string;
@@ -23,38 +25,86 @@ interface SubmitResponse {
   error?: string;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 
   try {
     // Parse request
-    const request: SubmitRequest = await req.json();
+    const request: SubmitRequest = JSON.parse(requestText);
     const { documentId, fileUrl, filename } = request;
 
-    if (!documentId || !fileUrl) {
+    // SECURITY: Validate input
+    if (!documentId || typeof documentId !== 'string' || documentId.trim().length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields: documentId, fileUrl' 
+          error: 'Missing or invalid required field: documentId' 
         }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    if (!fileUrl || typeof fileUrl !== 'string' || fileUrl.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing or invalid required field: fileUrl' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // SECURITY: Validate URL length
+    if (fileUrl.length > 2048) {
+      return new Response(
+        JSON.stringify({ error: 'File URL too long (max 2048 characters)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log(`📤 Submitting document to PageIndex: ${documentId}`);
 
-    // Get API keys
-    const pageIndexKey = Deno.env.get('PAGEINDEX_API_KEY') || '7535a44ab7c34d6c978009fd571c0bac';
+    // SECURITY: Get API keys - no hardcoded fallbacks
+    const pageIndexKey = Deno.env.get('PAGEINDEX_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -65,7 +115,7 @@ serve(async (req) => {
         }),
         { 
           status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -157,22 +207,27 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(response),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
     console.error('❌ Submit to PageIndex error:', error);
     
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
+        error: error instanceof Error ? error.message : 'Internal server error',
         status: 'failed',
-        details: error.stack
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
   }

@@ -1,12 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { EdgeLogger, generateRequestId } from "../_shared/logger.ts";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 interface PipelineOperator {
   id: string;
@@ -54,12 +52,16 @@ interface ExecutionContext {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   const requestId = generateRequestId();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -67,8 +69,33 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
   const logger = new EdgeLogger(supabase, requestId);
 
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
   try {
-    const { pipeline_id, input_data, user_id } = await req.json();
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
+  try {
+    const requestBody = JSON.parse(requestText);
+    const { pipeline_id, input_data, user_id } = requestBody;
 
     logger.info('system', 'DocETL pipeline execution started', {
       pipelineId: pipeline_id,

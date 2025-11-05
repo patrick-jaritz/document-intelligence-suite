@@ -1,11 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 type Metric = {
   name: string;
@@ -92,9 +90,16 @@ function estimateCosts(counts: Record<string, number>) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   try {
     const supabase = createClient(
@@ -171,12 +176,21 @@ Deno.serve(async (req: Request) => {
         healthMetrics,
         timestamp: new Date().toISOString(),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...headers, "Content-Type": "application/json" } }
     );
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+    // SECURITY: Don't expose internal error details in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      error: String(e),
+      ...(isProduction ? {} : { 
+        details: e instanceof Error ? e.stack : String(e)
+      })
+    }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...headers, "Content-Type": "application/json" },
     });
   }
 });

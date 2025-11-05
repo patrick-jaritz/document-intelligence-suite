@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Resolve env with safe fallbacks to prevent blank page if Vite envs are missing
+// Resolve env variables - SECURITY: No hardcoded fallbacks
+// These must be set via environment variables in Vercel/production
 export const supabaseUrl: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_URL || 'https://joqnpibrfzqflyogrkht.supabase.co';
+  (import.meta as any)?.env?.VITE_SUPABASE_URL || '';
 export const supabaseAnonKey: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcW5waWJyZnpxZmx5b2dya2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mjg5NTIsImV4cCI6MjA3NjAwNDk1Mn0.pIFvi2XRo1xmK3oZ-XBVpR6WvBye65a3ACE6wuFsxQk';
+  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY || '';
+
+// Validate required environment variables
+if (typeof window !== 'undefined' && (!supabaseUrl || !supabaseAnonKey)) {
+  console.error('❌ Security: Missing required environment variables. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your deployment environment.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -15,13 +20,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+
 // Helper function to call Supabase Edge Functions
 export const callEdgeFunction = async (
   functionName: string,
   payload: any,
-  options: { method?: string } = {}
+  options: { method?: string; timeout?: number; signal?: AbortSignal } = {}
 ) => {
-  const { method = 'POST' } = options;
+  const { method = 'POST', timeout = 60000, signal } = options;
   const requestId = `${functionName}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const start = performance.now();
 
@@ -65,10 +72,12 @@ export const callEdgeFunction = async (
   }
   
   try {
-    const response = await fetch(functionUrl, {
+    const response = await fetchWithTimeout(functionUrl, {
       method,
       headers,
       body: JSON.stringify(payload),
+      timeout,
+      signal,
     });
 
     const durationMs = Math.round(performance.now() - start);

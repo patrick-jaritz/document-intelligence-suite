@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, MessageCircle, FileText, ExternalLink } from 'lucide-react';
 import { SourceViewer } from './SourceViewer';
 import { supabaseUrl } from '../lib/supabase';
+import { sanitizeForDisplay } from '../utils/sanitize';
 
 interface ChatInterfaceProps {
   provider: 'openai' | 'anthropic' | 'mistral' | 'gemini';
@@ -177,7 +178,12 @@ export function ChatInterface({ provider, docId, documentName }: ChatInterfacePr
             {/* AI Answer */}
             <div className="flex justify-start">
               <div className="max-w-[80%] bg-gray-100 rounded-lg px-4 py-2">
-                <p className="text-sm text-gray-900 whitespace-pre-wrap">{message.answer}</p>
+                <p 
+                  className="text-sm text-gray-900 whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ 
+                    __html: sanitizeForDisplay(message.answer || '') 
+                  }}
+                />
                 
                 {/* Sources */}
                 {message.sources && message.sources.length > 0 && (

@@ -9,6 +9,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 
 // =============================================================================
 // Text Chunking Utility
@@ -141,27 +143,67 @@ async function generateEmbedding(
 serve(async (req) => {
   console.log('🚀 generate-embeddings function called');
   
-  try {
-    // CORS headers
-    if (req.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id',
-        },
-      });
-    }
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
 
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
+
+  // SECURITY: Limit request size
+  const MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
+  let requestText = '';
+  try {
+    requestText = await req.text();
+    if (requestText.length > MAX_REQUEST_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request too large' }),
+        { 
+          status: 413, 
+          headers: { ...headers, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to read request body' }),
+      { 
+        status: 400, 
+        headers: { ...headers, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
+  try {
     // Parse request
     console.log('📋 Parsing request body...');
-    const { text, documentId, filename, sourceUrl, provider = 'openai' } = await req.json();
+    const { text, documentId, filename, sourceUrl, provider = 'openai' } = JSON.parse(requestText);
     console.log('📋 Request parsed:', { documentId, filename, provider, textLength: text?.length });
 
-    if (!text || !filename) {
+    // SECURITY: Validate input
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: text, filename' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing or invalid required field: text' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!filename || typeof filename !== 'string' || filename.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid required field: filename' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Validate input length
+    if (text.length > 10000000) { // 10MB limit for text
+      return new Response(
+        JSON.stringify({ error: 'Text too long (max 10MB)' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -324,27 +366,26 @@ serve(async (req) => {
         provider
       }),
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error: any) {
     console.error('Error in generate-embeddings function:', error);
     
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to generate embeddings',
-        details: error.toString()
+        error: error instanceof Error ? error.message : 'Failed to generate embeddings',
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
       }),
       {
         status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...headers, 'Content-Type': 'application/json' }
       }
     );
   }

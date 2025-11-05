@@ -2,12 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { EdgeLogger, generateRequestId } from "../_shared/logger.ts";
 import { withRateLimit, rateLimiters } from "../_shared/rate-limiter.ts";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-headers.ts";
+import { validateFile, extractFileFromDataUrl } from "../_shared/file-validation.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, apikey, X-Request-Id",
-};
+// SECURITY: CORS headers are now generated dynamically with origin validation
 
 interface ProcessRAGWithMarkdownRequest {
   documentId: string;
@@ -73,12 +72,16 @@ interface RAGProcessedResult {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+  // SECURITY: Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflight(req);
+  if (preflightResponse) {
+    return preflightResponse;
   }
+
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  const securityHeaders = getSecurityHeaders();
+  const headers = mergeSecurityHeaders(corsHeaders, securityHeaders);
 
   const inboundReqId = req.headers.get('X-Request-Id') || undefined;
   const requestId = inboundReqId || generateRequestId();
@@ -92,7 +95,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Apply rate limiting
-    const rateLimitResponse = withRateLimit(
+    const rateLimitResponse = await withRateLimit(
       rateLimiters.ocr,
       'RAG processing rate limit exceeded. Please try again in a minute.'
     )(req);
@@ -215,15 +218,35 @@ Deno.serve(async (req: Request) => {
         logger.debug('storage', 'Test mode: using empty buffer', { jobId });
       } else {
         if (fileDataUrl && fileDataUrl.startsWith('data:')) {
-          const commaIdx = fileDataUrl.indexOf(',');
-          const header = fileDataUrl.substring(5, commaIdx);
-          const base64 = fileDataUrl.substring(commaIdx + 1);
-          contentType = header.split(';')[0];
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          pdfBuffer = bytes.buffer;
-          logger.info('storage', 'Received file as base64 data URL', { contentType, size: bytes.byteLength });
+          // SECURITY: Validate file from data URL
+          const extractedFile = extractFileFromDataUrl(fileDataUrl);
+          if (!extractedFile) {
+            throw new Error('Invalid file data URL format');
+          }
+
+          // SECURITY: Validate file type and content
+          const validation = validateFile(
+            extractedFile.data,
+            requestBody.fileUrl || 'uploaded-file',
+            extractedFile.mimeType,
+            50 * 1024 * 1024 // 50MB max
+          );
+
+          if (!validation.valid) {
+            logger.error('security', 'File validation failed', new Error(validation.error || 'Unknown validation error'), {
+              filename: requestBody.fileUrl,
+              detectedType: validation.detectedType
+            });
+            throw new Error(`File validation failed: ${validation.error || 'Unknown error'}`);
+          }
+
+          contentType = extractedFile.mimeType;
+          pdfBuffer = extractedFile.data.buffer;
+          logger.info('storage', 'Received and validated file as base64 data URL', { 
+            contentType, 
+            size: extractedFile.data.length,
+            detectedType: validation.detectedType
+          });
         } else {
           logger.debug('storage', 'Fetching document from storage', { fileUrl });
           const pdfResponse = await fetch(fileUrl);
@@ -234,7 +257,28 @@ Deno.serve(async (req: Request) => {
           contentType = pdfResponse.headers.get('content-type') || 'application/pdf';
           const pdfBlob = await pdfResponse.blob();
           pdfBuffer = await pdfBlob.arrayBuffer();
-          logger.info('storage', `Document fetched successfully (${pdfBuffer.byteLength} bytes, ${contentType})`);
+          
+          // SECURITY: Validate file fetched from URL
+          const validation = validateFile(
+            pdfBuffer,
+            requestBody.fileUrl || 'fetched-file',
+            contentType,
+            50 * 1024 * 1024 // 50MB max
+          );
+
+          if (!validation.valid) {
+            logger.error('security', 'File validation failed', new Error(validation.error || 'Unknown validation error'), {
+              fileUrl: requestBody.fileUrl,
+              detectedType: validation.detectedType
+            });
+            throw new Error(`File validation failed: ${validation.error || 'Unknown error'}`);
+          }
+
+          logger.info('storage', `Document fetched and validated successfully (${pdfBuffer.byteLength} bytes, ${contentType})`, {
+            fileSize: pdfBuffer.byteLength,
+            contentType,
+            detectedType: validation.detectedType
+          });
         }
       }
 
@@ -629,7 +673,7 @@ Deno.serve(async (req: Request) => {
       });
       
       return new Response(JSON.stringify(result), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+          headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId }
       });
 
     } catch (error) {
@@ -693,7 +737,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify(errorData), { 
       status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-Id': requestId } 
+          headers: { ...headers, 'Content-Type': 'application/json', 'X-Request-Id': requestId }
     });
   }
 });

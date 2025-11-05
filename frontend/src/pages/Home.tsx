@@ -1,15 +1,27 @@
-import { useState } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode } from 'lucide-react';
+import { useState, Suspense, lazy } from 'react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ResultsDisplay } from '../components/ResultsDisplay';
 import { useDocumentProcessor } from '../hooks/useDocumentProcessor';
-import { RAGView } from '../components/RAGView';
-import { RAGViewEnhanced } from '../components/RAGViewEnhanced';
-import { GitHubAnalyzer } from '../components/GitHubAnalyzer';
-import { WebCrawler } from '../components/WebCrawler';
-import { MarkdownConverter } from '../components/MarkdownConverter';
+
+// Lazy load mode-specific components for code splitting
+const RAGView = lazy(() => import('../components/RAGView').then(module => ({ default: module.RAGView })));
+const RAGViewEnhanced = lazy(() => import('../components/RAGViewEnhanced').then(module => ({ default: module.RAGViewEnhanced })));
+const GitHubAnalyzer = lazy(() => import('../components/GitHubAnalyzer').then(module => ({ default: module.GitHubAnalyzer })));
+const WebCrawler = lazy(() => import('../components/WebCrawler').then(module => ({ default: module.WebCrawler })));
+const MarkdownConverter = lazy(() => import('../components/MarkdownConverter').then(module => ({ default: module.MarkdownConverter })));
+
+// Loading fallback for lazy components
+const ComponentLoadingFallback = () => (
+  <div className="flex items-center justify-center p-12">
+    <div className="text-center">
+      <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
+      <p className="text-sm text-gray-600">Loading component...</p>
+    </div>
+  </div>
+);
 
 type AppMode = 'extract' | 'ask' | 'github' | 'crawler' | 'markdown';
 
@@ -155,15 +167,23 @@ export function Home() {
                 </div>
         </header>
 
-        {/* Mode content */}
+        {/* Mode content - lazy loaded with Suspense */}
         {appMode === 'crawler' ? (
-          <WebCrawler />
+          <Suspense fallback={<ComponentLoadingFallback />}>
+            <WebCrawler />
+          </Suspense>
         ) : appMode === 'ask' ? (
-          <RAGViewEnhanced />
+          <Suspense fallback={<ComponentLoadingFallback />}>
+            <RAGViewEnhanced />
+          </Suspense>
         ) : appMode === 'github' ? (
-          <GitHubAnalyzer />
+          <Suspense fallback={<ComponentLoadingFallback />}>
+            <GitHubAnalyzer />
+          </Suspense>
         ) : appMode === 'markdown' ? (
-          <MarkdownConverter />
+          <Suspense fallback={<ComponentLoadingFallback />}>
+            <MarkdownConverter />
+          </Suspense>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: Inputs */}
