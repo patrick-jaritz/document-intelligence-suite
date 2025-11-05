@@ -1,155 +1,92 @@
-# 🚀 Deployment Status
+# ✅ Deployment Status - Repository Archive Fix
 
-## Latest Deployment
+**Date**: 2025-02-01  
+**Status**: ✅ **DEPLOYED**
 
-**Deployment URL:** https://document-intelligence-suite-5x6hi1tdt.vercel.app/
+---
 
-**Latest Commits:**
-- `4b6ab18` - trigger: Force deployment with OCR provider updates
-- `1834e9c` - feat: Add all OCR providers to Data Extraction with feasibility rankings
-- `2157455` - feat: Add DeepSeek-OCR integration and Repository Archive
+## 🚀 Deployment Summary
 
-**Deployment Time:** Triggered automatically via Vercel
+### Edge Function Deployed
+- ✅ **get-repository-archive** - Successfully deployed
+- **Project**: joqnpibrfzqflyogrkht
+- **Dashboard**: https://supabase.com/dashboard/project/joqnpibrfzqflyogrkht/functions
 
-## What's Deployed
+---
 
-### ✅ Features Live
-1. **Complete OCR Provider Options**
-   - 8 OCR providers organized by feasibility
-   - Tier 1: Cloud APIs (Google Vision, OpenAI, Mistral)
-   - Tier 2: Free Options (OCR.space, Tesseract)
-   - Tier 3: Self-Hosted (dots.ocr, PaddleOCR, DeepSeek-OCR)
-   - Feasibility rankings with helpful comments
+## 🔧 Fixes Applied
 
-2. **Repository Archive**
-   - GitHub Analyzer with archive
-   - Repository history tracking
-   - Comprehensive analysis display
+### 1. CORS Preflight Issue
+- ✅ Switched from old `serve` to `Deno.serve`
+- ✅ Added explicit OPTIONS request handling
+- ✅ Proper CORS headers on preflight responses
 
-3. **OCR Providers (Updated)**
-   - Google Vision API
-   - OCR.space API
-   - OpenAI Vision API
-   - Mistral Vision API
-   - Tesseract (Browser)
-   - PaddleOCR
-   - dots.ocr (SOTA)
-   - **DeepSeek-OCR (Premium)** ✨ NEW
+### 2. Enhanced Debugging
+- ✅ Using service role key to bypass RLS
+- ✅ Table count check before query
+- ✅ Enhanced error logging
 
-4. **Web Crawler**
-   - Default Crawler
-   - crawl4ai (Advanced)
+### 3. Frontend Updates
+- ✅ Removed demo data fallback
+- ✅ Better error logging
+- ✅ Empty state handling
 
-5. **RAG Providers**
-   - OpenAI
-   - Anthropic
-   - Mistral
-   - Google Gemini
+---
 
-## Deployment Architecture
+## ✅ Testing Steps
 
-```
-Frontend (Vercel)
-├── React + TypeScript
-├── Vite build
-├── Static assets served via CDN
-└── Connected to Supabase
+1. **Hard Refresh Browser**
+   - Windows/Linux: `Ctrl+Shift+R`
+   - Mac: `Cmd+Shift+R`
 
-Backend (Supabase)
-├── Edge Functions
-│   ├── process-pdf-ocr
-│   ├── github-analyzer
-│   ├── get-repository-archive
-│   └── init-github-archive
-├── PostgreSQL + pgvector
-└── Storage for documents
+2. **Navigate to Repository Archive**
+   - Open the app
+   - Go to Repository Archive page
 
-OCR Services (External)
-├── DeepSeek-OCR (GPU service)
-├── PaddleOCR (Docker)
-├── dots.ocr (Docker)
-└── crawl4ai (Docker)
-```
+3. **Check Browser Console**
+   - Look for: `📊 Repository archive response:`
+   - Should see: `✅ Loaded X repository analyses from database`
+   - No CORS errors
 
-## How to Use the New Features
+4. **Check Network Tab**
+   - Filter by: `get-repository-archive`
+   - Preflight (OPTIONS) should return **204**
+   - GET request should return **200**
+   - Response should contain `data: [...]`
 
-### Data Extraction Mode
-1. Navigate to **Extract Data** mode
-2. Click on **OCR Provider** dropdown
-3. You'll see 3 groups:
-   - ⭐⭐⭐ **Cloud APIs (Easiest)** - Start here for best results
-   - ⭐⭐ **Free Options** - Good for simple documents
-   - ⭐ **Self-Hosted (Advanced)** - Maximum control
-4. Select your preferred provider
-5. Upload and process your document
+---
 
-### Tips for Choosing a Provider
-- **New users**: Start with Google Vision API
-- **Simple documents**: Use Tesseract (free) or OCR.space
-- **Complex layouts**: Use OpenAI Vision or DeepSeek-OCR
-- **Advanced users**: Set up self-hosted options for maximum control
+## 🎯 Expected Results
 
-## Recent Changes
+After deployment:
+- ✅ No CORS errors
+- ✅ Preflight requests succeed (204 status)
+- ✅ GET requests succeed (200 status)
+- ✅ Repository analyses display from database
+- ✅ No demo data fallback
 
-### Latest Deployment (4b6ab18)
-- ⚡ Triggered forced deployment
-- 🔄 Build verification successful
+---
 
-### Previous Deployment (1834e9c)
-- ✅ Added all 8 OCR providers to Data Extraction
-- ✅ Organized providers by feasibility (⭐⭐⭐/⭐⭐/⭐)
-- ✅ Added helpful comments for easy selection
-- ✅ Updated hook types to support new providers
+## 📋 If Issues Persist
 
-### Earlier Deployment (2157455)
-- ✅ Added DeepSeek-OCR as OCR provider
-- ✅ Implemented DeepSeek-OCR Docker service
-- ✅ Added Repository Archive feature
-- ✅ Enhanced GitHub Analyzer
+1. **Check Edge Function Logs**
+   - Supabase Dashboard → Edge Functions → get-repository-archive → Logs
+   - Look for error messages or debugging output
 
-## Environment Variables
+2. **Verify Environment Variables**
+   - Ensure `SUPABASE_SERVICE_ROLE_KEY` is set
+   - Check that `SUPABASE_URL` is correct
 
-All sensitive keys are managed via:
-- Vercel Dashboard → Settings → Environment Variables
-- Supabase Dashboard → Project Settings → Edge Functions → Secrets
+3. **Check RLS Policies**
+   - Verify `github_analyses` table has public read policy
+   - Or Edge Function uses service role key (which bypasses RLS)
 
-## Monitoring
+4. **Verify Table Data**
+   - Supabase Dashboard → Table Editor → `github_analyses`
+   - Confirm data exists
 
-### Check Deployment Status
-```bash
-# Visit Vercel Dashboard
-https://vercel.com/dashboard
+---
 
-# Check Supabase Dashboard
-https://app.supabase.com
-```
-
-### View Logs
-```bash
-# Vercel logs
-vercel logs
-
-# Supabase logs
-supabase functions logs process-pdf-ocr
-supabase functions logs github-analyzer
-```
-
-## Performance
-
-### Build Metrics
-- Frontend Build: ~3 seconds
-- Total Deployment: ~2-3 minutes
-- Bundle Size: ~500KB (compressed)
-
-### Runtime Performance
-- Cold Start: ~500ms
-- Warm Response: ~100ms
-- OCR Processing: ~3-5 seconds
-- RAG Query: ~1-2 seconds
-
-## Status: 🔄 Deploying Now
-
-The latest version with all OCR provider options is being deployed and will be accessible at:
-https://document-intelligence-suite-5x6hi1tdt.vercel.app/
-
-**Please wait 2-3 minutes for the deployment to complete.**
+**Deployment Time**: Just completed  
+**Status**: ✅ **LIVE**  
+**Next Action**: Test in browser
