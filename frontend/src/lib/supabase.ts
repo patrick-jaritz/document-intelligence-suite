@@ -2,10 +2,15 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Resolve env variables - SECURITY: No hardcoded fallbacks
 // These must be set via environment variables in Vercel/production
+// Support both VITE_ (Vite) and NEXT_PUBLIC_ (Supabase integration) prefixes
 export const supabaseUrl: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_URL || '';
+  (import.meta as any)?.env?.VITE_SUPABASE_URL ||
+  (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_URL ||
+  '';
 export const supabaseAnonKey: string =
-  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY || '';
+  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY ||
+  (import.meta as any)?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  '';
 
 // Check if configuration is valid
 export const isSupabaseConfigured = (): boolean => {
