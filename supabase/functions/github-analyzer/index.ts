@@ -627,7 +627,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-    const { url } = JSON.parse(requestText)
+      const { url } = JSON.parse(requestText)
 
     // SECURITY: Validate input
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
