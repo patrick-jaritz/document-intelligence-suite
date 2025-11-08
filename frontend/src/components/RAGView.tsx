@@ -47,7 +47,7 @@ export function RAGView() {
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('openai-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
-  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini' | 'pageindex-vision'>('openai');
+  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi' | 'pageindex-vision'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
   const [debugMode, setDebugMode] = useState(false);
 
@@ -738,7 +738,8 @@ export function RAGView() {
                   if (e.target.value === 'openai') setRagModel('gpt-4o-mini');
                   else if (e.target.value === 'anthropic') setRagModel('claude-3-haiku-20240307');
                   else if (e.target.value === 'mistral') setRagModel('mistral-small-latest');
-                  else if (e.target.value === 'gemini') setRagModel('gemini-1.5-flash');
+                else if (e.target.value === 'gemini') setRagModel('gemini-1.5-flash');
+                else if (e.target.value === 'kimi') setRagModel('kimi-k2-instruct');
                   else if (e.target.value === 'pageindex-vision') setRagModel('gpt-4o');
                 }}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -748,11 +749,17 @@ export function RAGView() {
                   <option value="anthropic">Anthropic</option>
                   <option value="mistral">Mistral</option>
                   <option value="gemini">Google Gemini</option>
+                <option value="kimi">Kimi K2 (Moonshot)</option>
                 </optgroup>
                 <optgroup label="Vision-Based RAG">
                   <option value="pageindex-vision">PageIndex Vision RAG ⭐</option>
                 </optgroup>
               </select>
+              {ragProvider === 'kimi' && (
+                <p className="text-xs text-purple-600 mt-1">
+                  🚀 Kimi K2 provides 128K context and agentic reasoning. We auto-scale temperature for best results.
+                </p>
+              )}
               {ragProvider === 'pageindex-vision' && (
                 <p className="text-xs text-blue-600 mt-1">
                   🎯 Vision-based retrieval - ideal for complex documents with figures & diagrams
@@ -815,6 +822,12 @@ export function RAGView() {
                     <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                     <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                  </>
+                )}
+                {ragProvider === 'kimi' && (
+                  <>
+                    <option value="kimi-k2-instruct">Kimi K2 Instruct (128K)</option>
+                    <option value="kimi-k2-base">Kimi K2 Base</option>
                   </>
                 )}
                 {ragProvider === 'pageindex-vision' && (

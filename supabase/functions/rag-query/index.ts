@@ -90,6 +90,13 @@ async function generateQueryEmbedding(
         return generateLocalEmbedding(text);
       }
       return await generateMistralEmbedding(text, apiKeys.MISTRAL_API_KEY);
+
+    case 'kimi':
+      // Kimi does not currently expose public embedding endpoints. Fallback to OpenAI embeddings if available.
+      if (apiKeys.OPENAI_API_KEY) {
+        return await generateOpenAIEmbedding(text, apiKeys.OPENAI_API_KEY);
+      }
+      return generateLocalEmbedding(text);
     
     default:
       return generateLocalEmbedding(text);
@@ -531,8 +538,55 @@ async function generateMistralAnswer(
   return data.choices[0].message.content;
 }
 
+async function generateKimiAnswer(
+  question: string,
+  context: string,
+  model: string,
+  apiKey: string,
+  apiBaseUrl?: string
+): Promise<string> {
+  const baseUrl = apiBaseUrl?.trim() || 'https://platform.moonshot.ai';
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model || 'kimi-k2-instruct',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant that answers questions based on the provided document context. Be concise, cite the most relevant snippets, and clearly state when the answer is not contained in the context.'
+        },
+        {
+          role: 'user',
+          content: `Context:\n\n${context}\n\nQuestion: ${question}\n\nRespond only with information grounded in the context above.`
+        }
+      ],
+      // Kimi maps request temperature internally (real_temperature = request_temperature * 0.6).
+      temperature: 0.5,
+      max_tokens: 800
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`Kimi API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const answer = data.choices?.[0]?.message?.content;
+  if (!answer) {
+    throw new Error('Kimi API returned an empty response');
+  }
+  return answer;
+}
+
 function generateFallbackAnswer(question: string, context: string): string {
-  return `Based on the document, here's what I found related to your question "${question}":\n\n${context.substring(0, 300)}...\n\n(Note: This is a simplified response. For better answers, please add an API key.)`;
+  return `Based on the document, here's what I found related to your question "${question}":\n\n${context.substring(0, 300)}...\n\n(Note: This is a simplified response. Configure an API key for richer answers.)`;
 }
 
 async function generateAnswer(
@@ -559,6 +613,18 @@ async function generateAnswer(
       case 'mistral':
         if (apiKeys.MISTRAL_API_KEY) {
           return await generateMistralAnswer(question, context, model, apiKeys.MISTRAL_API_KEY);
+        }
+        break;
+
+      case 'kimi':
+        if (apiKeys.KIMI_API_KEY) {
+          return await generateKimiAnswer(
+            question,
+            context,
+            model,
+            apiKeys.KIMI_API_KEY,
+            apiKeys.KIMI_API_BASE_URL
+          );
         }
         break;
     }
@@ -643,7 +709,9 @@ serve(async (req) => {
     const apiKeys = {
       OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') || '',
       MISTRAL_API_KEY: Deno.env.get('MISTRAL_API_KEY') || '',
-      ANTHROPIC_API_KEY: Deno.env.get('ANTHROPIC_API_KEY') || ''
+      ANTHROPIC_API_KEY: Deno.env.get('ANTHROPIC_API_KEY') || '',
+      KIMI_API_KEY: Deno.env.get('KIMI_API_KEY') || '',
+      KIMI_API_BASE_URL: Deno.env.get('KIMI_API_BASE_URL') || ''
     };
 
     console.log(`🔍 RAG query: "${question}" (${provider}/${model})`);
@@ -651,7 +719,8 @@ serve(async (req) => {
     console.log('🔑 API Keys status:', {
       openai: apiKeys.OPENAI_API_KEY ? 'present' : 'missing',
       mistral: apiKeys.MISTRAL_API_KEY ? 'present' : 'missing',
-      anthropic: apiKeys.ANTHROPIC_API_KEY ? 'present' : 'missing'
+      anthropic: apiKeys.ANTHROPIC_API_KEY ? 'present' : 'missing',
+      kimi: apiKeys.KIMI_API_KEY ? 'present' : 'missing'
     });
 
     // Step 1: Generate question embedding

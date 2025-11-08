@@ -37,7 +37,7 @@ export function RAGViewEnhanced() {
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'ocr-space' | 'openai-vision' | 'mistral-vision' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr' | 'easyocr'>('google-vision');
   const [crawlerProvider, setCrawlerProvider] = useState<'default' | 'crawl4ai'>('crawl4ai');
-  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini'>('openai');
+  const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
   const [debugMode, setDebugMode] = useState(false);
   

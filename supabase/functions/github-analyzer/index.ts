@@ -88,6 +88,8 @@ const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
 const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 const mistralApiKey = Deno.env.get('MISTRAL_API_KEY')!
+const kimiApiKey = Deno.env.get('KIMI_API_KEY') || ''
+const kimiApiBaseUrl = ((Deno.env.get('KIMI_API_BASE_URL') || 'https://platform.moonshot.ai')).replace(/\/+$/, '')
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -420,6 +422,7 @@ Provide specific, actionable insights that would help an entrepreneur or investo
   try {
     console.log('🔑 API Keys status:', {
       openai: !!openaiApiKey,
+      kimi: !!kimiApiKey,
       anthropic: !!anthropicApiKey,
       mistral: !!mistralApiKey
     });
@@ -484,6 +487,66 @@ Provide specific, actionable insights that would help an entrepreneur or investo
       }
     } else {
       errors.push('OpenAI: API key not configured');
+    }
+
+    // Try Kimi K2 (OpenAI-compatible API with 128k context)
+    if (kimiApiKey) {
+      console.log('🤖 Trying Kimi K2...');
+      try {
+        const response = await fetch(`${kimiApiBaseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${kimiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'kimi-k2-instruct',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert software engineer, business analyst, and startup advisor with deep experience in technology entrepreneurship, venture capital, and market analysis. Provide detailed, accurate, entrepreneur-focused analysis of GitHub repositories in valid JSON format. Focus on business potential, market opportunities, investment viability, and strategic insights.'
+              },
+              {
+                role: 'user',
+                content: analysisPrompt
+              }
+            ],
+            temperature: 0.5,
+            max_tokens: 8000
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          let analysisText = data.choices?.[0]?.message?.content || '';
+
+          const jsonMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+          if (jsonMatch) {
+            analysisText = jsonMatch[1];
+          }
+
+          try {
+            const analysis = JSON.parse(analysisText);
+            console.log('✅ Kimi analysis successful');
+            return analysis;
+          } catch (parseError) {
+            const errorMsg = `Kimi: Failed to parse JSON response - ${parseError instanceof Error ? parseError.message : String(parseError)}. First 200 chars: ${analysisText.substring(0, 200)}`;
+            console.log('❌', errorMsg);
+            errors.push(errorMsg);
+          }
+        } else {
+          const errorText = await response.text().catch(() => response.statusText);
+          const errorMsg = `Kimi: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`;
+          console.log('❌', errorMsg);
+          errors.push(errorMsg);
+        }
+      } catch (fetchError) {
+        const errorMsg = `Kimi: Network error - ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
+        console.log('❌', errorMsg);
+        errors.push(errorMsg);
+      }
+    } else {
+      errors.push('Kimi: API key not configured');
     }
 
     // Fallback to Anthropic

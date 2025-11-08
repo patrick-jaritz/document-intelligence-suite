@@ -6,7 +6,7 @@ import { getSecurityHeaders, mergeSecurityHeaders } from "../_shared/security-he
 
 // SECURITY: CORS headers are now generated dynamically with origin validation
 
-type LLMProvider = 'openai' | 'anthropic' | 'mistral-large';
+type LLMProvider = 'openai' | 'anthropic' | 'mistral-large' | 'kimi';
 
 interface GenerateStructuredOutputRequest {
   jobId: string;
@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
     try {
       let llmResult: LLMResult;
 
-      const providers: LLMProvider[] = [llmProvider, 'openai', 'anthropic', 'mistral-large'];
+      const providers: LLMProvider[] = [llmProvider, 'openai', 'anthropic', 'mistral-large', 'kimi'];
       const uniqueProviders = Array.from(new Set(providers));
 
       let lastError: Error | null = null;
@@ -231,6 +231,9 @@ Deno.serve(async (req: Request) => {
                 case 'mistral-large':
                   chunkResult = await generateWithMistralLarge(chunks[i], structureTemplate, llmModel, customPrompt);
                   break;
+                case 'kimi':
+                  chunkResult = await generateWithKimi(chunks[i], structureTemplate, llmModel, customPrompt);
+                  break;
                 default:
                   continue;
               }
@@ -264,6 +267,9 @@ Deno.serve(async (req: Request) => {
                 break;
               case 'mistral-large':
                 llmResult = await generateWithMistralLarge(extractedText, structureTemplate, llmModel, customPrompt);
+                break;
+              case 'kimi':
+                llmResult = await generateWithKimi(extractedText, structureTemplate, llmModel, customPrompt);
                 break;
               default:
                 continue;
@@ -664,6 +670,84 @@ async function generateWithMistralLarge(
       provider: 'mistral-large',
       tokensUsed: result.usage?.total_tokens,
       model: result.model,
+    },
+  };
+}
+
+async function generateWithKimi(
+  extractedText: string,
+  structureTemplate: any,
+  model: string = 'kimi-k2-instruct',
+  customPrompt?: any
+): Promise<LLMResult> {
+  const apiKey = Deno.env.get('KIMI_API_KEY');
+  const apiBaseUrl = Deno.env.get('KIMI_API_BASE_URL')?.trim() || 'https://platform.moonshot.ai';
+
+  if (!apiKey) {
+    return {
+      structuredOutput: generateDemoStructuredOutput(extractedText, structureTemplate),
+      metadata: {
+        provider: 'kimi-demo',
+      },
+    };
+  }
+
+  const prompt = customPrompt
+    ? buildPromptFromStructured(customPrompt, extractedText, structureTemplate)
+    : buildPrompt(extractedText, structureTemplate);
+
+  const systemMessage = customPrompt?.role
+    ? `${customPrompt.role}. ${customPrompt.task || ''}`
+    : 'You are a data extraction assistant. Extract information from the provided text and return it in valid JSON format matching the given structure. Only return the JSON object, no additional text or markdown formatting.';
+
+  const response = await fetch(`${apiBaseUrl.replace(/\/+$/, '')}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model || 'kimi-k2-instruct',
+      max_tokens: 4000,
+      temperature: 0.4,
+      messages: [
+        {
+          role: 'system',
+          content: systemMessage,
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`Kimi API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  let content = result.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('No response from Kimi');
+  }
+
+  const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+  if (jsonMatch) {
+    content = jsonMatch[1];
+  }
+
+  const structuredOutput = JSON.parse(content);
+
+  return {
+    structuredOutput,
+    metadata: {
+      provider: 'kimi',
+      tokensUsed: result.usage?.total_tokens,
+      model: result.model || model,
     },
   };
 }

@@ -5,7 +5,7 @@ import { supabaseUrl } from '../lib/supabase';
 import { sanitizeForDisplay } from '../utils/sanitize';
 
 interface ChatInterfaceProps {
-  provider: 'openai' | 'anthropic' | 'mistral' | 'gemini';
+  provider: 'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi';
   docId: string;
   documentName: string;
 }
@@ -64,7 +64,9 @@ export function ChatInterface({ provider, docId, documentName }: ChatInterfacePr
         filename: documentName,
         model: selectedProvider === 'openai' ? 'gpt-4o-mini' : 
                selectedProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
-               selectedProvider === 'mistral' ? 'mistral-small-latest' : 'gemini-1.5-flash',
+               selectedProvider === 'mistral' ? 'mistral-small-latest' :
+               selectedProvider === 'kimi' ? 'kimi-k2-instruct' :
+               'gemini-1.5-flash',
         provider: selectedProvider,
       };
 
@@ -142,6 +144,7 @@ export function ChatInterface({ provider, docId, documentName }: ChatInterfacePr
             <option value="openai">OpenAI (GPT-4o-mini)</option>
             <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
             <option value="mistral">Mistral (Small)</option>
+            <option value="kimi">Kimi K2 (128K)</option>
             <option value="gemini">Google Gemini (1.5 Flash)</option>
           </select>
           
