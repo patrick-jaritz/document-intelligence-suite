@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3, Upload } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3, Upload, Tag, Pin, Folder } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { RepoComparison } from './RepoComparison';
@@ -86,7 +86,32 @@ interface AnalysisResult {
   };
 }
 
+interface ArchivedAnalysis {
+  id?: string;
+  repository_url: string;
+  repository_name: string;
+  analysis_data: GitHubAnalysis;
+  created_at: string;
+  tags: string[];
+  collections: string[];
+  notes: string | null;
+  starred: boolean;
+  pinned: boolean;
+  metadata?: Record<string, unknown>;
+}
+
 export function GitHubAnalyzer() {
+  const ARCHIVE_CACHE_KEY = 'githubArchiveCache_v1';
+
+  const normalizeArchiveItem = (item: any): ArchivedAnalysis => ({
+    ...item,
+    tags: Array.isArray(item.tags) ? item.tags : [],
+    collections: Array.isArray(item.collections) ? item.collections : [],
+    notes: typeof item.notes === 'string' ? item.notes : item.notes === null ? null : '',
+    starred: !!item.starred,
+    pinned: !!item.pinned,
+  });
+
   const [urlInput, setUrlInput] = useState('');
   const [bulkUrlsInput, setBulkUrlsInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -96,7 +121,7 @@ export function GitHubAnalyzer() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bulkResults, setBulkResults] = useState<any[]>([]);
-  const [archivedAnalyses, setArchivedAnalyses] = useState<any[]>([]);
+  const [archivedAnalyses, setArchivedAnalyses] = useState<ArchivedAnalysis[]>([]);
   const [showArchive, setShowArchive] = useState(false);
   const [loadingArchive, setLoadingArchive] = useState(false);
   const [archiveSearchTerm, setArchiveSearchTerm] = useState('');
@@ -125,6 +150,18 @@ export function GitHubAnalyzer() {
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [versionData, setVersionData] = useState<any>(null);
   const [loadingVersion, setLoadingVersion] = useState(false);
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+  const [selectedCollectionsFilter, setSelectedCollectionsFilter] = useState<string[]>([]);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [editingMetadata, setEditingMetadata] = useState<{
+    repo: string;
+    tags: string;
+    collections: string;
+    notes: string;
+    pinned: boolean;
+  } | null>(null);
+  const [metadataSaving, setMetadataSaving] = useState(false);
 
   /**
    * Normalize GitHub repository URL to full format
@@ -151,6 +188,48 @@ export function GitHubAnalyzer() {
     
     // Return as-is if it doesn't match any pattern (will be caught by validation)
     return url;
+  };
+
+  const parseCsvList = (value: string) =>
+    value
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0);
+
+  const handleEditMetadata = (analysis: ArchivedAnalysis) => {
+    setEditingMetadata({
+      repo: analysis.repository_url,
+      tags: (analysis.tags || []).join(', '),
+      collections: (analysis.collections || []).join(', '),
+      notes: analysis.notes || '',
+      pinned: !!analysis.pinned,
+    });
+  };
+
+  const handleMetadataFieldChange = (field: 'tags' | 'collections' | 'notes' | 'pinned', value: string | boolean) => {
+    setEditingMetadata(prev => {
+      if (!prev) return prev;
+      return { ...prev, [field]: value as never };
+    });
+  };
+
+  const handleSaveMetadata = async () => {
+    if (!editingMetadata) return;
+
+    await updateArchiveMetadata(editingMetadata.repo, {
+      tags: parseCsvList(editingMetadata.tags),
+      collections: parseCsvList(editingMetadata.collections),
+      notes: editingMetadata.notes.trim().length > 0 ? editingMetadata.notes.trim() : null,
+      pinned: editingMetadata.pinned,
+    });
+  };
+
+  const handleCancelMetadata = () => {
+    setEditingMetadata(null);
+  };
+
+  const toggleFilterValue = (value: string, list: string[], setter: (values: string[]) => void) => {
+    setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
   };
 
   const isGitHubUrl = (url: string): boolean => {
@@ -206,7 +285,9 @@ export function GitHubAnalyzer() {
         const data: RepositoryAnalysis[] = result.data || [];
         const pagination = result.pagination || {};
 
-        allAnalyses.push(...data);
+        const normalizedBatch: ArchivedAnalysis[] = data.map(normalizeArchiveItem);
+
+        allAnalyses.push(...normalizedBatch);
 
         if (pagination.hasMore && data.length === PAGE_SIZE) {
           offset += PAGE_SIZE;
@@ -216,6 +297,9 @@ export function GitHubAnalyzer() {
       }
 
       setArchivedAnalyses(allAnalyses);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ARCHIVE_CACHE_KEY, JSON.stringify(allAnalyses));
+      }
     } catch (error) {
       console.error('Failed to fetch archive:', error);
     } finally {
@@ -252,12 +336,17 @@ export function GitHubAnalyzer() {
       
       if (saveResult.success) {
         // Update or add the analysis to the archive list
-        const newAnalysis = {
+        const newAnalysis: ArchivedAnalysis = {
           id: saveResult.id || Date.now().toString(),
           repository_url: result.repository,
           repository_name: result.repository.split('/').pop(),
           analysis_data: result.analysis,
           created_at: new Date().toISOString(),
+          tags: [],
+          collections: [],
+          notes: '',
+          starred: false,
+          pinned: false,
         };
         
         // Check if it already exists (update scenario)
@@ -321,10 +410,78 @@ export function GitHubAnalyzer() {
 
       // Remove from local state
       setArchivedAnalyses(prev => prev.filter(a => a.id !== analysis.id));
+      setStarredRepos(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(analysis.repository_url);
+        return newSet;
+      });
       console.log('✅ Archive item deleted successfully');
     } catch (error) {
       console.error('Failed to delete archive item:', error);
       alert(`Failed to delete archive item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const updateArchiveMetadata = async (
+    repoUrl: string,
+    payload: {
+      tags?: string[];
+      collections?: string[];
+      notes?: string | null;
+      pinned?: boolean;
+      starred?: boolean;
+      metadata?: Record<string, unknown>;
+      last_viewed_at?: string;
+    }
+  ) => {
+    try {
+      setMetadataSaving(true);
+      const response = await fetch(`${supabaseUrl}/functions/v1/update-github-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          repository_url: repoUrl,
+          ...payload,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to update metadata');
+      }
+
+      const result = await response.json();
+      const updated = normalizeArchiveItem(result.data);
+
+      setArchivedAnalyses(prev =>
+        prev.map(analysis =>
+          analysis.repository_url === repoUrl
+            ? { ...analysis, ...updated }
+            : analysis
+        )
+      );
+
+      if (payload.starred !== undefined) {
+        setStarredRepos(prev => {
+          const newSet = new Set(prev);
+          if (payload.starred) {
+            newSet.add(repoUrl);
+          } else {
+            newSet.delete(repoUrl);
+          }
+          return newSet;
+        });
+      }
+
+      setEditingMetadata(null);
+    } catch (error) {
+      console.error('Failed to update metadata:', error);
+      alert(`Failed to update metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setMetadataSaving(false);
     }
   };
 
@@ -393,10 +550,32 @@ export function GitHubAnalyzer() {
     }
   };
 
-  // Fetch archive on mount
+  // Fetch archive on mount (load cache first if available)
   React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(ARCHIVE_CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            const normalized = parsed.map(normalizeArchiveItem);
+            setArchivedAnalyses(normalized);
+          }
+        } catch (error) {
+          console.warn('Failed to parse archive cache:', error);
+        }
+      }
+    }
+
     fetchArchivedAnalyses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist archive to cache whenever it changes
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ARCHIVE_CACHE_KEY, JSON.stringify(archivedAnalyses));
+  }, [archivedAnalyses]);
 
   // Update starred repos when archivedAnalyses changes
   React.useEffect(() => {
@@ -662,8 +841,15 @@ export function GitHubAnalyzer() {
       repository_name: analysis.repository_name,
       language: analysis.analysis_data?.metadata?.language || '',
       stars: analysis.analysis_data?.metadata?.stars || 0,
+      forks: analysis.analysis_data?.metadata?.forks || 0,
+      watchers: analysis.analysis_data?.metadata?.watchers || 0,
       description: analysis.analysis_data?.metadata?.description || '',
       topics: (analysis.analysis_data?.metadata?.topics || []).join(', '),
+      tags: (analysis.tags || []).join(', '),
+      collections: (analysis.collections || []).join(', '),
+      notes: analysis.notes || '',
+      starred: analysis.starred,
+      pinned: analysis.pinned,
       analyzed_at: new Date(analysis.created_at).toISOString(),
     }));
 
@@ -679,7 +865,22 @@ export function GitHubAnalyzer() {
       URL.revokeObjectURL(url);
     } else {
       // CSV export
-      const headers = ['Repository Name', 'Repository URL', 'Language', 'Stars', 'Description', 'Topics', 'Analyzed At'];
+      const headers = [
+        'Repository Name',
+        'Repository URL',
+        'Language',
+        'Stars',
+        'Forks',
+        'Watchers',
+        'Description',
+        'Topics',
+        'Tags',
+        'Collections',
+        'Notes',
+        'Starred',
+        'Pinned',
+        'Analyzed At'
+      ];
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(row => [
@@ -687,8 +888,15 @@ export function GitHubAnalyzer() {
           `"${row.repository_url}"`,
           `"${row.language}"`,
           row.stars,
+          row.forks,
+          row.watchers,
           `"${row.description.replace(/"/g, '""')}"`,
           `"${row.topics}"`,
+          `"${(row.tags || '').replace(/"/g, '""')}"`,
+          `"${(row.collections || '').replace(/"/g, '""')}"`,
+          `"${(row.notes || '').replace(/"/g, '""')}"`,
+          row.starred ? 'true' : 'false',
+          row.pinned ? 'true' : 'false',
           `"${row.analyzed_at}"`,
         ].join(','))
       ].join('\n');
@@ -769,6 +977,11 @@ export function GitHubAnalyzer() {
 
       await Promise.all(deletePromises);
       setArchivedAnalyses(prev => prev.filter(a => !selectedForBulk.has(a.repository_url)));
+      setStarredRepos(prev => {
+        const newSet = new Set(prev);
+        selectedForBulk.forEach(url => newSet.delete(url));
+        return newSet;
+      });
       setSelectedForBulk(new Set());
       setBulkMode(false);
     } catch (err) {
@@ -800,6 +1013,18 @@ export function GitHubAnalyzer() {
         )
       );
 
+      setStarredRepos(prev => {
+        const newSet = new Set(prev);
+        selectedForBulk.forEach(url => {
+          if (starred) {
+            newSet.add(url);
+          } else {
+            newSet.delete(url);
+          }
+        });
+        return newSet;
+      });
+
       setSelectedForBulk(new Set());
       setBulkMode(false);
       
@@ -819,8 +1044,15 @@ export function GitHubAnalyzer() {
       repository_name: analysis.repository_name,
       language: analysis.analysis_data?.metadata?.language || '',
       stars: analysis.analysis_data?.metadata?.stars || 0,
+      forks: analysis.analysis_data?.metadata?.forks || 0,
+      watchers: analysis.analysis_data?.metadata?.watchers || 0,
       description: analysis.analysis_data?.metadata?.description || '',
       topics: (analysis.analysis_data?.metadata?.topics || []).join(', '),
+      tags: (analysis.tags || []).join(', '),
+      collections: (analysis.collections || []).join(', '),
+      notes: analysis.notes || '',
+      starred: analysis.starred,
+      pinned: analysis.pinned,
       analyzed_at: new Date(analysis.created_at).toISOString(),
     }));
 
@@ -847,21 +1079,45 @@ export function GitHubAnalyzer() {
       return acc;
     }, [] as any[]);
     
-    let filtered = uniqueAnalyses.filter(analysis => {
+    let filtered = uniqueAnalyses.filter((analysis: ArchivedAnalysis) => {
+      if (viewMode === 'starred' && !analysis.starred) {
+        return false;
+      }
+
+      if (showStarredOnly && !analysis.starred) {
+        return false;
+      }
+
+      if (showPinnedOnly && !analysis.pinned) {
+        return false;
+      }
+
       const searchLower = archiveSearchTerm.toLowerCase();
       const topics = (analysis.analysis_data?.metadata?.topics || []).join(' ').toLowerCase();
       const description = (analysis.analysis_data?.metadata?.description || '').toLowerCase();
       const language = (analysis.analysis_data?.metadata?.language || '').toLowerCase();
+      const tagsText = (analysis.tags || []).join(' ').toLowerCase();
+      const collectionsText = (analysis.collections || []).join(' ').toLowerCase();
+      const notesText = (analysis.notes || '').toLowerCase();
       
       const matchesSearch = !archiveSearchTerm || 
         analysis.repository_name.toLowerCase().includes(searchLower) ||
         analysis.repository_url.toLowerCase().includes(searchLower) ||
         language.includes(searchLower) ||
         topics.includes(searchLower) ||
-        description.includes(searchLower);
+        description.includes(searchLower) ||
+        tagsText.includes(searchLower) ||
+        collectionsText.includes(searchLower) ||
+        notesText.includes(searchLower);
 
       const matchesLanguage = !filterLanguage || 
         analysis.analysis_data?.metadata?.language === filterLanguage;
+
+      const matchesTagFilters = selectedTagsFilter.length === 0 ||
+        selectedTagsFilter.every(tag => (analysis.tags || []).includes(tag));
+
+      const matchesCollectionFilters = selectedCollectionsFilter.length === 0 ||
+        selectedCollectionsFilter.every(collection => (analysis.collections || []).includes(collection));
 
       // Advanced search filters
       const matchesMinStars = !searchFilters.minStars || 
@@ -883,7 +1139,8 @@ export function GitHubAnalyzer() {
         new Date(analysis.created_at) <= new Date(searchFilters.createdBefore);
 
       return matchesSearch && matchesLanguage && matchesMinStars && matchesMaxStars && 
-             matchesLicense && matchesMinTopics && matchesCreatedAfter && matchesCreatedBefore;
+             matchesLicense && matchesMinTopics && matchesCreatedAfter && matchesCreatedBefore &&
+             matchesTagFilters && matchesCollectionFilters;
     });
 
     // Sort
@@ -917,7 +1174,17 @@ export function GitHubAnalyzer() {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [archiveSearchTerm, filterLanguage, sortBy, searchFilters]);
+  }, [
+    archiveSearchTerm,
+    filterLanguage,
+    sortBy,
+    searchFilters,
+    selectedTagsFilter,
+    selectedCollectionsFilter,
+    showStarredOnly,
+    showPinnedOnly,
+    viewMode
+  ]);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -932,6 +1199,18 @@ export function GitHubAnalyzer() {
     const sizeInMB = sizeInKB / 1024;
     return `${sizeInMB.toFixed(1)} MB`;
   };
+
+  const availableTags = React.useMemo(() => {
+    const tagSet = new Set<string>();
+    archivedAnalyses.forEach(analysis => (analysis.tags || []).forEach(tag => tagSet.add(tag)));
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+  }, [archivedAnalyses]);
+
+  const availableCollections = React.useMemo(() => {
+    const collectionSet = new Set<string>();
+    archivedAnalyses.forEach(analysis => (analysis.collections || []).forEach(collection => collectionSet.add(collection)));
+    return Array.from(collectionSet).sort((a, b) => a.localeCompare(b));
+  }, [archivedAnalyses]);
 
   // Calculate statistics
   const getStatistics = () => {
@@ -1355,6 +1634,98 @@ export function GitHubAnalyzer() {
                 </div>
               )}
             </div>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <button
+                onClick={() => setShowStarredOnly(prev => !prev)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  showStarredOnly
+                    ? 'bg-yellow-500 border-yellow-500 text-white'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {showStarredOnly ? '★ Starred only' : '☆ Starred only'}
+              </button>
+              <button
+                onClick={() => setShowPinnedOnly(prev => !prev)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  showPinnedOnly
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                📌 {showPinnedOnly ? 'Pinned only' : 'Pinned only'}
+              </button>
+              <button
+                onClick={() => setViewMode(prev => prev === 'all' ? 'starred' : 'all')}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  viewMode === 'starred'
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {viewMode === 'starred' ? 'Viewing: Starred' : 'Viewing: All'}
+              </button>
+              {(showStarredOnly || showPinnedOnly || viewMode === 'starred' || selectedTagsFilter.length > 0 || selectedCollectionsFilter.length > 0) && (
+                <button
+                  onClick={() => {
+                    setShowStarredOnly(false);
+                    setShowPinnedOnly(false);
+                    setViewMode('all');
+                    setSelectedTagsFilter([]);
+                    setSelectedCollectionsFilter([]);
+                  }}
+                  className="px-3 py-1.5 text-xs text-red-600 hover:text-red-800"
+                >
+                  Clear quick filters
+                </button>
+              )}
+            </div>
+            {availableTags.length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-1 flex items-center gap-2">
+                  <Tag className="w-3 h-3" />
+                  Tags
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleFilterValue(tag, selectedTagsFilter, setSelectedTagsFilter)}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        selectedTagsFilter.includes(tag)
+                          ? 'bg-purple-600 border-purple-600 text-white'
+                          : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {availableCollections.length > 0 && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-1 flex items-center gap-2">
+                  <Folder className="w-3 h-3" />
+                  Collections
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {availableCollections.map(collection => (
+                    <button
+                      key={collection}
+                      onClick={() => toggleFilterValue(collection, selectedCollectionsFilter, setSelectedCollectionsFilter)}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        selectedCollectionsFilter.includes(collection)
+                          ? 'bg-teal-600 border-teal-600 text-white'
+                          : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {collection}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {loadingArchive ? (
               <div className="text-center py-4">Loading archive...</div>
             ) : archivedAnalyses.length === 0 ? (
@@ -1380,66 +1751,226 @@ export function GitHubAnalyzer() {
                     </div>
                   )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {data.map((analysis, idx) => (
-                    <div
-                      key={analysis.id || idx}
-                      className={`p-3 bg-white rounded-lg hover:bg-purple-100 cursor-pointer border flex items-start gap-3 group ${(compareMode || bulkMode) ? 'border-2' : 'border-purple-200'} ${selectedForCompare.has(analysis.repository_url) ? 'border-purple-600 bg-purple-50' : ''} ${selectedForBulk.has(analysis.repository_url) ? 'border-orange-600 bg-orange-50' : ''}`}
-                    >
-                      {(compareMode || bulkMode) && (
-                        <input
-                          type="checkbox"
-                          checked={
-                            compareMode 
-                              ? selectedForCompare.has(analysis.repository_url)
-                              : selectedForBulk.has(analysis.repository_url)
-                          }
-                          onChange={() => 
-                            compareMode 
-                              ? handleToggleCompare(analysis.repository_url)
-                              : handleToggleBulk(analysis.repository_url)
-                          }
-                          className="mt-1 w-4 h-4 text-purple-600 rounded"
-                        />
-                      )}
-                      <div 
-                        onClick={() => !compareMode && !bulkMode && handleArchiveClick(analysis)}
-                        className="flex-1 min-w-0"
-                      >
-                        <div className="font-medium text-gray-900 truncate">{analysis.repository_name}</div>
-                        <div className="text-xs text-gray-600 mt-1 line-clamp-2">
-                          {analysis.analysis_data?.metadata?.description ||
-                           analysis.analysis_data?.summary?.tlDr || 
-                           'No description available'}
-                        </div>
-                        <div className="flex items-center gap-3 mt-2 text-xs">
-                          <span className="text-gray-500">{analysis.analysis_data?.metadata?.language || 'N/A'}</span>
-                          {analysis.analysis_data?.metadata?.stars && (
-                            <span className="flex items-center gap-1 text-gray-500">
-                              <Star className="w-3 h-3" />
-                              {analysis.analysis_data.metadata.stars.toLocaleString()}
-                            </span>
-                          )}
-                          {analysis.analysis_data?.metadata?.topics && analysis.analysis_data.metadata.topics.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {analysis.analysis_data.metadata.topics.slice(0, 3).map((topic: string, i: number) => (
-                                <span key={i} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                                  {topic}
-                                </span>
-                              ))}
+                    {data.map((analysis, idx) => {
+                      const metadata = analysis.analysis_data?.metadata || {};
+                      const stars = metadata.stars || 0;
+                      const forks = metadata.forks || 0;
+                      const watchers = metadata.watchers || 0;
+                      const openIssues = metadata.openIssues || 0;
+
+                      return (
+                        <div
+                          key={analysis.id || idx}
+                          className={`group relative p-4 bg-white rounded-xl border transition-shadow hover:shadow-md cursor-pointer ${(compareMode || bulkMode) ? 'border-2' : 'border-purple-200'} ${selectedForCompare.has(analysis.repository_url) ? 'border-purple-600 bg-purple-50' : ''} ${selectedForBulk.has(analysis.repository_url) ? 'border-orange-600 bg-orange-50' : ''}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {(compareMode || bulkMode) && (
+                              <input
+                                type="checkbox"
+                                checked={
+                                  compareMode
+                                    ? selectedForCompare.has(analysis.repository_url)
+                                    : selectedForBulk.has(analysis.repository_url)
+                                }
+                                onChange={() =>
+                                  compareMode
+                                    ? handleToggleCompare(analysis.repository_url)
+                                    : handleToggleBulk(analysis.repository_url)
+                                }
+                                className="mt-1 w-4 h-4 text-purple-600 rounded"
+                              />
+                            )}
+                            <div
+                              onClick={() => !compareMode && !bulkMode && handleArchiveClick(analysis)}
+                              className="flex-1 min-w-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <div className="font-semibold text-gray-900 truncate">{analysis.repository_name}</div>
+                                    {analysis.pinned && (
+                                      <span className="px-2 py-0.5 text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 rounded-full">
+                                        Pinned
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                    {metadata.description ||
+                                      analysis.analysis_data?.summary?.tlDr ||
+                                      'No description available'}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleStarToggle(analysis.repository_url); }}
+                                    className="p-1.5 rounded-full border border-transparent hover:border-yellow-400 hover:bg-yellow-50 transition-colors"
+                                    title={analysis.starred ? 'Unstar repository' : 'Star repository'}
+                                  >
+                                    <Star className={`w-4 h-4 ${analysis.starred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleTogglePinned(analysis); }}
+                                    className="p-1.5 rounded-full border border-transparent hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                                    title={analysis.pinned ? 'Unpin from favorites' : 'Pin to favorites'}
+                                  >
+                                    <Pin className={`w-4 h-4 ${analysis.pinned ? 'text-blue-500 fill-blue-500' : 'text-gray-400'}`} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteArchive(analysis, e); }}
+                                    className="p-1.5 rounded-full border border-transparent text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete from archive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{formatDate(analysis.created_at)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Code className="w-3 h-3" />
+                                  <span>{metadata.language || 'N/A'}</span>
+                                </div>
+                                {stars ? (
+                                  <div className="flex items-center gap-1">
+                                    <Star className="w-3 h-3 text-yellow-500" />
+                                    <span>{stars.toLocaleString()} stars</span>
+                                  </div>
+                                ) : null}
+                                {forks ? (
+                                  <div className="flex items-center gap-1">
+                                    <GitFork className="w-3 h-3 text-gray-500" />
+                                    <span>{forks.toLocaleString()} forks</span>
+                                  </div>
+                                ) : null}
+                                {watchers ? (
+                                  <div className="flex items-center gap-1">
+                                    <Users className="w-3 h-3 text-gray-500" />
+                                    <span>{watchers.toLocaleString()} watchers</span>
+                                  </div>
+                                ) : null}
+                                {openIssues ? (
+                                  <div className="flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3 text-red-500" />
+                                    <span>{openIssues} open issues</span>
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              {analysis.collections && analysis.collections.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {analysis.collections.map((collection, i) => (
+                                    <span key={`${collection}-${i}`} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
+                                      {collection}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {analysis.tags && analysis.tags.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {analysis.tags.map((tag, i) => (
+                                    <span key={`${tag}-${i}`} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {metadata.topics && metadata.topics.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {metadata.topics.slice(0, 4).map((topic: string, i: number) => (
+                                    <span key={`${topic}-${i}`} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-[10px]">
+                                      {topic}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {analysis.notes && analysis.notes.length > 0 && (
+                                <div className="mt-2 text-xs text-purple-900 bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
+                                  {analysis.notes}
+                                </div>
+                              )}
+
+                              <div className="mt-3">
+                                {editingMetadata?.repo === analysis.repository_url ? (
+                                  <div
+                                    className="p-3 bg-purple-50 border border-purple-200 rounded-lg space-y-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Collections (comma separated)</label>
+                                      <input
+                                        type="text"
+                                        value={editingMetadata.collections}
+                                        onChange={(e) => handleMetadataFieldChange('collections', e.target.value)}
+                                        className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                        placeholder="Design Systems, Agents, UI Kits"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+                                      <input
+                                        type="text"
+                                        value={editingMetadata.tags}
+                                        onChange={(e) => handleMetadataFieldChange('tags', e.target.value)}
+                                        className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                        placeholder="swift, bookmarks, productivity"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                                      <textarea
+                                        value={editingMetadata.notes}
+                                        onChange={(e) => handleMetadataFieldChange('notes', e.target.value)}
+                                        rows={3}
+                                        className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                        placeholder="Add personal takeaways or follow-up actions"
+                                      />
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingMetadata.pinned}
+                                        onChange={(e) => handleMetadataFieldChange('pinned', e.target.checked)}
+                                      />
+                                      Pin this repository
+                                    </label>
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleSaveMetadata(); }}
+                                        disabled={metadataSaving}
+                                        className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 disabled:opacity-50"
+                                      >
+                                        {metadataSaving ? 'Saving…' : 'Save'}
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleCancelMetadata(); }}
+                                        className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleEditMetadata(analysis); }}
+                                    className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                                  >
+                                    Manage metadata
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteArchive(analysis, e)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                        title="Delete from archive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (

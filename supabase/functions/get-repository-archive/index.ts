@@ -45,15 +45,25 @@ Deno.serve(async (req: Request) => {
     const search = url.searchParams.get('search') || '';
     const language = url.searchParams.get('language') || '';
     const sortBy = url.searchParams.get('sortBy') || 'created_at';
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const rawLimit = parseInt(url.searchParams.get('limit') || '50');
+    const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 50 : rawLimit, 1), 500);
+    const rawOffset = parseInt(url.searchParams.get('offset') || '0');
+    const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
+    const tagsParam = url.searchParams.get('tags') || '';
+    const collectionsParam = url.searchParams.get('collections') || '';
+    const starredParam = url.searchParams.get('starred');
+    const pinnedParam = url.searchParams.get('pinned');
 
     console.log('📊 Fetching repository archive with params:', {
       search,
       language,
       sortBy,
       limit,
-      offset
+      offset,
+      tags: tagsParam,
+      collections: collectionsParam,
+      starred: starredParam,
+      pinned: pinnedParam
     });
 
     // Build query - select all columns from github_analyses
@@ -79,6 +89,36 @@ Deno.serve(async (req: Request) => {
 
     if (language) {
       query = query.eq('analysis_data->metadata->language', language);
+    }
+
+    if (tagsParam) {
+      const tagsFilter = tagsParam.split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+      if (tagsFilter.length > 0) {
+        query = query.contains('tags', tagsFilter);
+      }
+    }
+
+    if (collectionsParam) {
+      const collectionsFilter = collectionsParam.split(',')
+        .map(collection => collection.trim())
+        .filter(collection => collection.length > 0);
+      if (collectionsFilter.length > 0) {
+        query = query.contains('collections', collectionsFilter);
+      }
+    }
+
+    if (starredParam === 'true') {
+      query = query.eq('starred', true);
+    } else if (starredParam === 'false') {
+      query = query.eq('starred', false);
+    }
+
+    if (pinnedParam === 'true') {
+      query = query.eq('pinned', true);
+    } else if (pinnedParam === 'false') {
+      query = query.eq('pinned', false);
     }
 
     // Apply sorting

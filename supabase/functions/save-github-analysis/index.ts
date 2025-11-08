@@ -43,7 +43,17 @@ serve(async (req) => {
 
   try {
     const body = JSON.parse(requestText);
-    const { repository_url, repository_name, analysis_data } = body;
+    const {
+      repository_url,
+      repository_name,
+      analysis_data,
+      tags = [],
+      collections = [],
+      notes = null,
+      starred = false,
+      pinned = false,
+      metadata = null
+    } = body;
 
     // SECURITY: Validate input
     if (!repository_url || typeof repository_url !== 'string' || repository_url.trim().length === 0) {
@@ -75,6 +85,39 @@ serve(async (req) => {
       );
     }
 
+    const sanitizedTags = Array.isArray(tags)
+      ? tags
+          .map((tag: unknown) => typeof tag === 'string' ? tag.trim() : '')
+          .filter((tag: string) => tag.length > 0)
+      : [];
+
+    const sanitizedCollections = Array.isArray(collections)
+      ? collections
+          .map((collection: unknown) => typeof collection === 'string' ? collection.trim() : '')
+          .filter((collection: string) => collection.length > 0)
+      : [];
+
+    if (notes !== null && typeof notes !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid field: notes must be a string or null' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof starred !== 'boolean') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid field: starred must be a boolean' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof pinned !== 'boolean') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid field: pinned must be a boolean' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -87,8 +130,24 @@ serve(async (req) => {
           repository_url TEXT NOT NULL UNIQUE,
           repository_name TEXT NOT NULL,
           analysis_data JSONB NOT NULL,
+          tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+          collections TEXT[] DEFAULT ARRAY[]::TEXT[],
+          notes TEXT,
+          starred BOOLEAN DEFAULT FALSE,
+          pinned BOOLEAN DEFAULT FALSE,
+          metadata JSONB DEFAULT '{}'::JSONB,
+          last_viewed_at TIMESTAMP WITH TIME ZONE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+        
+        ALTER TABLE public.github_analyses
+          ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+          ADD COLUMN IF NOT EXISTS collections TEXT[] DEFAULT ARRAY[]::TEXT[],
+          ADD COLUMN IF NOT EXISTS notes TEXT,
+          ADD COLUMN IF NOT EXISTS starred BOOLEAN DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::JSONB,
+          ADD COLUMN IF NOT EXISTS last_viewed_at TIMESTAMP WITH TIME ZONE;
         
         CREATE INDEX IF NOT EXISTS idx_github_analyses_repository_url ON public.github_analyses(repository_url);
         
@@ -111,17 +170,41 @@ serve(async (req) => {
       console.log('Table creation note:', createError.message);
     }
 
+    const insertPayload = {
+      repository_url,
+      repository_name,
+      analysis_data,
+      created_at: new Date().toISOString(),
+      tags: sanitizedTags,
+      collections: sanitizedCollections,
+      notes,
+      starred,
+      pinned,
+      metadata: metadata && typeof metadata === 'object' ? metadata : null
+    };
+
     const { data, error } = await supabase
       .from('github_analyses')
-      .insert({ repository_url, repository_name, analysis_data, created_at: new Date().toISOString() })
+      .insert(insertPayload)
       .select()
       .single();
 
     if (error) {
       if (error.code === '23505' || error.message.includes('duplicate')) {
+        const updatePayload = {
+          analysis_data,
+          created_at: new Date().toISOString(),
+          tags: sanitizedTags,
+          collections: sanitizedCollections,
+          notes,
+          starred,
+          pinned,
+          metadata: metadata && typeof metadata === 'object' ? metadata : null
+        };
+
         const { data: updateData, error: updateError } = await supabase
           .from('github_analyses')
-          .update({ analysis_data, created_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('repository_url', repository_url)
           .select()
           .single();
