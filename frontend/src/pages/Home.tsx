@@ -41,7 +41,7 @@ export function Home() {
   };
   const [selectedTemplate, setSelectedTemplate] = useState<any>(defaultSchema);
   const [ocrProvider, setOcrProvider] = useState<'google-vision' | 'openai-vision' | 'mistral' | 'ocr-space' | 'tesseract' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr'>('google-vision');
-  const [llmProvider, setLlmProvider] = useState<'openai' | 'anthropic' | 'mistral'>('openai');
+  const [llmProvider, setLlmProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'kimi'>('openai');
 
   const {
     status,
@@ -55,7 +55,16 @@ export function Home() {
 
   const onProcess = async () => {
     if (!selectedFile) return;
-    await processDocument(selectedFile, selectedTemplate, ocrProvider, llmProvider, 'gpt-4o-mini', 'gpt-4o-mini');
+    const llmModel =
+      llmProvider === 'anthropic'
+        ? 'claude-3-5-sonnet-20241022'
+        : llmProvider === 'mistral'
+          ? 'mistral-large-latest'
+          : llmProvider === 'kimi'
+            ? 'kimi-k2-instruct'
+            : 'gpt-4o-mini';
+
+    await processDocument(selectedFile, selectedTemplate, ocrProvider, llmProvider, 'gpt-4o-mini', llmModel);
   };
 
   return (
@@ -242,7 +251,13 @@ export function Home() {
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
                       <option value="mistral">Mistral</option>
+                      <option value="kimi">Kimi K2 (Moonshot)</option>
                     </select>
+                    {llmProvider === 'kimi' && (
+                      <p className="mt-2 text-xs text-purple-600">
+                        🚀 Kimi provides 128K context and strong tool usage—ideal for dense reports and long transcripts.
+                      </p>
+                    )}
               </div>
             </div>
 

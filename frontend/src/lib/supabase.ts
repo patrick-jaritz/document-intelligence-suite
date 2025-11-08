@@ -246,21 +246,39 @@ export const ragHelpers = {
   },
 
   // Query RAG system
-  queryRAG: async (question: string, documentId: string, filename: string, provider: string = 'openai') => {
+  queryRAG: async (
+    question: string,
+    documentId: string,
+    filename: string,
+    provider: string = 'openai',
+    model?: string,
+    options?: { topK?: number }
+  ) => {
     console.log('🔍 ragHelpers.queryRAG called with:', {
       question: question?.substring(0, 100) + '...',
       documentId,
       filename,
-      provider
+      provider,
+      model
     });
     
     try {
-      const result = await callEdgeFunction('rag-query', {
+      const payload: Record<string, any> = {
         question,
         documentId,  // Pass the documentId for filtering
         filename,
         provider,
-      });
+      };
+
+      if (model) {
+        payload.model = model;
+      }
+
+      if (options?.topK !== undefined) {
+        payload.topK = options.topK;
+      }
+
+      const result = await callEdgeFunction('rag-query', payload);
       
       console.log('✅ ragHelpers.queryRAG result:', {
         hasAnswer: !!result.answer,

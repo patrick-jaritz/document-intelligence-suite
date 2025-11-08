@@ -52,6 +52,29 @@ export function RAGViewEnhanced() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleRagProviderChange = (value: 'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi') => {
+    setRagProvider(value);
+    switch (value) {
+      case 'openai':
+        setRagModel('gpt-4o-mini');
+        break;
+      case 'anthropic':
+        setRagModel('claude-3-haiku-20240307');
+        break;
+      case 'mistral':
+        setRagModel('mistral-small-latest');
+        break;
+      case 'gemini':
+        setRagModel('gemini-1.5-flash');
+        break;
+      case 'kimi':
+        setRagModel('kimi-k2-instruct');
+        break;
+      default:
+        setRagModel('gpt-4o-mini');
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -255,7 +278,8 @@ export function RAGViewEnhanced() {
         inputMessage,
         documentId, // Pass the documentId instead of undefined
         filename,
-        ragProvider
+        ragProvider,
+        ragModel
       );
 
       console.log('📊 RAG Result received:', {
@@ -360,6 +384,73 @@ export function RAGViewEnhanced() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* RAG Provider */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-700">RAG Retrieval Engine</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+              <select
+                value={ragProvider}
+                onChange={(e) => handleRagProviderChange(e.target.value as 'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi')}
+                className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="mistral">Mistral</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="kimi">Kimi K2 (Moonshot)</option>
+              </select>
+              {ragProvider === 'kimi' && (
+                <p className="text-xs text-purple-600 mt-1">
+                  🚀 Kimi K2 offers 128K context and agentic reasoning. Great for long documents and tool-rich analysis.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">RAG Model</label>
+              <select
+                value={ragModel}
+                onChange={(e) => setRagModel(e.target.value)}
+                className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {ragProvider === 'openai' && (
+                  <>
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  </>
+                )}
+                {ragProvider === 'anthropic' && (
+                  <>
+                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                  </>
+                )}
+                {ragProvider === 'mistral' && (
+                  <>
+                    <option value="mistral-small-latest">Mistral Small</option>
+                    <option value="mistral-medium-latest">Mistral Medium</option>
+                    <option value="mistral-large-latest">Mistral Large</option>
+                  </>
+                )}
+                {ragProvider === 'gemini' && (
+                  <>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                  </>
+                )}
+                {ragProvider === 'kimi' && (
+                  <>
+                    <option value="kimi-k2-instruct">Kimi K2 Instruct (128K)</option>
+                    <option value="kimi-k2-base">Kimi K2 Base</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+
           {/* Markdown Conversion Settings */}
           <div className="space-y-3">
             <h4 className="font-medium text-gray-700">Markdown Conversion</h4>

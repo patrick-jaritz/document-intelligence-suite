@@ -26,7 +26,7 @@ export function useDocumentProcessor() {
     file: File,
     structureTemplate: any,
     ocrProvider: 'google-vision' | 'mistral' | 'tesseract' | 'aws-textract' | 'azure-document-intelligence' | 'ocr-space' | 'openai-vision' | 'paddleocr' | 'dots-ocr' | 'deepseek-ocr' = 'google-vision',
-    llmProvider: string = 'openai',
+    llmProvider: 'openai' | 'anthropic' | 'mistral' | 'kimi' = 'openai',
     openaiVisionModel: string = 'gpt-4o-mini',
     llmModel: string = 'gpt-4o-mini'
   ) => {

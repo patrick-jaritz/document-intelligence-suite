@@ -6,7 +6,7 @@
   - `supabase/functions/rag-query` (vector RAG answers)
   - `supabase/functions/generate-structured-output` (structured extraction pipeline)
   - `supabase/functions/github-analyzer` (repository analysis)
-  - Frontend provider dropdowns (`RAGView`, `ChatInterface`)
+  - Frontend provider dropdowns (`RAGView`, `RAGViewEnhanced`, `ChatInterface`, Home extraction workflow)
 
 ### Environment Variables
 Set these variables wherever the Supabase Edge Functions run (Supabase project) and mirror them in Vercel for the frontend:
