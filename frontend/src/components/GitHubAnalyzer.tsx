@@ -180,19 +180,42 @@ export function GitHubAnalyzer() {
   const fetchArchivedAnalyses = async () => {
     try {
       setLoadingArchive(true);
-      const response = await fetch(`${supabaseUrl}/functions/v1/get-repository-archive`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-      });
 
-      if (response.ok) {
+      const PAGE_SIZE = 100;
+      let offset = 0;
+      let hasMore = true;
+      const allAnalyses: any[] = [];
+
+      while (hasMore) {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/get-repository-archive?limit=${PAGE_SIZE}&offset=${offset}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch archive: ${errorText}`);
+        }
+
         const result = await response.json();
-        if (result.data && result.data.length > 0) {
-          setArchivedAnalyses(result.data);
+        const data: RepositoryAnalysis[] = result.data || [];
+        const pagination = result.pagination || {};
+
+        allAnalyses.push(...data);
+
+        if (pagination.hasMore && data.length === PAGE_SIZE) {
+          offset += PAGE_SIZE;
+        } else {
+          hasMore = false;
         }
       }
+
+      setArchivedAnalyses(allAnalyses);
     } catch (error) {
       console.error('Failed to fetch archive:', error);
     } finally {
