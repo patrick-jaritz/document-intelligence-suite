@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, Heart, GitCompare, TrendingDown, BarChart3, Upload, Tag, Pin, Folder } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, GitCompare, BarChart3, Upload, Tag, Pin, Folder } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { RepoComparison } from './RepoComparison';
 import { validateGitHubUrl, sanitizeInput } from '../utils/validation';
+import type { RepositoryAnalysis } from '../types';
 
 interface RankedApplication {
   rank: number;
@@ -148,9 +149,9 @@ export function GitHubAnalyzer() {
     createdBefore: '',
   });
   const [similarRepos, setSimilarRepos] = useState<any[]>([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [loadingSimilar] = useState(false);
   const [versionData, setVersionData] = useState<any>(null);
-  const [loadingVersion, setLoadingVersion] = useState(false);
+  const [loadingVersion] = useState(false);
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
   const [selectedCollectionsFilter, setSelectedCollectionsFilter] = useState<string[]>([]);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
@@ -1871,9 +1872,9 @@ export function GitHubAnalyzer() {
 
                               {analysis.collections && analysis.collections.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
-                                  {analysis.collections.map((collection, i) => (
-                                    <span key={`${collection}-${i}`} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
-                                      {collection}
+                  {analysis.collections.map((collection: string, i: number) => (
+                    <span key={`${collection}-${i}`} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
+                      {collection}
                                     </span>
                                   ))}
                                 </div>
@@ -1881,7 +1882,7 @@ export function GitHubAnalyzer() {
 
                               {analysis.tags && analysis.tags.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
-                                  {analysis.tags.map((tag, i) => (
+                                  {analysis.tags.map((tag: string, i: number) => (
                                     <span key={`${tag}-${i}`} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">
                                       #{tag}
                                     </span>
