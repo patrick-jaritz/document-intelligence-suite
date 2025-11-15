@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Globe, Download, Save, Loader2, CheckCircle, AlertCircle, FileText, Archive, Settings } from 'lucide-react';
 import { callEdgeFunction } from '../lib/supabase';
 import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
+import { validateWebUrl, sanitizeInput } from '../utils/validation';
 
 interface CrawlResult {
   url: string;
@@ -25,18 +26,30 @@ export function WebCrawler() {
   const [crawlHistory, setCrawlHistory] = useState<CrawlResult[]>([]);
 
   const handleCrawl = async () => {
-    if (!url) return;
+    if (!url) {
+      setError('URL is required');
+      return;
+    }
+
+    // Sanitize and validate URL
+    const sanitizedUrl = sanitizeInput(url);
+    const validation = validateWebUrl(sanitizedUrl);
+    
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid URL');
+      return;
+    }
 
     setIsCrawling(true);
     setError(null);
     setResult(null);
 
     try {
-      console.log('🌐 Starting crawl:', { url, mode: crawlMode });
+      console.log('🌐 Starting crawl:', { url: sanitizedUrl, mode: crawlMode });
       
       // Call the crawl4ai Edge Function using the proper helper
       const data = await callEdgeFunction('crawl-url', {
-        url,
+        url: sanitizedUrl,
         mode: crawlMode,
       });
 

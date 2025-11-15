@@ -3,6 +3,7 @@ import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, 
 import { supabaseUrl } from '../lib/supabase';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { RepoComparison } from './RepoComparison';
+import { validateGitHubUrl, sanitizeInput } from '../utils/validation';
 
 interface RankedApplication {
   rank: number;
@@ -589,15 +590,23 @@ export function GitHubAnalyzer() {
   }, [archivedAnalyses]);
 
   const handleAnalyze = async () => {
-    if (!urlInput.trim()) return;
+    if (!urlInput.trim()) {
+      setError('GitHub URL is required');
+      return;
+    }
     
-    if (!isGitHubUrl(urlInput)) {
-      setError('Please enter a valid GitHub repository URL. Accepted formats:\n- https://github.com/owner/repository\n- github.com/owner/repository\n- owner/repository');
+    // Sanitize input
+    const sanitizedUrl = sanitizeInput(urlInput);
+    
+    // Validate GitHub URL
+    const validation = validateGitHubUrl(sanitizedUrl);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid GitHub URL');
       return;
     }
 
     // Normalize the URL before sending to API
-    const normalizedUrl = normalizeGitHubUrl(urlInput);
+    const normalizedUrl = normalizeGitHubUrl(sanitizedUrl);
 
     // Check if repository already exists in archive (compare normalized URLs)
     const existingAnalysis = archivedAnalyses.find(
