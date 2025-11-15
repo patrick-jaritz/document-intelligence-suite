@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ResultsDisplay } from '../components/ResultsDisplay';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useDocumentProcessor } from '../hooks/useDocumentProcessor';
 
 // Lazy load mode-specific components for code splitting
@@ -176,23 +177,31 @@ export function Home() {
                 </div>
         </header>
 
-        {/* Mode content - lazy loaded with Suspense */}
+        {/* Mode content - lazy loaded with Suspense and ErrorBoundary */}
         {appMode === 'crawler' ? (
-          <Suspense fallback={<ComponentLoadingFallback />}>
-            <WebCrawler />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<ComponentLoadingFallback />}>
+              <WebCrawler />
+            </Suspense>
+          </ErrorBoundary>
         ) : appMode === 'ask' ? (
-          <Suspense fallback={<ComponentLoadingFallback />}>
-            <RAGViewEnhanced />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<ComponentLoadingFallback />}>
+              <RAGViewEnhanced />
+            </Suspense>
+          </ErrorBoundary>
         ) : appMode === 'github' ? (
-          <Suspense fallback={<ComponentLoadingFallback />}>
-            <GitHubAnalyzer />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<ComponentLoadingFallback />}>
+              <GitHubAnalyzer />
+            </Suspense>
+          </ErrorBoundary>
         ) : appMode === 'markdown' ? (
-          <Suspense fallback={<ComponentLoadingFallback />}>
-            <MarkdownConverter />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<ComponentLoadingFallback />}>
+              <MarkdownConverter />
+            </Suspense>
+          </ErrorBoundary>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: Inputs */}
