@@ -128,6 +128,66 @@ const Health: React.FC = () => {
       successRate: 99.97
     },
     {
+      name: 'Anthropic Claude API',
+      status: 'healthy',
+      responseTime: 980,
+      lastChecked: new Date().toISOString(),
+      uptime: 99.96,
+      requests: 6420,
+      errors: 2,
+      successRate: 99.97
+    },
+    {
+      name: 'Mistral AI API',
+      status: 'healthy',
+      responseTime: 850,
+      lastChecked: new Date().toISOString(),
+      uptime: 99.94,
+      requests: 4890,
+      errors: 5,
+      successRate: 99.90
+    },
+    {
+      name: 'Google Vision API',
+      status: 'healthy',
+      responseTime: 1450,
+      lastChecked: new Date().toISOString(),
+      uptime: 99.97,
+      requests: 5670,
+      errors: 1,
+      successRate: 99.98
+    },
+    {
+      name: 'OCR.space API',
+      status: 'healthy',
+      responseTime: 2100,
+      lastChecked: new Date().toISOString(),
+      uptime: 99.85,
+      requests: 3240,
+      errors: 8,
+      successRate: 99.75
+    },
+    {
+      name: 'Tesseract.js (Local)',
+      status: 'healthy',
+      responseTime: 3500,
+      lastChecked: new Date().toISOString(),
+      uptime: 100,
+      requests: 1850,
+      errors: 0,
+      successRate: 100
+    },
+    {
+      name: 'Kimi (Moonshot) API',
+      status: 'healthy',
+      responseTime: 1100,
+      lastChecked: new Date().toISOString(),
+      uptime: 99.92,
+      requests: 2340,
+      errors: 4,
+      successRate: 99.83
+    },
+    {
       name: 'Supabase Database',
       status: 'healthy',
       responseTime: 45,
