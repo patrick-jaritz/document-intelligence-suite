@@ -376,7 +376,10 @@ async function convertFileDataToMarkdown(
 }
 
 /**
- * Convert file path to Markdown (simulation)
+ * Convert file path to Markdown
+ * Note: This function now throws an error since file paths should be handled
+ * through the fileData parameter with proper encoding. This maintains security
+ * by not allowing arbitrary file system access.
  */
 async function convertFilePathToMarkdown(
   filePath: string,
@@ -387,162 +390,24 @@ async function convertFilePathToMarkdown(
   preserveFormatting: boolean,
   logger?: EdgeLogger
 ): Promise<MarkdownResult> {
-  logger?.info('markdown', 'Converting file path to markdown', {
+  logger?.warn('markdown', 'File path conversion not supported for security reasons', {
     filePath,
     contentType,
-    fileName,
-    fileSize
+    fileName
   });
 
-  // Simulate file reading and processing
-  const processingTime = Math.min(Math.max(fileSize / 10000, 500), 5000);
-  await new Promise(resolve => setTimeout(resolve, processingTime));
-
-  // Generate mock content based on file type
-  let markdown: string;
-  let conversionMethod: string;
-  let tablesDetected = 0;
-  let imagesDetected = 0;
-  let linksDetected = 0;
-
-  if (filePath.endsWith('.pdf')) {
-    markdown = await generateMockPDFMarkdown(fileName, fileSize);
-    conversionMethod = 'pdf-to-markdown';
-    tablesDetected = Math.floor(Math.random() * 5) + 1;
-    imagesDetected = Math.floor(Math.random() * 3) + 1;
-    linksDetected = Math.floor(Math.random() * 10) + 2;
-  } else if (filePath.endsWith('.html') || filePath.endsWith('.htm')) {
-    markdown = await generateMockHTMLMarkdown(fileName, fileSize);
-    conversionMethod = 'html-to-markdown';
-    tablesDetected = Math.floor(Math.random() * 8) + 2;
-    imagesDetected = Math.floor(Math.random() * 6) + 2;
-    linksDetected = Math.floor(Math.random() * 20) + 5;
-  } else if (filePath.endsWith('.txt')) {
-    markdown = await generateMockTextMarkdown(fileName, fileSize);
-    conversionMethod = 'text-to-markdown';
-    tablesDetected = 0;
-    imagesDetected = 0;
-    linksDetected = Math.floor(Math.random() * 5) + 1;
-  } else {
-    throw new Error(`Unsupported file type: ${filePath}`);
-  }
-
-  const wordCount = markdown.split(/\s+/).filter(word => word.length > 0).length;
-  const characterCount = markdown.length;
-
-  return {
-    markdown,
-    metadata: {
-      originalFormat: contentType,
-      fileName,
-      fileSize,
-      processingTime: 0, // Will be set by caller
-      wordCount,
-      characterCount,
-      tablesDetected,
-      imagesDetected,
-      linksDetected,
-      conversionMethod
-    }
-  };
+  throw new Error(
+    'File path conversion is not supported for security reasons. ' +
+    'Please provide file data directly via the fileData parameter (base64 encoded).'
+  );
 }
 
-/**
- * Convert PDF to Markdown (simulation of PyPDF2 + markdownify)
- */
-async function convertPDFToMarkdown(
-  fileData: string,
-  fileName: string,
-  fileSize: number,
-  convertTables: boolean,
-  logger?: EdgeLogger
-): Promise<string> {
-  logger?.info('markdown', 'Converting PDF to markdown', {
-    fileName,
-    fileSize,
-    convertTables
-  });
-
-  try {
-    logger?.info('markdown', 'Attempting PDF text extraction', {
-      fileName,
-      fileSize,
-      dataLength: fileData.length
-    });
-
-    // IMPORTANT: PDF text extraction without proper libraries (like pdf-parse) is unreliable
-    // This basic attempt may fail for complex PDFs, image-based PDFs, or encrypted PDFs
-    
-    let extractedText = '';
-    
-    try {
-      // Decode base64 data
-      const decodedData = atob(fileData);
-      
-      // Check if this looks like raw PDF binary data (contains PDF structure keywords)
-      const pdfKeywords = ['endobj', 'endstream', 'FlateDecode', 'StructParent', 'StructElem'];
-      const hasPdfKeywords = pdfKeywords.some(keyword => decodedData.includes(keyword));
-      
-      if (hasPdfKeywords) {
-        logger?.warn('markdown', 'PDF appears to be raw binary data - cannot extract text', {
-          fileName,
-          detectedKeywords: pdfKeywords.filter(k => decodedData.includes(k))
-        });
-        
-        throw new Error(
-          `PDF text extraction failed for "${fileName}". ` +
-          `This PDF contains raw binary data that cannot be parsed without proper PDF libraries. ` +
-          `Please use an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
-        );
-      }
-      
-      // Look for readable text patterns in the decoded PDF data
-      // Simple approach: extract any readable ASCII text sequences
-      const textPattern = /[A-Za-z]{3,}[\s\.,!?;:]*[A-Za-z]{3,}/g;
-      const matches = decodedData.match(textPattern);
-      
-      if (matches && matches.length > 0) {
-        extractedText = matches
-          .filter(text => text.trim().length >= 10)
-          .join(' ')
-          .substring(0, 10000); // Limit to first 10k chars to avoid huge outputs
-      }
-      
-      logger?.info('markdown', 'PDF extraction attempt', {
-        foundText: !!extractedText,
-        textLength: extractedText.length,
-        hasPdfKeywords
-      });
-    } catch (decodeError) {
-      logger?.warn('markdown', 'Failed to decode base64 PDF data', { error: decodeError });
-    }
-    
-    // If we couldn't extract meaningful text, return a helpful error
-    if (!extractedText || extractedText.length < 50) {
-      logger?.error('markdown', 'PDF text extraction failed - insufficient text found', {
-        fileName,
-        fileSize,
-        extractedLength: extractedText.length
-      });
-      
-      throw new Error(
-        `PDF text extraction failed for "${fileName}". ` +
-        `This PDF may be image-based, encrypted, or in a format we cannot parse. ` +
-        `Please use an OCR provider (Google Vision, OpenAI Vision, or DeepSeek-OCR) instead of the Markdown converter for this file.`
-      );
-    }
-    
-    return extractedText;
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger?.error('markdown', 'PDF conversion error', error);
-    throw new Error(errorMessage);
-  }
-}
+// convertPDFToMarkdown function removed - PDF handling is done in convertFileDataToMarkdown
+// which properly detects raw PDF data and provides helpful error messages directing users
+// to OCR providers for proper PDF text extraction
 
 /**
- * Convert HTML to Markdown (simulation of BeautifulSoup + markdownify)
+ * Convert HTML to Markdown using regex-based HTML parsing and formatting
  */
 async function convertHTMLToMarkdown(
   fileData: string,
@@ -752,240 +617,6 @@ function addTableMarkdown(text: string): string {
   return result.join('\n');
 }
 
-/**
- * Generate mock PDF text content
- */
-function generateMockPDFText(fileName: string, fileSize: number): string {
-  const templates = [
-    `# Document Analysis Report
-
-## Executive Summary
-This document presents a comprehensive analysis of current market conditions and strategic recommendations for future development.
-
-## Key Findings
-- Market growth rate: 15% year-over-year
-- Customer satisfaction: 4.8/5.0
-- Operational efficiency: 92% improvement
-- Revenue increase: 18% compared to previous period
-
-## Detailed Analysis
-
-### Market Conditions
-The current market environment presents significant opportunities for expansion and growth. Key factors include:
-
-1. **Technology Adoption**: Increased demand for digital solutions
-2. **Consumer Behavior**: Shift towards online services
-3. **Competitive Landscape**: Emerging players creating new opportunities
-4. **Regulatory Environment**: Favorable policies supporting innovation
-
-### Strategic Recommendations
-Based on the analysis, the following strategic initiatives are recommended:
-
-- **Phase 1**: Immediate implementation of core improvements
-- **Phase 2**: Medium-term expansion and optimization
-- **Phase 3**: Long-term strategic positioning
-
-## Conclusion
-The analysis indicates strong potential for continued growth and success in the target market segments.`,
-
-    `# Technical Documentation
-
-## System Overview
-This document outlines the technical specifications and implementation details for the proposed system architecture.
-
-## Architecture Components
-
-### Core Services
-- **API Gateway**: Centralized request routing and authentication
-- **Database Layer**: PostgreSQL with Redis caching
-- **Message Queue**: RabbitMQ for asynchronous processing
-- **Monitoring**: Prometheus and Grafana for observability
-
-### Performance Specifications
-- **Throughput**: 10,000 requests per second
-- **Latency**: <100ms average response time
-- **Availability**: 99.9% uptime target
-- **Scalability**: Horizontal scaling support
-
-## Implementation Timeline
-- **Phase 1**: Core infrastructure setup (4 weeks)
-- **Phase 2**: Service implementation (8 weeks)
-- **Phase 3**: Testing and optimization (4 weeks)
-- **Phase 4**: Production deployment (2 weeks)
-
-## Security Considerations
-- **Authentication**: JWT-based token system
-- **Authorization**: Role-based access control
-- **Encryption**: TLS 1.3 for data in transit
-- **Storage**: AES-256 encryption for data at rest`,
-
-    `# Financial Report
-
-## Revenue Analysis
-Total revenue for the reporting period: $2,450,000
-
-### Revenue Breakdown
-- **Product Sales**: $1,800,000 (73.5%)
-- **Service Revenue**: $450,000 (18.4%)
-- **Licensing**: $200,000 (8.1%)
-
-## Cost Analysis
-Total operating costs: $1,850,000
-
-### Cost Categories
-- **Personnel**: $1,200,000 (64.9%)
-- **Infrastructure**: $350,000 (18.9%)
-- **Marketing**: $200,000 (10.8%)
-- **Operations**: $100,000 (5.4%)
-
-## Profitability Metrics
-- **Gross Profit**: $1,600,000 (65.3%)
-- **Operating Profit**: $600,000 (24.5%)
-- **Net Profit**: $550,000 (22.4%)
-- **Profit Margin**: 22.4%
-
-## Key Performance Indicators
-- **Customer Acquisition Cost**: $150
-- **Customer Lifetime Value**: $2,400
-- **Monthly Recurring Revenue**: $180,000
-- **Churn Rate**: 3.2%`
-  ];
-
-  const templateIndex = fileName.length % templates.length;
-  return templates[templateIndex];
-}
-
-/**
- * Generate mock HTML markdown content
- */
-function generateMockHTMLMarkdown(fileName: string, fileSize: number): string {
-  return `# Web Content Analysis
-
-## Page Information
-- **Source**: HTML Document
-- **File**: ${fileName}
-- **Size**: ${Math.round(fileSize / 1024)}KB
-
-## Content Structure
-
-### Main Content
-This HTML document has been converted to Markdown format using advanced parsing techniques.
-
-### Key Elements Detected
-- **Headings**: Multiple heading levels identified
-- **Paragraphs**: Text content properly formatted
-- **Links**: External and internal links preserved
-- **Images**: Alt text and captions extracted
-- **Tables**: Structured data converted to Markdown tables
-- **Lists**: Bulleted and numbered lists maintained
-
-### Technical Details
-- **Conversion Method**: HTML to Markdown
-- **Parser**: BeautifulSoup simulation
-- **Formatter**: markdownify simulation
-- **Table Support**: ${Math.floor(Math.random() * 5) + 2} tables detected
-- **Image Count**: ${Math.floor(Math.random() * 8) + 2} images processed
-- **Link Count**: ${Math.floor(Math.random() * 15) + 5} links found
-
-## Benefits of Markdown Conversion
-✓ **LLM-Friendly**: Optimized for AI processing
-✓ **Structured Format**: Maintains document hierarchy
-✓ **Clean Text**: Removes HTML clutter
-✓ **Portable**: Works across all platforms
-✓ **Searchable**: Easy to search and index
-✓ **Version Control**: Git-friendly format
-
-## Processing Results
-The conversion process successfully transformed the HTML content into clean, structured Markdown format suitable for LLM processing and analysis.`;
-}
-
-/**
- * Generate mock text markdown content
- */
-function generateMockTextMarkdown(fileName: string, fileSize: number): string {
-  return `# Text Document Analysis
-
-## Document Information
-- **Source**: Plain Text Document
-- **File**: ${fileName}
-- **Size**: ${Math.round(fileSize / 1024)}KB
-
-## Content Overview
-
-This plain text document has been processed and formatted as Markdown for optimal LLM comprehension.
-
-### Key Features
-- **Clean Formatting**: Text properly structured
-- **Readable Layout**: Improved readability
-- **LLM Optimized**: Format optimized for AI processing
-- **Preserved Content**: All original text maintained
-
-### Processing Details
-- **Conversion Method**: Text to Markdown
-- **Formatting**: Basic structure added
-- **Word Count**: ${Math.floor(fileSize / 5)} words
-- **Character Count**: ${fileSize} characters
-- **Processing Time**: ${Math.floor(Math.random() * 1000) + 500}ms
-
-## Benefits
-✓ **Enhanced Readability**: Better structure and formatting
-✓ **AI-Friendly**: Optimized for LLM processing
-✓ **Consistent Format**: Standardized markdown structure
-✓ **Preserved Content**: All original information maintained
-
-The text has been successfully converted to Markdown format while preserving all original content and improving structure for better AI comprehension.`;
-}
-
-/**
- * Generate mock PDF markdown content
- */
-async function generateMockPDFMarkdown(fileName: string, fileSize: number): Promise<string> {
-  return `# PDF Document Analysis
-
-## Document Information
-- **Source**: PDF Document
-- **File**: ${fileName}
-- **Size**: ${Math.round(fileSize / 1024)}KB
-
-## Processing Results
-
-This PDF document has been processed using advanced text extraction and converted to Markdown format for optimal LLM comprehension.
-
-### Extraction Process
-1. **PDF Parsing**: PyPDF2 simulation for text extraction
-2. **Text Processing**: Content cleaning and formatting
-3. **Markdown Conversion**: markdownify simulation for structure
-4. **Quality Check**: Validation and optimization
-
-### Content Analysis
-- **Pages Processed**: ${Math.ceil(fileSize / 100000)}
-- **Text Blocks**: ${Math.floor(fileSize / 2000) + 10}
-- **Tables Detected**: ${Math.floor(Math.random() * 5) + 1}
-- **Images Found**: ${Math.floor(Math.random() * 3) + 1}
-- **Links Extracted**: ${Math.floor(Math.random() * 10) + 2}
-
-### Technical Specifications
-- **PDF Engine**: PyPDF2 simulation
-- **Text Extraction**: Advanced OCR techniques
-- **Markdown Converter**: markdownify simulation
-- **Table Support**: ${Math.floor(Math.random() * 3) + 1} tables converted
-- **Formatting**: Headers, lists, and structure preserved
-- **Quality Score**: ${(95 + Math.random() * 4).toFixed(1)}%
-
-## Benefits of PDF to Markdown Conversion
-✓ **LLM Optimized**: Perfect format for AI processing
-✓ **Structured Content**: Maintains document hierarchy
-✓ **Clean Text**: Removes PDF formatting artifacts
-✓ **Searchable**: Easy to search and index
-✓ **Portable**: Works across all platforms
-✓ **Version Control**: Git-friendly format
-✓ **Table Support**: Converts tables to Markdown format
-✓ **Link Preservation**: Maintains hyperlinks and references
-
-## Processing Summary
-The PDF has been successfully converted to clean, structured Markdown format using PyPDF2 for text extraction and markdownify for formatting. The result is optimized for LLM processing while preserving all important document structure and content.
-
-**Conversion Method**: PDF → Text Extraction → Markdown Formatting
-**Quality**: High accuracy with structure preservation
-**Output**: LLM-ready Markdown document`;
-}
+// Mock functions removed - using only real conversion logic above
+// The convertTextToMarkdown, convertHTMLToMarkdown, and convertTextToMarkdownFormat 
+// functions provide real conversion without mock data
