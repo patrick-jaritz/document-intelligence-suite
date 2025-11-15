@@ -4,6 +4,7 @@ import { supabase, supabaseUrl, ragHelpers } from '../lib/supabase';
 import { sanitizeForDisplay } from '../utils/sanitize';
 import { ConvertToMarkdownButton } from './ConvertToMarkdownButton';
 import { SourceViewer } from './SourceViewer';
+import { EnhancementIndicator } from './EnhancementIndicator';
 
 interface Document {
   id: string;
@@ -342,6 +343,19 @@ export function RAGViewEnhanced() {
           Upload documents or URLs and ask questions. Enhanced with Markdown conversion for better LLM processing. Select your OCR provider above.
         </p>
       </div>
+
+      {/* Show enhancement indicator when any enhancement is active */}
+      {(enableMarkdownConversion || convertTables || preserveFormatting || generateEmbeddings) && (
+        <EnhancementIndicator
+          enableMarkdownConversion={enableMarkdownConversion}
+          convertTables={convertTables}
+          preserveFormatting={preserveFormatting}
+          generateEmbeddings={generateEmbeddings}
+          embeddingProvider={embeddingProvider}
+          chunkSize={chunkSize}
+          chunkOverlap={chunkOverlap}
+        />
+      )}
 
       {/* Enhanced Settings Panel */}
       <div className="mb-6 bg-gray-50 p-4 rounded-lg">
