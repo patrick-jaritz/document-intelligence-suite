@@ -47,3 +47,12 @@ lerna-debug.log*
 frontend/node_modules/
 frontend/dist/
 frontend/build/
+
+# Temporary documentation
+docs/temp/
+*_TEMP.md
+*.tmp
+
+# Test artifacts
+frontend/coverage/
+frontend/.vitest/
