@@ -98,6 +98,11 @@ export default defineConfig({
             return 'ui-vendor';
           }
           
+          // Shared UI components - ensure they're bundled together
+          if (id.includes('/components/UI/')) {
+            return 'ui-components';
+          }
+          
           // Other node_modules
           if (id.includes('node_modules')) {
             return 'vendor';
