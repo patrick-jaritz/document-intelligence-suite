@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { PromptWithVersion, PromptFilters, PromptSortOption } from '../types/promptforge';
 import { getPrompts, archivePrompt, deletePrompt, duplicatePrompt } from '../services/promptForgeService';
 import { getAllTags, getCategories } from '../services/promptForgeService';
+import { InfoPanel } from '../components/UI/InfoPanel';
 
 export function PromptLibrary() {
   const navigate = useNavigate();
