@@ -43,13 +43,22 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    // Supabase Edge Functions receive paths like: /functions/v1/executions/:id
+    // Supabase Edge Functions: pathname is like "/executions" or "/executions/:id" or "/executions/:id/feedback"
     const pathParts = url.pathname.split('/').filter(Boolean);
-    const executionsIndex = pathParts.indexOf('executions');
-    const afterExecutions = pathParts.slice(executionsIndex + 1);
     
-    const executionId = afterExecutions.length > 0 ? afterExecutions[0] : null;
-    const action = afterExecutions.length > 1 ? afterExecutions[1] : null;
+    let executionId: string | null = null;
+    let action: string | null = null;
+    
+    if (pathParts.length > 0) {
+      if (pathParts[0] === 'executions') {
+        executionId = pathParts.length > 1 ? pathParts[1] : null;
+        action = pathParts.length > 2 ? pathParts[2] : null;
+      } else {
+        // Function name already stripped
+        executionId = pathParts[0];
+        action = pathParts.length > 1 ? pathParts[1] : null;
+      }
+    }
 
     // GET /?prompt_id=xxx - List executions
     if (req.method === 'GET' && !executionId) {

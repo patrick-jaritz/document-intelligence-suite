@@ -49,16 +49,31 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    // Supabase Edge Functions receive paths like: /functions/v1/prompts/:id
-    // We need to extract the parts after the function name
+    // Supabase Edge Functions: pathname is like "/prompts" or "/prompts/:id" or "/prompts/:id/versions"
+    // The /functions/v1/ prefix is stripped by Supabase
     const pathParts = url.pathname.split('/').filter(Boolean);
-    // Find the index of 'prompts' in the path
-    const promptsIndex = pathParts.indexOf('prompts');
-    const afterPrompts = pathParts.slice(promptsIndex + 1);
     
-    const promptId = afterPrompts.length > 0 ? afterPrompts[0] : null;
-    const action = afterPrompts.length > 1 ? afterPrompts[1] : null;
-    const isListOrCreate = !promptId || promptId === 'prompts';
+    // pathParts will be: [] for /prompts, ['prompts', 'id'] for /prompts/:id, etc.
+    // But since we're already in the prompts function, pathParts[0] might be 'prompts' or might be the ID
+    // Let's check: if pathParts[0] === 'prompts', then pathParts[1] is the ID
+    // Otherwise, pathParts[0] is the ID (Supabase might strip the function name)
+    
+    let promptId: string | null = null;
+    let action: string | null = null;
+    
+    if (pathParts.length > 0) {
+      if (pathParts[0] === 'prompts') {
+        // Path is /prompts/:id
+        promptId = pathParts.length > 1 ? pathParts[1] : null;
+        action = pathParts.length > 2 ? pathParts[2] : null;
+      } else {
+        // Path is /:id (function name already stripped)
+        promptId = pathParts[0];
+        action = pathParts.length > 1 ? pathParts[1] : null;
+      }
+    }
+    
+    const isListOrCreate = !promptId;
 
     // GET / - List prompts
     if (req.method === 'GET' && isListOrCreate) {
@@ -98,6 +113,17 @@ serve(async (req) => {
       if (error) {
         throw error;
       }
+      
+      // Ensure metrics exist for all prompts (create if missing)
+      if (data && data.length > 0) {
+        const promptIds = data.map((p: any) => p.id);
+        await supabase
+          .from('prompt_metrics')
+          .upsert(
+            promptIds.map((id: string) => ({ prompt_id: id })),
+            { onConflict: 'prompt_id', ignoreDuplicates: true }
+          );
+      }
 
       return new Response(
         JSON.stringify({ 
@@ -123,6 +149,29 @@ serve(async (req) => {
         .eq('id', promptId)
         .or(`user_id.eq.${user.id},visibility.eq.public`)
         .single();
+      
+      // Ensure metrics exist
+      if (data && !data.prompt_metrics) {
+        await supabase
+          .from('prompt_metrics')
+          .upsert({ prompt_id: promptId }, { onConflict: 'prompt_id', ignoreDuplicates: true });
+        
+        // Refetch with metrics
+        const { data: refetched } = await supabase
+          .from('prompts')
+          .select('*, prompt_metrics(*), prompt_versions(*)')
+          .eq('id', promptId)
+          .single();
+        
+        if (refetched) {
+          return new Response(
+            JSON.stringify({ prompt: refetched }),
+            {
+              headers: { ...headers, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+      }
 
       if (error) {
         if (error.code === 'PGRST116') {
