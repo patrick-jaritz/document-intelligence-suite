@@ -49,10 +49,16 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
+    // Supabase Edge Functions receive paths like: /functions/v1/prompts/:id
+    // We need to extract the parts after the function name
     const pathParts = url.pathname.split('/').filter(Boolean);
-    const promptId = pathParts.length > 1 ? pathParts[pathParts.length - 1] : null;
-    const action = pathParts.length > 2 ? pathParts[pathParts.length - 1] : null;
-    const isListOrCreate = pathParts.length <= 1 || pathParts[pathParts.length - 1] === 'prompts';
+    // Find the index of 'prompts' in the path
+    const promptsIndex = pathParts.indexOf('prompts');
+    const afterPrompts = pathParts.slice(promptsIndex + 1);
+    
+    const promptId = afterPrompts.length > 0 ? afterPrompts[0] : null;
+    const action = afterPrompts.length > 1 ? afterPrompts[1] : null;
+    const isListOrCreate = !promptId || promptId === 'prompts';
 
     // GET / - List prompts
     if (req.method === 'GET' && isListOrCreate) {

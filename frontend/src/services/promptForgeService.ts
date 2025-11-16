@@ -2,7 +2,6 @@
  * Service for PromptForge API calls
  */
 
-import { callEdgeFunction } from '../lib/supabase';
 import type {
   Prompt,
   PromptsResponse,

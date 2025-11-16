@@ -3,7 +3,7 @@
  * Shows prompt editor, metadata, versions, and execution interface
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Trash2, Copy, History, Play, Loader2 } from 'lucide-react';
 import { getPrompt, updatePrompt, deletePrompt, getVersions, createVersion } from '../services/promptForgeService';

@@ -25,6 +25,7 @@ export function PromptLibrary() {
 
   useEffect(() => {
     loadPrompts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, selectedCategory, selectedTags, page]);
 
   const loadPrompts = async () => {
