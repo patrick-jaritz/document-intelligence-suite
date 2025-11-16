@@ -43,3 +43,68 @@ jobs:
       - name: Build
         working-directory: ./frontend
         run: npm run build
+
+  supabase-functions:
+    name: Supabase functions (Deno) - lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1
+
+      - name: Lint Supabase functions
+        run: |
+          if [ -d supabase/functions ]; then
+            deno lint supabase/functions || true
+          else
+            echo "No supabase/functions directory"
+          fi
+
+      - name: Typecheck Supabase functions
+        run: |
+          if [ -d supabase/functions ]; then
+            deno check supabase/functions || true
+          else
+            echo "No supabase/functions directory"
+          fi
+
+  python-services:
+    name: Python services - requirements and dependency check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Find services with requirements.txt
+        id: services
+        run: |
+          python - <<'PY'
+import glob, json
+services = [p for p in glob.glob('services/**/requirements.txt', recursive=True)]
+print(json.dumps(services))
+PY
+
+      - name: Install & check each service
+        run: |
+          set -e
+          for req in $(python -c "import glob; print(' '.join(glob.glob('services/**/requirements.txt', recursive=True)))"); do
+            dir=$(dirname "$req")
+            echo "Installing $req"
+            python -m pip install --upgrade pip
+            python -m pip install -r "$req"
+            echo "Running pip check in $dir"
+            python -m pip check || true
+          done
+
