@@ -69,10 +69,9 @@ export function WebCrawler() {
       setResult(crawlResult);
       setCrawlHistory(prev => [crawlResult, ...prev.slice(0, 9)]); // Keep last 10
     } catch (err) {
-      console.error('❌ Crawl error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      console.error('Error message:', errorMessage);
-      setError(errorMessage);
+      const { handleError, formatErrorMessage } = await import('../utils/errors');
+      const appError = handleError(err, 'WebCrawler.handleCrawl');
+      setError(formatErrorMessage(appError));
     } finally {
       setIsCrawling(false);
     }
