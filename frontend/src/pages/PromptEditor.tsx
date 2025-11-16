@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff, MessageSquare, Share2 } from 'lucide-react';
+import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff, MessageSquare, Share2, HelpCircle } from 'lucide-react';
 import { PromptWithVersion, PromptFormData, VersionFormData } from '../types/promptforge';
 import { getPrompt, createPrompt, updatePrompt } from '../services/promptForgeService';
 import { createPromptVersion } from '../services/promptVersionService';
@@ -15,6 +15,9 @@ import { ExecutionPanel } from '../components/PromptExecution/ExecutionPanel';
 import { ExecutionHistory } from '../components/PromptExecution/ExecutionHistory';
 import { AIChatPanel } from '../components/PromptBuilder/AIChatPanel';
 import { AppSharePanel } from '../components/PromptBuilder/AppSharePanel';
+import { PromptForgeGuide } from '../components/PromptBuilder/PromptForgeGuide';
+import { InfoTooltip } from '../components/UI/InfoTooltip';
+import { InfoPanel } from '../components/UI/InfoPanel';
 import { StructuredPrompt } from '../types/prompt';
 import { structuredPromptToFormData } from '../services/promptForgeService';
 
@@ -31,6 +34,7 @@ export function PromptEditor() {
   const [showExecution, setShowExecution] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
   const [showAppShare, setShowAppShare] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<StructuredPrompt | null>(null);
   const [formData, setFormData] = useState<PromptFormData>({
     title: '',
@@ -233,14 +237,33 @@ export function PromptEditor() {
               <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Sparkles className="w-7 h-7 text-white" />
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {isNew ? 'Create New Prompt' : prompt?.title || 'Edit Prompt'}
-                </h1>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {isNew ? 'Create New Prompt' : prompt?.title || 'Edit Prompt'}
+                  </h1>
+                  <InfoTooltip
+                    content={
+                      <div className="space-y-2">
+                        <p>Use the structured builder below to create your prompt.</p>
+                        <p>Add placeholders like <code className="bg-gray-700 px-1 rounded">{'{{variable}}'}</code> to create dynamic prompts.</p>
+                        <p>Click "AI Assistant" for help refining your prompt.</p>
+                      </div>
+                    }
+                    title="Prompt Editor Help"
+                  />
+                </div>
                 <p className="text-gray-600 mt-1">
                   {isNew ? 'Build your prompt from scratch' : 'Edit and version your prompt'}
                 </p>
               </div>
+              <button
+                onClick={() => setShowGuide(true)}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Guide
+              </button>
             </div>
 
             <div className="flex items-center gap-3">
@@ -312,9 +335,20 @@ export function PromptEditor() {
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               {/* Metadata Editor */}
               <div className="mb-6 space-y-4">
+                {isNew && (
+                  <InfoPanel title="Getting Started" defaultOpen={true}>
+                    <p>
+                      Start by giving your prompt a clear title and description. Then use the structured builder below to define the role, task, context, constraints, and examples.
+                    </p>
+                    <p className="mt-2">
+                      <strong>Tip:</strong> Use placeholders like <code className="bg-gray-200 px-1 rounded">{'{{topic}}'}</code> or <code className="bg-gray-200 px-1 rounded">{'{{name:text}}'}</code> to create dynamic prompts that can be shared as web apps.
+                    </p>
+                  </InfoPanel>
+                )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     Title
+                    <InfoTooltip content="A clear, descriptive title helps you find and organize your prompts." />
                   </label>
                   <input
                     type="text"
@@ -326,8 +360,9 @@ export function PromptEditor() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     Description
+                    <InfoTooltip content="Optional description explaining what this prompt does and when to use it." />
                   </label>
                   <textarea
                     value={formData.description}
@@ -460,6 +495,11 @@ export function PromptEditor() {
             });
           }}
         />
+      )}
+
+      {/* Guide Modal */}
+      {showGuide && (
+        <PromptForgeGuide onClose={() => setShowGuide(false)} />
       )}
     </div>
   );

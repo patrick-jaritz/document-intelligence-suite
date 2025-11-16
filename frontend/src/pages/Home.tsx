@@ -226,9 +226,14 @@ export function Home() {
                 <div className="text-center py-12">
                   <Sparkles className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">PromptForge</h2>
-                  <p className="text-gray-600 mb-6">
-                    Your prompt management workspace
+                  <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                    Your complete prompt management system. Create, refine, execute, and share prompts with AI assistance.
                   </p>
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg max-w-md mx-auto">
+                    <p className="text-sm text-blue-900">
+                      <strong>New to PromptForge?</strong> Click "Guide" in the Prompt Editor to learn how to build effective prompts.
+                    </p>
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button
                       onClick={() => navigate('/prompts')}
