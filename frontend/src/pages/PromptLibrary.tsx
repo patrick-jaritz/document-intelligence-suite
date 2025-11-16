@@ -6,7 +6,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Filter, Grid, List, Loader2 } from 'lucide-react';
-import { getPrompts, type Prompt } from '../services/promptForgeService';
+import { getPrompts } from '../services/promptForgeService';
+import type { Prompt } from '../types/promptforge';
 import { PromptCard } from '../components/prompts/PromptCard';
 
 export function PromptLibrary() {
