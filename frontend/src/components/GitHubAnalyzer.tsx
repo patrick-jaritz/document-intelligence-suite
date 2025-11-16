@@ -77,14 +77,31 @@ interface GitHubAnalysis {
   };
 }
 
+interface DuplicateInfo {
+  groups: Array<{
+    key: string;
+    files: Array<{ name: string; path: string }>;
+    similarity: number;
+    reason: 'exact' | 'similar' | 'renamed';
+  }>;
+  files: Array<{
+    path: string;
+    name: string;
+    reason?: string;
+    group?: string;
+  }>;
+}
+
 interface AnalysisResult {
   success: boolean;
   repository: string;
   analysis: GitHubAnalysis;
+  duplicates?: DuplicateInfo;
   metadata: {
     analyzedAt: string;
     dataSources: string[];
     confidence: number;
+    duplicateCount?: number;
   };
 }
 
@@ -2267,6 +2284,42 @@ export function GitHubAnalyzer() {
             </div>
 
             {/* Technical Analysis */}
+            {/* Duplicates Section */}
+            {analysisResult.duplicates && analysisResult.duplicates.groups.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-yellow-900 mb-4 flex items-center gap-2">
+                  <GitCompare className="w-5 h-5" />
+                  Duplicate Files Detected ({analysisResult.duplicates.groups.length} groups)
+                </h3>
+                <div className="space-y-3">
+                  {analysisResult.duplicates.groups.map((group, idx) => (
+                    <div key={group.key} className="bg-white rounded-lg p-4 border border-yellow-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-900">
+                          {group.reason === 'exact' ? 'Exact Duplicates' :
+                           group.reason === 'renamed' ? 'Renamed Files' :
+                           'Similar Files'} ({group.files.length} files)
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {Math.round(group.similarity * 100)}% similar
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {group.files.map((file, fileIdx) => (
+                          <div key={fileIdx} className="flex items-center gap-2 text-sm">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                            <code className="text-xs bg-gray-100 px-2 py-0.5 rounded">
+                              {file.path}
+                            </code>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
