@@ -238,8 +238,7 @@ export function Home() {
                     </button>
                     <button
                       onClick={() => {
-                        // TODO: Open prompt builder in create mode
-                        navigate('/prompts?new=true');
+                        navigate('/prompts/edit?new=true');
                       }}
                       className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >

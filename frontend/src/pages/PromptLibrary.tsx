@@ -142,7 +142,7 @@ export function PromptLibrary() {
               </div>
             </div>
             <button
-              onClick={() => navigate('/?mode=promptforge')}
+              onClick={() => navigate('/prompts/edit?new=true')}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
             >
               <Plus className="w-5 h-5" />
@@ -287,7 +287,7 @@ export function PromptLibrary() {
             </p>
             {!(searchQuery || selectedTags.length > 0 || selectedCategory) && (
               <button
-                onClick={() => navigate('/?mode=promptforge')}
+                onClick={() => navigate('/prompts/edit?new=true')}
                 className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
@@ -316,7 +316,7 @@ export function PromptLibrary() {
                         <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                           <button
                             onClick={() => {
-                              navigate(`/?mode=promptforge&prompt=${prompt.id}`);
+                              navigate(`/prompts/edit?id=${prompt.id}`);
                               setSelectedPrompt(null);
                             }}
                             className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm"
@@ -361,7 +361,7 @@ export function PromptLibrary() {
 
                   {/* Prompt Content */}
                   <div
-                    onClick={() => navigate(`/?mode=promptforge&prompt=${prompt.id}`)}
+                    onClick={() => navigate(`/prompts/edit?id=${prompt.id}`)}
                     className="cursor-pointer"
                   >
                     <h3 className="text-lg font-semibold text-gray-900 mb-2 pr-8">
