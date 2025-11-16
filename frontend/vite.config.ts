@@ -1,10 +1,40 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import viteCompression from 'vite-plugin-compression';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    
+    // Gzip compression for production
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240, // Only compress files > 10KB
+      algorithm: 'gzip',
+      ext: '.gz',
+    }),
+    
+    // Brotli compression for production (better compression than gzip)
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'brotliCompress',
+      ext: '.br',
+    }),
+    
+    // Bundle analyzer (run with npm run build to see stats.html)
+    visualizer({
+      filename: './dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+    }) as any,
+  ],
   resolve: {
     alias: {
       'tesseract.js': path.resolve(__dirname, 'node_modules/tesseract.js/dist/tesseract.esm.min.js'),
@@ -14,26 +44,82 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Vendor chunks
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'pdf-vendor': ['pdfjs-dist', 'pdf-lib'],
-          'tesseract-vendor': ['tesseract.js'],
-          // Feature chunks
-          'rag-components': [
-            './src/components/RAGView.tsx',
-            './src/components/RAGViewEnhanced.tsx',
-          ],
-          'github-components': [
-            './src/components/GitHubAnalyzer.tsx',
-          ],
-        },
+    // Target modern browsers for smaller bundle
+    target: 'es2020',
+    
+    // Minification settings
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.debug', 'console.info'],
+      },
+      format: {
+        comments: false, // Remove comments
       },
     },
-    // Increase chunk size warning limit since we're using manual chunks
-    chunkSizeWarningLimit: 600,
+    
+    // CSS code splitting
+    cssCodeSplit: true,
+    
+    // Sourcemap configuration (disable in production for smaller files)
+    sourcemap: process.env.NODE_ENV !== 'production',
+    
+    // Chunk size settings
+    chunkSizeWarningLimit: 500, // Warn if chunks > 500KB
+    
+    rollupOptions: {
+      output: {
+        // Optimize chunk names
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        
+        // Manual chunks for better caching
+        manualChunks: (id) => {
+          // React core and router
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/react-router')) {
+            return 'react-router';
+          }
+          
+          // PDF libraries (large)
+          if (id.includes('pdfjs-dist') || id.includes('pdf-lib')) {
+            return 'pdf-vendor';
+          }
+          
+          // Tesseract (very large)
+          if (id.includes('tesseract.js')) {
+            return 'tesseract-vendor';
+          }
+          
+          // Supabase
+          if (id.includes('@supabase')) {
+            return 'supabase-vendor';
+          }
+          
+          // UI libraries
+          if (id.includes('lucide-react')) {
+            return 'ui-vendor';
+          }
+          
+          // Other node_modules
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        },
+      },
+      
+      // Tree shaking configuration
+      treeshake: {
+        moduleSideEffects: 'no-external',
+        propertyReadSideEffects: false,
+        unknownGlobalSideEffects: false,
+      },
+    },
   },
   define: (() => {
     // Read environment variables at build time
