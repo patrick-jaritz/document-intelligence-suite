@@ -3,7 +3,8 @@
 
 **Date:** 2025-11-16  
 **Status:** Planning Phase  
-**Target:** MVP in 6-10 weeks
+**Target:** MVP in 6-10 weeks  
+**Enhanced:** Includes features from [AIDotNet/auto-prompt](https://github.com/AIDotNet/auto-prompt)
 
 ---
 
@@ -16,6 +17,11 @@ This plan integrates a comprehensive PromptOS-inspired system ("PromptForge") in
 - Builds on existing PromptBuilder component
 - Reuses authentication and Edge Function patterns
 - Extends current LLM integration capabilities
+- **NEW:** Includes intelligent prompt optimization from auto-prompt
+- **NEW:** Advanced structure analysis and deep inference capabilities
+- **NEW:** Community features with popularity rankings
+
+> **📌 Enhanced Version Available:** See `PROMPTFORGE_WITH_AUTO_PROMPT.md` for integration of auto-prompt optimization features, including intelligent prompt optimization, structure analysis, and community features.
 
 ---
 
