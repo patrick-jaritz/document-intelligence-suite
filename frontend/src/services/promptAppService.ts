@@ -252,51 +252,55 @@ export async function executeApp(
 
     const llmData = await llmResponse.json();
     const latency = Date.now() - startTime;
+    const output = llmData.response || llmData.text || '';
 
     // Get IP and user agent (if available)
     const ipAddress = null; // Would need to pass from server
     const userAgent = navigator.userAgent;
 
-    // Save execution
-    const { data, error } = await supabase
-      .from('app_executions')
-      .insert({
-        app_id: appId,
-        prompt_id: promptId,
-        user_id: session?.user?.id || null,
-        inputs,
-        output: llmData.response || llmData.text || '',
-        model,
-        tokens_in: llmData.tokens_in || null,
-        tokens_out: llmData.tokens_out || null,
-        latency_ms: latency,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      })
-      .select()
-      .single();
+    // Save execution (non-blocking - don't fail if save fails)
+    try {
+      const { error } = await supabase
+        .from('app_executions')
+        .insert({
+          app_id: appId,
+          prompt_id: promptId,
+          user_id: session?.user?.id || null,
+          inputs,
+          output,
+          model,
+          tokens_in: llmData.tokens_in || null,
+          tokens_out: llmData.tokens_out || null,
+          latency_ms: latency,
+          ip_address: ipAddress,
+          user_agent: userAgent,
+        });
 
-    if (error) {
-      console.error('Error saving execution:', error);
-      // Still return execution data even if save fails
-      return {
-        id: '',
-        app_id: appId,
-        prompt_id: '',
-        user_id: session?.user?.id || null,
-        inputs,
-        output: llmData.response || llmData.text || '',
-        model,
-        tokens_in: llmData.tokens_in || null,
-        tokens_out: llmData.tokens_out || null,
-        latency_ms: latency,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        created_at: new Date().toISOString(),
-      } as AppExecution;
+      if (error) {
+        console.error('Error saving execution:', error);
+        // Continue anyway - execution succeeded even if save failed
+      }
+    } catch (saveError) {
+      console.error('Failed to save execution:', saveError);
+      // Continue anyway
     }
 
-    return data as AppExecution;
+    // Return execution data
+    return {
+      id: '', // Will be set by database if save succeeded
+      app_id: appId,
+      prompt_id: promptId,
+      user_id: session?.user?.id || null,
+      inputs,
+      output,
+      model,
+      tokens_in: llmData.tokens_in || null,
+      tokens_out: llmData.tokens_out || null,
+      latency_ms: latency,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      created_at: new Date().toISOString(),
+    } as AppExecution;
   } catch (error) {
     console.error('Failed to execute app:', error);
     return null;
