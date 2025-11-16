@@ -47,18 +47,10 @@ export default defineConfig({
     // Target modern browsers for smaller bundle
     target: 'es2020',
     
-    // Minification settings
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.debug', 'console.info'],
-      },
-      format: {
-        comments: false, // Remove comments
-      },
-    },
+    // Minification settings - use esbuild (faster, no extra dependency) instead of terser
+    minify: 'esbuild',
+    // Note: esbuild minification is faster and doesn't require terser dependency
+    // If you need terser-specific options, install terser and change minify to 'terser'
     
     // CSS code splitting
     cssCodeSplit: true,
