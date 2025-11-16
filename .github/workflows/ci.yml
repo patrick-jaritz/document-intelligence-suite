@@ -56,10 +56,16 @@ jobs:
         with:
           deno-version: v1
 
+      - name: Cache Deno modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ runner.os }}-deps-${{ hashFiles('supabase/functions/**') }}
+
       - name: Lint Supabase functions
         run: |
           if [ -d supabase/functions ]; then
-            deno lint supabase/functions || true
+            deno lint supabase/functions
           else
             echo "No supabase/functions directory"
           fi
@@ -67,7 +73,7 @@ jobs:
       - name: Typecheck Supabase functions
         run: |
           if [ -d supabase/functions ]; then
-            deno check supabase/functions || true
+            deno check supabase/functions
           else
             echo "No supabase/functions directory"
           fi
@@ -87,24 +93,36 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Find services with requirements.txt
-        id: services
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip && python -m pip install ruff
+
+      - name: Run ruff on services
         run: |
-          python - <<'PY'
-import glob, json
-services = [p for p in glob.glob('services/**/requirements.txt', recursive=True)]
-print(json.dumps(services))
-PY
+          set -e
+          if ls services/*/requirements.txt 1> /dev/null 2>&1; then
+            for d in $(dirname $(ls services/*/requirements.txt)); do
+              echo "Running ruff on $d"
+              ruff check "$d" || exit 1
+            done
+          else
+            echo "No Python services found"
+          fi
 
       - name: Install & check each service
         run: |
           set -e
-          for req in $(python -c "import glob; print(' '.join(glob.glob('services/**/requirements.txt', recursive=True)))"); do
+          for req in $(python -c "import glob,sys; print(' '.join(glob.glob('services/**/requirements.txt', recursive=True)))"); do
             dir=$(dirname "$req")
             echo "Installing $req"
             python -m pip install --upgrade pip
             python -m pip install -r "$req"
             echo "Running pip check in $dir"
-            python -m pip check || true
+            python -m pip check
           done
 
