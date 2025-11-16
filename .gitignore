@@ -48,6 +48,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/build/
 
+# Keep frontend lockfile for reproducible installs
+!frontend/package-lock.json
+
 # Temporary documentation
 docs/temp/
 *_TEMP.md

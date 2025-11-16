@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend:
+    name: Frontend tests, lint, typecheck, build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: ./frontend
+        run: npm run typecheck
+
+      - name: Run unit tests
+        working-directory: ./frontend
+        run: npm run test:run
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
