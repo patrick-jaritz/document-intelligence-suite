@@ -202,7 +202,7 @@ async function fetchGitHubData(owner: string, repo: string): Promise<GitHubRepoD
         throw new Error(`GitHub API error: ${repoResponse.status} - ${repoResponse.statusText}`);
       }
     }
-    const repo = await repoResponse.json();
+    const repoInfo = await repoResponse.json();
     
     // Fetch README
     let readme = '';
@@ -237,7 +237,7 @@ async function fetchGitHubData(owner: string, repo: string): Promise<GitHubRepoD
     const contributors = contributorsResponse.ok ? await contributorsResponse.json() : [];
     
     return {
-      repo,
+      repo: repoInfo,
       readme,
       languages,
       contents,
