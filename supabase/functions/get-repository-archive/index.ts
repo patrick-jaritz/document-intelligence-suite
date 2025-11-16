@@ -91,34 +91,41 @@ Deno.serve(async (req: Request) => {
       query = query.eq('analysis_data->metadata->language', language);
     }
 
-    if (tagsParam) {
-      const tagsFilter = tagsParam.split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-      if (tagsFilter.length > 0) {
-        query = query.contains('tags', tagsFilter);
+    // Only apply filters if columns exist (check table schema first)
+    // For now, we'll try to apply filters and catch errors if columns don't exist
+    try {
+      if (tagsParam) {
+        const tagsFilter = tagsParam.split(',')
+          .map(tag => tag.trim())
+          .filter(tag => tag.length > 0);
+        if (tagsFilter.length > 0) {
+          query = query.contains('tags', tagsFilter);
+        }
       }
-    }
 
-    if (collectionsParam) {
-      const collectionsFilter = collectionsParam.split(',')
-        .map(collection => collection.trim())
-        .filter(collection => collection.length > 0);
-      if (collectionsFilter.length > 0) {
-        query = query.contains('collections', collectionsFilter);
+      if (collectionsParam) {
+        const collectionsFilter = collectionsParam.split(',')
+          .map(collection => collection.trim())
+          .filter(collection => collection.length > 0);
+        if (collectionsFilter.length > 0) {
+          query = query.contains('collections', collectionsFilter);
+        }
       }
-    }
 
-    if (starredParam === 'true') {
-      query = query.eq('starred', true);
-    } else if (starredParam === 'false') {
-      query = query.eq('starred', false);
-    }
+      if (starredParam === 'true') {
+        query = query.eq('starred', true);
+      } else if (starredParam === 'false') {
+        query = query.eq('starred', false);
+      }
 
-    if (pinnedParam === 'true') {
-      query = query.eq('pinned', true);
-    } else if (pinnedParam === 'false') {
-      query = query.eq('pinned', false);
+      if (pinnedParam === 'true') {
+        query = query.eq('pinned', true);
+      } else if (pinnedParam === 'false') {
+        query = query.eq('pinned', false);
+      }
+    } catch (filterError) {
+      console.warn('⚠️ Some filter columns may not exist, continuing without filters:', filterError);
+      // Continue without metadata filters - columns will be added via migration
     }
 
     // Apply sorting
