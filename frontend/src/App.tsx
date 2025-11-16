@@ -15,6 +15,7 @@ const PromptEditor = lazy(() => import('./pages/PromptEditor').then(module => ({
 const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ default: module.Analytics })));
 const Packs = lazy(() => import('./pages/Packs').then(module => ({ default: module.Packs })));
 const PackEditor = lazy(() => import('./pages/PackEditor').then(module => ({ default: module.PackEditor })));
+const PromptApp = lazy(() => import('./pages/PromptApp').then(module => ({ default: module.PromptApp })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -47,6 +48,7 @@ function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/packs" element={<Packs />} />
             <Route path="/packs/edit" element={<PackEditor />} />
+            <Route path="/app/:slug" element={<PromptApp />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
