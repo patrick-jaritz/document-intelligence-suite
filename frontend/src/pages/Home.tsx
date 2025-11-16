@@ -229,20 +229,30 @@ export function Home() {
                   <p className="text-gray-600 mb-6">
                     Your prompt management workspace
                   </p>
-                  <div className="flex gap-4 justify-center">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button
                       onClick={() => navigate('/prompts')}
-                      className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
-                      Open Prompt Library
+                      Prompt Library
                     </button>
                     <button
-                      onClick={() => {
-                        navigate('/prompts/edit?new=true');
-                      }}
-                      className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate('/prompts/edit?new=true')}
+                      className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      Create New Prompt
+                      New Prompt
+                    </button>
+                    <button
+                      onClick={() => navigate('/packs')}
+                      className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Packs
+                    </button>
+                    <button
+                      onClick={() => navigate('/analytics')}
+                      className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Analytics
                     </button>
                   </div>
                 </div>
