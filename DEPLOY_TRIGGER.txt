@@ -1,3 +1,4 @@
 # Trigger redeploy
 # Timestamp: 2025-11-16T09:04:38.175Z
 # Deployment triggered at: 2025-11-16T09:04:38.175Z
+# Fix: Added terser dependency - 2025-11-16T09:15:00.000Z
