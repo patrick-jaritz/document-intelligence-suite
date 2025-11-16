@@ -37,8 +37,17 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // Log to error tracking service (e.g., Sentry) if needed
-    // logErrorToService(error, errorInfo);
+    // Log to Rollbar in production
+    try {
+      const { logError } = require('../lib/rollbar');
+      logError(error, {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: true,
+      });
+    } catch (rollbarError) {
+      // Rollbar not configured or failed, continue without it
+      console.warn('Rollbar logging failed:', rollbarError);
+    }
   }
 
   handleReset = () => {
