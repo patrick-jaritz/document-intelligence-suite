@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff } from 'lucide-react';
+import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff, MessageSquare } from 'lucide-react';
 import { PromptWithVersion, PromptFormData, VersionFormData } from '../types/promptforge';
 import { getPrompt, createPrompt, updatePrompt } from '../services/promptForgeService';
 import { createPromptVersion } from '../services/promptVersionService';
@@ -13,6 +13,7 @@ import { VersionHistory } from '../components/PromptBuilder/VersionHistory';
 import { PromptBuilder } from '../components/PromptBuilder/PromptBuilder';
 import { ExecutionPanel } from '../components/PromptExecution/ExecutionPanel';
 import { ExecutionHistory } from '../components/PromptExecution/ExecutionHistory';
+import { AIChatPanel } from '../components/PromptBuilder/AIChatPanel';
 import { StructuredPrompt } from '../types/prompt';
 import { structuredPromptToFormData } from '../services/promptForgeService';
 
@@ -27,6 +28,7 @@ export function PromptEditor() {
   const [saving, setSaving] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showExecution, setShowExecution] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<StructuredPrompt | null>(null);
   const [formData, setFormData] = useState<PromptFormData>({
     title: '',
@@ -243,6 +245,17 @@ export function PromptEditor() {
               {!isNew && prompt && (
                 <>
                   <button
+                    onClick={() => setShowAIChat(!showAIChat)}
+                    className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+                      showAIChat
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    AI Assistant
+                  </button>
+                  <button
                     onClick={() => setShowExecution(!showExecution)}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                   >
@@ -407,6 +420,29 @@ export function PromptEditor() {
           )}
         </div>
       </div>
+
+      {/* AI Chat Panel */}
+      {showAIChat && currentPrompt && (
+        <AIChatPanel
+          prompt={currentPrompt}
+          isOpen={showAIChat}
+          onClose={() => setShowAIChat(false)}
+          onPromptUpdate={(updatedPrompt) => {
+            setCurrentPrompt(updatedPrompt);
+            // Convert structured prompt back to form data
+            const updatedFormData = structuredPromptToFormData(updatedPrompt, {
+              title: formData.title,
+              description: formData.description,
+              tags: formData.tags,
+              category: formData.category,
+            });
+            setFormData({
+              ...formData,
+              prompt_body: updatedFormData.prompt_body,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
