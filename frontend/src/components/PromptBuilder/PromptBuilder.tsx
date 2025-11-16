@@ -3,7 +3,7 @@
  * Combines form, preview, and export functionality
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Save, Download, Sparkles, Zap, Palette, BookOpen, X } from 'lucide-react';
 import { StructuredPrompt, PromptBuilderProps } from '../../types/prompt';
 import { PromptForm } from './PromptForm';
