@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend:
+    name: Frontend tests, lint, typecheck, build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: NPM audit (high/critical)
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level=high || true
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: ./frontend
+        run: npm run typecheck
+
+      - name: Run unit tests
+        working-directory: ./frontend
+        run: npm run test:run
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+  supabase-functions:
+    name: Supabase functions (Deno) - lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1
+
+      - name: Cache Deno modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ runner.os }}-deps-${{ hashFiles('supabase/functions/**') }}
+
+      - name: Lint Supabase functions
+        run: |
+          if [ -d supabase/functions ]; then
+            deno lint supabase/functions
+          else
+            echo "No supabase/functions directory"
+          fi
+
+      - name: Typecheck Supabase functions
+        run: |
+          if [ -d supabase/functions ]; then
+            deno check supabase/functions
+          else
+            echo "No supabase/functions directory"
+          fi
+
+  python-services:
+    name: Python services - requirements and dependency check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip && python -m pip install ruff
+
+      - name: Run ruff on services
+        run: |
+          set -e
+          if ls services/*/requirements.txt 1> /dev/null 2>&1; then
+            for d in $(dirname $(ls services/*/requirements.txt)); do
+              echo "Running ruff on $d"
+              ruff check "$d" || exit 1
+            done
+          else
+            echo "No Python services found"
+          fi
+
+      - name: Install & check each service
+        run: |
+          set -e
+          for req in $(python -c "import glob,sys; print(' '.join(glob.glob('services/**/requirements.txt', recursive=True)))"); do
+            dir=$(dirname "$req")
+            echo "Installing $req"
+            python -m pip install --upgrade pip
+            python -m pip install -r "$req"
+            echo "Running pip check in $dir"
+            python -m pip check
+          done
+
+      - name: Install safety and run vulnerability scan
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install safety
+          for req in $(python -c "import glob,sys; print(' '.join(glob.glob('services/**/requirements.txt', recursive=True)))"); do
+            echo "Scanning $req with safety"
+            safety check --file="$req" || true
+          done
+          done
+
