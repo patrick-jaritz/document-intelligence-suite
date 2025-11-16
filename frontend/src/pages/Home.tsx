@@ -1,5 +1,5 @@
 import { useState, Suspense, lazy } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode, Loader2 } from 'lucide-react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
@@ -13,6 +13,7 @@ const RAGViewEnhanced = lazy(() => import('../components/RAGViewEnhanced').then(
 const GitHubAnalyzer = lazy(() => import('../components/GitHubAnalyzer').then(module => ({ default: module.GitHubAnalyzer })));
 const WebCrawler = lazy(() => import('../components/WebCrawler').then(module => ({ default: module.WebCrawler })));
 const MarkdownConverter = lazy(() => import('../components/MarkdownConverter').then(module => ({ default: module.MarkdownConverter })));
+const PromptBuilder = lazy(() => import('../components/PromptBuilder').then(module => ({ default: module.PromptBuilder })));
 
 // Loading fallback for lazy components
 const ComponentLoadingFallback = () => (
@@ -24,7 +25,7 @@ const ComponentLoadingFallback = () => (
   </div>
 );
 
-type AppMode = 'extract' | 'ask' | 'github' | 'crawler' | 'markdown';
+type AppMode = 'extract' | 'ask' | 'github' | 'crawler' | 'markdown' | 'promptforge';
 
 export function Home() {
   const [appMode, setAppMode] = useState<AppMode>('extract');
@@ -93,7 +94,7 @@ export function Home() {
                 </h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <button
                 onClick={() => setAppMode('extract')}
                 className={`p-6 rounded-lg border-2 transition-all ${appMode === 'extract' ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
@@ -173,6 +174,22 @@ export function Home() {
                 </div>
                 <p className="text-xs text-gray-500">Convert PDFs, HTML, and text files to LLM-optimized Markdown format.</p>
               </button>
+
+              <button
+                onClick={() => setAppMode('promptforge')}
+                className={`p-6 rounded-lg border-2 transition-all ${appMode === 'promptforge' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${appMode === 'promptforge' ? 'bg-indigo-600' : 'bg-gray-100'}`}>
+                    <Sparkles className={`w-6 h-6 ${appMode === 'promptforge' ? 'text-white' : 'text-gray-600'}`} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">PromptForge</h4>
+                    <p className="text-sm text-gray-600">Build structured prompts</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Create and test structured prompts with multiple themes and export options.</p>
+              </button>
             </div>
                 </div>
         </header>
@@ -200,6 +217,18 @@ export function Home() {
           <ErrorBoundary>
             <Suspense fallback={<ComponentLoadingFallback />}>
               <MarkdownConverter />
+            </Suspense>
+          </ErrorBoundary>
+        ) : appMode === 'promptforge' ? (
+          <ErrorBoundary>
+            <Suspense fallback={<ComponentLoadingFallback />}>
+              <PromptBuilder
+                mode="custom"
+                showTestPanel={true}
+                onPromptExport={(prompt) => {
+                  console.log('Prompt exported:', prompt);
+                }}
+              />
             </Suspense>
           </ErrorBoundary>
         ) : (
