@@ -166,9 +166,9 @@ export function GitHubAnalyzer() {
     createdBefore: '',
   });
   const [similarRepos, setSimilarRepos] = useState<any[]>([]);
-  const [loadingSimilar] = useState(false);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [versionData, setVersionData] = useState<any>(null);
-  const [loadingVersion] = useState(false);
+  const [loadingVersion, setLoadingVersion] = useState(false);
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
   const [selectedCollectionsFilter, setSelectedCollectionsFilter] = useState<string[]>([]);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
