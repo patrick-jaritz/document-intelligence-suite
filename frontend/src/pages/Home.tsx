@@ -222,13 +222,32 @@ export function Home() {
         ) : appMode === 'promptforge' ? (
           <ErrorBoundary>
             <Suspense fallback={<ComponentLoadingFallback />}>
-              <PromptBuilder
-                mode="custom"
-                showTestPanel={true}
-                onPromptExport={(prompt) => {
-                  console.log('Prompt exported:', prompt);
-                }}
-              />
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div className="text-center py-12">
+                  <Sparkles className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">PromptForge</h2>
+                  <p className="text-gray-600 mb-6">
+                    Your prompt management workspace
+                  </p>
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => navigate('/prompts')}
+                      className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Open Prompt Library
+                    </button>
+                    <button
+                      onClick={() => {
+                        // TODO: Open prompt builder in create mode
+                        navigate('/prompts?new=true');
+                      }}
+                      className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Create New Prompt
+                    </button>
+                  </div>
+                </div>
+              </div>
             </Suspense>
           </ErrorBoundary>
         ) : (

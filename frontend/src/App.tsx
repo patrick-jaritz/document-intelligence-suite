@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
 const Admin = lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
 const Health = lazy(() => import('./pages/Health'));
+const PromptLibrary = lazy(() => import('./pages/PromptLibrary').then(module => ({ default: module.PromptLibrary })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -37,6 +38,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/health" element={<Health />} />
+            <Route path="/prompts" element={<PromptLibrary />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
