@@ -712,11 +712,20 @@ export function GitHubAnalyzer() {
       }
 
     } catch (error) {
-      console.error('❌ GitHub analysis failed:', error);
+      const { handleError, formatErrorMessage, ErrorType } = await import('../utils/errors');
+      
+      // Special handling for timeout
       if (error instanceof Error && error.name === 'AbortError') {
-        setError('Analysis timed out. Please try again.');
+        const timeoutError = new (await import('../utils/errors')).AppError(
+          ErrorType.TIMEOUT_ERROR,
+          'Analysis timed out. The repository may be too large or the server is busy. Please try again.',
+          error
+        );
+        handleError(timeoutError, 'GitHubAnalyzer.handleAnalyze');
+        setError(formatErrorMessage(timeoutError));
       } else {
-        setError(error instanceof Error ? error.message : 'Failed to analyze repository');
+        const appError = handleError(error, 'GitHubAnalyzer.handleAnalyze');
+        setError(formatErrorMessage(appError));
       }
     } finally {
       setIsAnalyzing(false);
@@ -786,10 +795,11 @@ export function GitHubAnalyzer() {
             }
           }
         } catch (error) {
+          const { formatErrorMessage } = await import('../utils/errors');
           console.error(`Failed to analyze ${url}:`, error);
           setBulkResults(prev => [...prev, { 
             repository: url, 
-            error: error instanceof Error ? error.message : 'Analysis failed' 
+            error: formatErrorMessage(error)
           }]);
         }
       }

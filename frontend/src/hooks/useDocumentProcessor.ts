@@ -76,7 +76,8 @@ export function useDocumentProcessor() {
           fileName: file.name,
           fileSize: file.size
         });
-        throw docError;
+        const { createFileError, ErrorType } = await import('../utils/errors');
+        throw createFileError(ErrorType.FILE_UPLOAD_ERROR, docError);
       }
       logger.info('database', 'Document record created', { documentId: document.id });
 
@@ -98,7 +99,8 @@ export function useDocumentProcessor() {
         logger.error('database', 'Failed to create processing job', jobError, {
           documentId: document.id
         });
-        throw jobError;
+        const { createFileError, ErrorType } = await import('../utils/errors');
+        throw createFileError(ErrorType.FILE_PROCESSING_ERROR, jobError);
       }
       logger.info('database', 'Processing job created', { jobId: job.id, documentId: document.id });
 
@@ -614,7 +616,8 @@ export function useDocumentProcessor() {
           duration_ms: llmDuration,
           provider: llmProvider
         });
-        throw error;
+        const { createServiceError } = await import('../utils/errors');
+        throw createServiceError(`${llmProvider.toUpperCase()} LLM`, error);
       }
 
       const llmDuration = Date.now() - llmStartTime;
