@@ -1,5 +1,5 @@
 import { useState, Suspense, lazy } from 'react';
-import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode, Loader2 } from 'lucide-react';
+import { FileSearch, Settings, MessageCircle, FileText, Github, Globe, Activity, FileCode, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { TemplateEditor } from '../components/TemplateEditor';
@@ -93,7 +93,7 @@ export function Home() {
                 </h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <button
                 onClick={() => setAppMode('extract')}
                 className={`p-6 rounded-lg border-2 transition-all ${appMode === 'extract' ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
@@ -172,6 +172,22 @@ export function Home() {
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">Convert PDFs, HTML, and text files to LLM-optimized Markdown format.</p>
+              </button>
+
+              <button
+                onClick={() => navigate('/prompts')}
+                className="p-6 rounded-lg border-2 transition-all border-purple-200 hover:border-purple-300 bg-white group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors">
+                    <Sparkles className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">PromptForge</h4>
+                    <p className="text-sm text-gray-600">Manage & execute prompts</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Build, version, and execute AI prompts with analytics.</p>
               </button>
             </div>
                 </div>
@@ -456,6 +472,14 @@ export function Home() {
               >
                 <Activity className="w-5 h-5 mr-2" />
                 System Health Dashboard
+              </button>
+              <span className="text-gray-400">|</span>
+              <button
+                onClick={() => navigate('/prompts')}
+                className="text-gray-600 hover:text-gray-900 transition-colors flex items-center"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                PromptForge
               </button>
               <span className="text-gray-400">|</span>
               <span>Developed with ❤️ by Patrick</span>

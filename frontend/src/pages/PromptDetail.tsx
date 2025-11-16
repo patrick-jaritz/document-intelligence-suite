@@ -22,6 +22,17 @@ export function PromptDetail() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'execute' | 'history' | 'versions'>('edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // New prompt state (only used when id === 'new')
+  const [newPrompt, setNewPrompt] = useState({
+    title: '',
+    description: '',
+    prompt_body: '',
+    category: '',
+    tags: [] as string[],
+    visibility: 'private' as const,
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -117,6 +128,25 @@ export function PromptDetail() {
     }
   };
 
+  const handleCreate = async () => {
+    if (!newPrompt.title || !newPrompt.prompt_body) {
+      alert('Title and prompt body are required');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { createPrompt } = await import('../services/promptForgeService');
+      const created = await createPrompt(newPrompt);
+      navigate(`/prompts/${created.id}`);
+    } catch (error) {
+      console.error('Error creating prompt:', error);
+      alert('Failed to create prompt');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -126,7 +156,6 @@ export function PromptDetail() {
   }
 
   if (id === 'new') {
-    // New prompt creation - simplified for now
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
         <div className="max-w-7xl mx-auto">
@@ -138,21 +167,81 @@ export function PromptDetail() {
             Back to Library
           </button>
           <h1 className="text-3xl font-bold mb-6">Create New Prompt</h1>
-          <PromptBuilder
-            onPromptExport={async (structuredPrompt) => {
-              // Convert structured prompt to CreatePromptRequest format
-              const promptBody = [
-                structuredPrompt.role && `Role: ${structuredPrompt.role}`,
-                structuredPrompt.task && `Task: ${structuredPrompt.task}`,
-                structuredPrompt.context && `Context: ${structuredPrompt.context}`,
-                structuredPrompt.constraints?.length && `Constraints:\n${structuredPrompt.constraints.map((c, i) => `${i + 1}. ${c}`).join('\n')}`,
-                structuredPrompt.examples?.length && `Examples:\n${structuredPrompt.examples.map((e, i) => `Example ${i + 1}:\nInput: ${e.input}\nOutput: ${e.output}`).join('\n\n')}`,
-              ].filter(Boolean).join('\n\n');
-
-              // This would need to be implemented properly
-              console.log('Would create prompt:', promptBody);
-            }}
-          />
+          
+          <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+              <input
+                type="text"
+                value={newPrompt.title}
+                onChange={(e) => setNewPrompt({ ...newPrompt, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="My Awesome Prompt"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={newPrompt.description}
+                onChange={(e) => setNewPrompt({ ...newPrompt, description: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                rows={2}
+                placeholder="What does this prompt do?"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Prompt Body * (use {'{{placeholder}}'} for variables)
+              </label>
+              <textarea
+                value={newPrompt.prompt_body}
+                onChange={(e) => setNewPrompt({ ...newPrompt, prompt_body: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                rows={10}
+                placeholder="Write a blog post about {{topic}} in a {{tone}} tone..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <input
+                  type="text"
+                  value={newPrompt.category}
+                  onChange={(e) => setNewPrompt({ ...newPrompt, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Writing, Coding, etc."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                <select
+                  value={newPrompt.visibility}
+                  onChange={(e) => setNewPrompt({ ...newPrompt, visibility: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="private">Private</option>
+                  <option value="team">Team</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <button
+                onClick={() => navigate('/prompts')}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !newPrompt.title || !newPrompt.prompt_body}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Create Prompt
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -236,26 +325,90 @@ export function PromptDetail() {
       <div className="max-w-7xl mx-auto p-6">
         {activeTab === 'edit' && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <PromptBuilder
-              initialPrompt={{
-                title: prompt.title || '',
-                role: prompt.role || '',
-                task: prompt.task || '',
-                context: prompt.context || '',
-                constraints: prompt.constraints || [],
-                examples: prompt.examples || [],
-              }}
-              onPromptExport={(structuredPrompt) => {
-                setPrompt({
-                  ...prompt,
-                  role: structuredPrompt.role,
-                  task: structuredPrompt.task,
-                  context: structuredPrompt.context,
-                  constraints: structuredPrompt.constraints,
-                  examples: structuredPrompt.examples,
-                });
-              }}
-            />
+            {/* Metadata Editor */}
+            <div className="mb-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={prompt.title}
+                  onChange={(e) => setPrompt({ ...prompt, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={prompt.description || ''}
+                  onChange={(e) => setPrompt({ ...prompt, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={prompt.category || ''}
+                    onChange={(e) => setPrompt({ ...prompt, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Writing, Coding, etc."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                  <select
+                    value={prompt.visibility}
+                    onChange={(e) => setPrompt({ ...prompt, visibility: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="private">Private</option>
+                    <option value="team">Team</option>
+                    <option value="public">Public</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Prompt Body Editor */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Prompt Body (use {'{{placeholder}}'} for variables)
+              </label>
+              <textarea
+                value={prompt.prompt_body}
+                onChange={(e) => setPrompt({ ...prompt, prompt_body: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                rows={10}
+                placeholder="Write your prompt here. Use {{variable_name}} for placeholders."
+              />
+            </div>
+
+            {/* Structured Prompt Builder (Optional) */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold mb-4">Structured Prompt Builder (Optional)</h3>
+              <PromptBuilder
+                initialPrompt={{
+                  title: prompt.title || '',
+                  role: prompt.role || '',
+                  task: prompt.task || '',
+                  context: prompt.context || '',
+                  constraints: prompt.constraints || [],
+                  examples: prompt.examples || [],
+                }}
+                onPromptExport={(structuredPrompt) => {
+                  setPrompt({
+                    ...prompt,
+                    role: structuredPrompt.role,
+                    task: structuredPrompt.task,
+                    context: structuredPrompt.context,
+                    constraints: structuredPrompt.constraints,
+                    examples: structuredPrompt.examples,
+                  });
+                }}
+              />
+            </div>
           </div>
         )}
 

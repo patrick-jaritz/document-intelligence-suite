@@ -41,11 +41,29 @@ export function PromptExecutor({ prompt }: PromptExecutorProps) {
     setResult(null);
 
     try {
-      // Get API keys from user input or environment
-      // In production, these should be stored securely per user
-      const openrouterApiKey = prompt('Enter your OpenRouter API key (or leave empty to use default):') || '';
-      const openaiApiKey = prompt('Enter your OpenAI API key (or leave empty):') || '';
-      const anthropicApiKey = prompt('Enter your Anthropic API key (or leave empty):') || '';
+      // Get API keys from localStorage or prompt user
+      // In production, these should be stored securely per user in settings
+      let openrouterApiKey = localStorage.getItem('openrouter_api_key') || '';
+      let openaiApiKey = localStorage.getItem('openai_api_key') || '';
+      let anthropicApiKey = localStorage.getItem('anthropic_api_key') || '';
+
+      // If not stored, prompt user (one-time setup)
+      if (!openrouterApiKey && modelProvider === 'openrouter') {
+        openrouterApiKey = prompt('Enter your OpenRouter API key:') || '';
+        if (openrouterApiKey) localStorage.setItem('openrouter_api_key', openrouterApiKey);
+      }
+      if (!openaiApiKey && modelProvider === 'openai') {
+        openaiApiKey = prompt('Enter your OpenAI API key:') || '';
+        if (openaiApiKey) localStorage.setItem('openai_api_key', openaiApiKey);
+      }
+      if (!anthropicApiKey && modelProvider === 'anthropic') {
+        anthropicApiKey = prompt('Enter your Anthropic API key:') || '';
+        if (anthropicApiKey) localStorage.setItem('anthropic_api_key', anthropicApiKey);
+      }
+
+      if (!openrouterApiKey && !openaiApiKey && !anthropicApiKey) {
+        throw new Error('API key is required for execution');
+      }
 
       const response = await executePrompt({
         prompt_id: prompt.id,
