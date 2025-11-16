@@ -225,7 +225,7 @@ create policy "comments_update"
 
 create policy "comments_delete"
   on public.comments
-  for update using (
+  for delete using (
     author_id = auth.uid()
     or exists (
       select 1
