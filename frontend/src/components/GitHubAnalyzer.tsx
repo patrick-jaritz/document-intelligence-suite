@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, GitCompare, BarChart3, Upload, Tag, Pin, Folder } from 'lucide-react';
+import { Github, Search, Loader2, AlertCircle, CheckCircle, ExternalLink, Star, GitFork, Users, Calendar, Shield, Code, BookOpen, Zap, TrendingUp, DollarSign, Handshake, Target, Lightbulb, Building2, Archive, Trash2, Download, GitCompare, BarChart3, Upload, Tag, Pin, Folder, MessageCircle } from 'lucide-react';
 import { supabaseUrl } from '../lib/supabase';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { RepoComparison } from './RepoComparison';
+import { CommentPanel } from './CommentPanel';
 import { validateGitHubUrl, sanitizeInput } from '../utils/validation';
 import type { RepositoryAnalysis } from '../types';
 
@@ -181,6 +182,9 @@ export function GitHubAnalyzer() {
     pinned: boolean;
   } | null>(null);
   const [metadataSaving, setMetadataSaving] = useState(false);
+  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  const [selectedRepositoryUrl, setSelectedRepositoryUrl] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   /**
    * Normalize GitHub repository URL to full format
@@ -1853,6 +1857,17 @@ export function GitHubAnalyzer() {
                                     <Pin className={`w-4 h-4 ${analysis.pinned ? 'text-blue-500 fill-blue-500' : 'text-gray-400'}`} />
                                   </button>
                                   <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRepositoryUrl(analysis.repository_url);
+                                      setCommentPanelOpen(true);
+                                    }}
+                                    className="p-1.5 rounded-full border border-transparent hover:border-purple-400 hover:bg-purple-50 transition-colors"
+                                    title="View and add comments"
+                                  >
+                                    <MessageCircle className="w-4 h-4 text-purple-600" />
+                                  </button>
+                                  <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteArchive(analysis, e); }}
                                     className="p-1.5 rounded-full border border-transparent text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
                                     title="Delete from archive"
@@ -2943,6 +2958,17 @@ export function GitHubAnalyzer() {
           }}
         />
       )}
+
+      {/* Comment Panel */}
+      <CommentPanel
+        repositoryUrl={selectedRepositoryUrl || ''}
+        isOpen={commentPanelOpen}
+        onClose={() => {
+          setCommentPanelOpen(false);
+          setSelectedRepositoryUrl(null);
+        }}
+        currentUserId={currentUserId || undefined}
+      />
     </div>
   );
 }
