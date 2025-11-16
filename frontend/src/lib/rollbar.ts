@@ -2,6 +2,11 @@ export function logError(_error: unknown, _meta?: Record<string, unknown>) {
   // No-op fallback for environments where Rollbar isn't configured (tests/local)
   // Production build can replace this with the real Rollbar integration.
 }
+
+export function logWarning(_message: string, _meta?: Record<string, unknown>) {
+  // No-op fallback for environments where Rollbar isn't configured (tests/local)
+  // Production build can replace this with the real Rollbar integration.
+}
 import Rollbar from 'rollbar';
 
 // Check if Rollbar is configured
