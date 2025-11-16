@@ -826,19 +826,34 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('GitHub analyzer error:', error);
     
-      // SECURITY: Don't expose stack traces in production
-      const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to analyze GitHub repository',
-          ...(isProduction ? {} : { 
-            details: error instanceof Error ? error.stack : String(error)
-          })
-        }),
-        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
-      );
+    // Determine appropriate status code based on error type
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let statusCode = 500;
+    
+    // User errors (4xx) - repository not found, access denied, invalid input
+    if (errorMessage.includes('not found') || errorMessage.includes('Repository not found')) {
+      statusCode = 404;
+    } else if (errorMessage.includes('Access denied') || errorMessage.includes('private')) {
+      statusCode = 403;
+    } else if (errorMessage.includes('Invalid') || errorMessage.includes('required') || errorMessage.includes('URL')) {
+      statusCode = 400;
+    } else if (errorMessage.includes('rate limit')) {
+      statusCode = 429;
+    }
+    
+    // SECURITY: Don't expose stack traces in production
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: errorMessage,
+        ...(isProduction ? {} : { 
+          details: error instanceof Error ? error.stack : String(error)
+        })
+      }),
+      { status: statusCode, headers: { ...headers, 'Content-Type': 'application/json' } }
+    );
     }
   } catch (outerError) {
     // Catch any errors that occur outside the inner try block
