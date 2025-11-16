@@ -53,11 +53,46 @@ export async function executePrompt(
       finalPrompt = finalPrompt.replace(new RegExp(placeholder, 'g'), String(value));
     }
 
-    // Call LLM API (this would integrate with your LLM provider)
-    // For now, we'll create a placeholder execution record
-    // TODO: Integrate with actual LLM API (OpenAI, Anthropic, etc.)
-    const response = 'LLM response placeholder - integrate with actual API';
-    const latency = Date.now() - startTime;
+    // Call LLM API via Supabase Edge Function
+    let response = '';
+    let tokensIn = 0;
+    let tokensOut = 0;
+    let latency = Date.now() - startTime;
+
+    try {
+      // Use the generate-structured-output function or create a new execute-prompt function
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const llmResponse = await fetch(`${supabaseUrl}/functions/v1/execute-prompt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          model: request.model || 'gpt-4o-mini',
+          temperature: request.temperature || 0.7,
+          system_message: request.system_message,
+        }),
+      });
+
+      if (llmResponse.ok) {
+        const llmData = await llmResponse.json();
+        response = llmData.response || '';
+        tokensIn = llmData.tokens_in || 0;
+        tokensOut = llmData.tokens_out || 0;
+      } else {
+        const errorData = await llmResponse.json().catch(() => ({ error: llmResponse.statusText }));
+        response = `Error: ${llmResponse.status} - ${errorData.error || 'Unknown error'}`;
+      }
+    } catch (error) {
+      console.error('LLM API error:', error);
+      response = `Error executing prompt: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+
+    latency = Date.now() - startTime;
 
     // Create execution record
     const { data, error } = await supabase

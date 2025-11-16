@@ -11,6 +11,7 @@ const Home = lazy(() => import('./pages/Home').then(module => ({ default: module
 const Admin = lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
 const Health = lazy(() => import('./pages/Health'));
 const PromptLibrary = lazy(() => import('./pages/PromptLibrary').then(module => ({ default: module.PromptLibrary })));
+const PromptEditor = lazy(() => import('./pages/PromptEditor').then(module => ({ default: module.PromptEditor })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -39,6 +40,7 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/health" element={<Health />} />
             <Route path="/prompts" element={<PromptLibrary />} />
+            <Route path="/prompts/edit" element={<PromptEditor />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
