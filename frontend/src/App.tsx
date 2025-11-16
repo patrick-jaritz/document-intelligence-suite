@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfigurationError } from './components/ConfigurationError';
+import { SkipLink } from './components/SkipLink';
 import { Loader2 } from 'lucide-react';
 import { isSupabaseConfigured } from './lib/supabase';
 
@@ -27,16 +28,20 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/health" element={<Health />} />
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </Suspense>
-    </ErrorBoundary>
+    <>
+      <SkipLink />
+      <div id="a11y-announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/health" element={<Health />} />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
+    </>
   );
 }
 
