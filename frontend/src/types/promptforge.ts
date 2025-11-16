@@ -256,3 +256,68 @@ export interface PackFormData {
   workspace_id?: string;
   prompt_ids: string[];
 }
+
+// ============================================================================
+// PROMPT APP TYPES
+// ============================================================================
+
+export interface PromptApp {
+  id: string;
+  prompt_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  is_active: boolean;
+  allow_anonymous: boolean;
+  require_auth: boolean;
+  max_executions_per_day: number;
+  max_executions_total: number | null;
+  created_at: string;
+  updated_at: string;
+  expires_at: string | null;
+}
+
+export interface AppExecution {
+  id: string;
+  app_id: string;
+  prompt_id: string;
+  user_id: string | null;
+  inputs: Record<string, any>;
+  output: string | null;
+  model: string | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  latency_ms: number | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface AppAnalytics {
+  app_id: string;
+  date: string;
+  views: number;
+  executions: number;
+  unique_users: number;
+}
+
+export interface AppFormData {
+  title: string;
+  description: string;
+  allow_anonymous: boolean;
+  require_auth: boolean;
+  max_executions_per_day: number;
+  max_executions_total: number | null;
+  expires_at: string | null;
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: 'text' | 'textarea' | 'number' | 'email' | 'url' | 'select' | 'checkbox';
+  placeholder?: string;
+  required: boolean;
+  options?: string[]; // For select type
+  default?: any;
+  description?: string;
+}

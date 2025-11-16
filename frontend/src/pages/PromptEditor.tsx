@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff, MessageSquare } from 'lucide-react';
+import { Save, ArrowLeft, History, Play, Sparkles, Tag as TagIcon, Eye, EyeOff, MessageSquare, Share2 } from 'lucide-react';
 import { PromptWithVersion, PromptFormData, VersionFormData } from '../types/promptforge';
 import { getPrompt, createPrompt, updatePrompt } from '../services/promptForgeService';
 import { createPromptVersion } from '../services/promptVersionService';
@@ -14,6 +14,7 @@ import { PromptBuilder } from '../components/PromptBuilder/PromptBuilder';
 import { ExecutionPanel } from '../components/PromptExecution/ExecutionPanel';
 import { ExecutionHistory } from '../components/PromptExecution/ExecutionHistory';
 import { AIChatPanel } from '../components/PromptBuilder/AIChatPanel';
+import { AppSharePanel } from '../components/PromptBuilder/AppSharePanel';
 import { StructuredPrompt } from '../types/prompt';
 import { structuredPromptToFormData } from '../services/promptForgeService';
 
@@ -29,6 +30,7 @@ export function PromptEditor() {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showExecution, setShowExecution] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showAppShare, setShowAppShare] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<StructuredPrompt | null>(null);
   const [formData, setFormData] = useState<PromptFormData>({
     title: '',
@@ -256,6 +258,17 @@ export function PromptEditor() {
                     AI Assistant
                   </button>
                   <button
+                    onClick={() => setShowAppShare(!showAppShare)}
+                    className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+                      showAppShare
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Share2 className="w-5 h-5" />
+                    Share
+                  </button>
+                  <button
                     onClick={() => setShowExecution(!showExecution)}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                   >
@@ -293,9 +306,9 @@ export function PromptEditor() {
         </div>
 
         {/* Main Content */}
-        <div className={`grid grid-cols-1 gap-6 ${showVersionHistory || showExecution ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
+        <div className={`grid grid-cols-1 gap-6 ${showVersionHistory || showExecution || showAppShare ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
           {/* Left: Prompt Builder */}
-          <div className={showVersionHistory || showExecution ? 'lg:col-span-2' : 'lg:col-span-1'}>
+          <div className={showVersionHistory || showExecution || showAppShare ? 'lg:col-span-2' : 'lg:col-span-1'}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               {/* Metadata Editor */}
               <div className="mb-6 space-y-4">
@@ -384,7 +397,7 @@ export function PromptEditor() {
           </div>
 
           {/* Right Sidebar */}
-          {(showVersionHistory || showExecution) && promptId && prompt && (
+          {(showVersionHistory || showExecution || showAppShare) && promptId && prompt && (
             <div className="lg:col-span-1 space-y-6">
               {showExecution && (
                 <div className="sticky top-6">
@@ -414,6 +427,11 @@ export function PromptEditor() {
                       console.log('Selected execution:', execution);
                     }}
                   />
+                </div>
+              )}
+              {showAppShare && promptId && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <AppSharePanel promptId={promptId} />
                 </div>
               )}
             </div>
