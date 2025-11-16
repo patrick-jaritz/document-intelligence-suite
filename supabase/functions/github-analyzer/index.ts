@@ -809,15 +809,46 @@ Deno.serve(async (req: Request) => {
       console.log('Warning: Database storage failed:', dbError);
     }
 
+    // Detect duplicates in repository files
+    const { detectDuplicates, markDuplicates } = await import('./duplicateDetector.ts');
+    const fileInfos = repoData.contents.map((item: any) => ({
+      name: item.name,
+      path: item.path || item.name,
+      type: item.type,
+      size: item.size,
+      sha: item.sha
+    }));
+    
+    const duplicateGroups = detectDuplicates(fileInfos);
+    const filesWithDuplicates = markDuplicates(fileInfos, duplicateGroups);
+    
+    // Convert duplicate groups to array for JSON serialization
+    const duplicateGroupsArray = Array.from(duplicateGroups.entries()).map(([key, group]) => ({
+      key,
+      files: group.files.map(f => ({ name: f.name, path: f.path })),
+      similarity: group.similarity,
+      reason: group.reason
+    }));
+
     return new Response(
       JSON.stringify({
         success: true,
         repository: `https://github.com/${owner}/${repo}`,
         analysis,
+        duplicates: {
+          groups: duplicateGroupsArray,
+          files: filesWithDuplicates.filter(f => f.isDuplicate).map(f => ({
+            path: f.path,
+            name: f.name,
+            reason: f.duplicateReason,
+            group: f.duplicateGroup
+          }))
+        },
         metadata: {
           analyzedAt: new Date().toISOString(),
           dataSources: ['GitHub API', 'LLM Analysis'],
-          confidence: analysis.analysisMetadata?.confidence || 0.8
+          confidence: analysis.analysisMetadata?.confidence || 0.8,
+          duplicateCount: duplicateGroupsArray.length
         }
       }),
         { headers: { ...headers, 'Content-Type': 'application/json' } }

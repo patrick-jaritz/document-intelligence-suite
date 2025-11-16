@@ -128,6 +128,21 @@ export function PromptLibrary() {
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
+          <InfoPanel title="Welcome to PromptForge" defaultOpen={true} className="mb-6">
+            <p>
+              PromptForge helps you create, manage, and share AI prompts. Start by creating a new prompt or explore suggestions based on your uploaded documents.
+            </p>
+            <p className="mt-2">
+              <strong>Quick Tips:</strong>
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm mt-1">
+              <li>Use the search bar to find prompts by title or content</li>
+              <li>Filter by tags and categories to organize your prompts</li>
+              <li>Click on a prompt to edit and refine it</li>
+              <li>Use "Execute" to test prompts with real LLM models</li>
+              <li>Share prompts as public web apps for others to use</li>
+            </ul>
+          </InfoPanel>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
