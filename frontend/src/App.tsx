@@ -17,6 +17,7 @@ const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ defau
 const Packs = lazy(() => import('./pages/Packs').then(module => ({ default: module.Packs })));
 const PackEditor = lazy(() => import('./pages/PackEditor').then(module => ({ default: module.PackEditor })));
 const PromptApp = lazy(() => import('./pages/PromptApp').then(module => ({ default: module.PromptApp })));
+const HeadlessX = lazy(() => import('./pages/HeadlessX').then(module => ({ default: module.HeadlessXPage })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -51,6 +52,7 @@ function App() {
             <Route path="/packs" element={<Packs />} />
             <Route path="/packs/edit" element={<PackEditor />} />
             <Route path="/app/:slug" element={<PromptApp />} />
+            <Route path="/scraper" element={<HeadlessX />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
