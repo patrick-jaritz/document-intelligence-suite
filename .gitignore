@@ -9,6 +9,7 @@ build/
 out/
 
 # Environment variables
+/.deployment-logs/
 .env
 .env.local
 .env.*.local
