@@ -854,16 +854,38 @@ serve(async (req) => {
     const answer = await generateAnswer(question, context, provider, model, apiKeys);
     console.log('✅ Generated answer');
 
-    // Step 5: Prepare sources
-    const sources = matches.map((match: any) => {
+    // Step 5: Prepare sources with enhanced citation metadata (Phase 3: Grounded Citations)
+    const sources = matches.map((match: any, index: number) => {
       const chunkText = match.chunk_text || '';
       const decodedText = decodeIfBase64(chunkText);
+      
+      // Extract enhanced metadata for grounded citations
+      const metadata = match.metadata || {};
+      const chunkOffset = metadata.offset || (match.chunk_index * 1000); // Approximate if not available
+      const chunkLength = decodedText.length;
       
       return {
         text: decodedText,
         score: typeof match.similarity === 'number' && !isNaN(match.similarity) ? match.similarity : 0,
         chunkIndex: match.chunk_index,
-        filename: match.filename
+        filename: match.filename,
+        // Enhanced citation metadata
+        metadata: {
+          ...metadata,
+          documentId: match.document_id,
+          chunkOffset: chunkOffset,
+          chunkLength: chunkLength,
+          chunkEndOffset: chunkOffset + chunkLength,
+          retrievalRank: index + 1,
+          retrievalMethod: metadata.chunkingStrategy || 'fixed',
+          sectionTitle: metadata.sectionTitle,
+          semanticBoundary: metadata.semanticBoundary,
+          hasCodeBlock: metadata.hasCodeBlock,
+          hasTable: metadata.hasTable,
+          // Citation verification data
+          citationId: `${match.document_id}-${match.chunk_index}`,
+          citationTimestamp: new Date().toISOString()
+        }
       };
     });
 
