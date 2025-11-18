@@ -3,10 +3,30 @@
  * Tests all performance improvements
  */
 
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const distPath = join(process.cwd(), 'dist');
+// Support either repo-root `dist` or `frontend/dist` depending on where
+// the script is executed. Prefer repo-root if present, otherwise use
+// the frontend build output.
+const candidatePaths = [
+  join(process.cwd(), 'dist'),
+  join(process.cwd(), 'frontend', 'dist')
+];
+
+let distPath = null;
+for (const p of candidatePaths) {
+  if (existsSync(p)) {
+    distPath = p;
+    break;
+  }
+}
+
+if (!distPath) {
+  console.error('No `dist` directory found. Expected either `./dist` or `./frontend/dist`.');
+  process.exit(1);
+}
+
 const assetsPath = join(distPath, 'assets');
 
 console.log('🧪 Production Testing Suite\n');

@@ -143,7 +143,8 @@ run_tests() {
 
     # Frontend tests
     log "Running frontend tests..."
-    if npm test --silent 2>/dev/null | grep -q "passed"; then
+    # Use CI mode to ensure tests run once and produce a "passed" summary
+    if npm run test:run --prefix frontend --silent 2>&1 | grep -q "passed"; then
         success "Frontend tests passed"
     else
         error "Frontend tests failed"
@@ -168,7 +169,7 @@ validate_migrations() {
         success "Migration file found"
         
         # Validate SQL syntax (basic check)
-        if grep -q "CREATE TABLE external_account_integrations" "supabase/migrations/20251117000000_create_external_integrations.sql"; then
+        if grep -Eqi "CREATE TABLE.*external_account_integrations" "supabase/migrations/20251117000000_create_external_integrations.sql"; then
             success "Migration contains required table"
         else
             error "Migration missing required table definition"
