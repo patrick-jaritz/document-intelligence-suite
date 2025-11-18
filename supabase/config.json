@@ -1,0 +1,6 @@
+{
+  "projectId": "your-supabase-project-id",
+  "apiUrl": "your-supabase-api-url",
+  "anonKey": "your-supabase-anon-key",
+  "serviceRoleKey": "your-supabase-service-role-key"
+}

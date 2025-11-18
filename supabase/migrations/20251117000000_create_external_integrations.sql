@@ -16,3 +16,11 @@ create table if not exists external_account_integrations (
 );
 
 create index if not exists idx_external_account_user_provider on external_account_integrations (user_id, provider);
+
+-- Enable Row Level Security
+alter table external_account_integrations enable row level security;
+
+-- Policy: Allow users to access only their own records
+create policy "Users can access their own external integrations" on external_account_integrations
+  for all
+  using (auth.uid() = user_id);
