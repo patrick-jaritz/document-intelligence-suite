@@ -2,51 +2,25 @@
  * Supabase Edge Function: Generate Embeddings
  * 
  * Generates vector embeddings for document chunks and stores them in pgvector
+ * Now with enhanced chunking strategies (semantic, section-aware, hybrid)
  * 
- * Input: { text: string, documentId?: string, filename: string, provider?: string }
- * Output: { success: boolean, chunkCount: number, documentId: string }
+ * Input: { 
+ *   text: string, 
+ *   documentId?: string, 
+ *   filename: string, 
+ *   provider?: string,
+ *   chunkingStrategy?: 'fixed' | 'semantic' | 'section' | 'hybrid',
+ *   chunkSize?: number,
+ *   chunkOverlap?: number
+ * }
+ * Output: { success: boolean, chunkCount: number, documentId: string, chunkingStats?: any }
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
-
-// =============================================================================
-// Text Chunking Utility
-// =============================================================================
-
-interface Chunk {
-  text: string;
-  index: number;
-  offset: number;
-}
-
-function chunkText(
-  text: string,
-  chunkSize: number = 1000,
-  chunkOverlap: number = 200
-): Chunk[] {
-  const chunks: Chunk[] = [];
-  let index = 0;
-  let offset = 0;
-
-  while (offset < text.length) {
-    const end = Math.min(offset + chunkSize, text.length);
-    const chunkText = text.slice(offset, end);
-    
-    chunks.push({
-      text: chunkText,
-      index,
-      offset
-    });
-    
-    index++;
-    offset += chunkSize - chunkOverlap;
-  }
-
-  return chunks;
-}
+import { chunkText, getChunkingStats } from '../_shared/enhanced-chunking.ts';
 
 // =============================================================================
 // Embedding Generation
@@ -181,8 +155,25 @@ serve(async (req) => {
   try {
     // Parse request
     console.log('📋 Parsing request body...');
-    const { text, documentId, filename, sourceUrl, provider = 'openai' } = JSON.parse(requestText);
-    console.log('📋 Request parsed:', { documentId, filename, provider, textLength: text?.length });
+    const { 
+      text, 
+      documentId, 
+      filename, 
+      sourceUrl, 
+      provider = 'openai',
+      chunkingStrategy = 'hybrid',
+      chunkSize = 1000,
+      chunkOverlap = 200
+    } = JSON.parse(requestText);
+    console.log('📋 Request parsed:', { 
+      documentId, 
+      filename, 
+      provider, 
+      textLength: text?.length,
+      chunkingStrategy,
+      chunkSize,
+      chunkOverlap
+    });
 
     // SECURITY: Validate input
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
@@ -214,17 +205,28 @@ serve(async (req) => {
       ANTHROPIC_API_KEY: Deno.env.get('ANTHROPIC_API_KEY') || ''
     };
 
-    console.log(`Generating embeddings for ${filename} using ${provider}`);
-    console.log(`Text length: ${text.length} characters`);
+    console.log(`🚀 Generating embeddings for ${filename} using ${provider}`);
+    console.log(`📊 Text length: ${text.length} characters`);
+    console.log(`🔪 Chunking strategy: ${chunkingStrategy}`);
     console.log(`API Keys available:`, {
       openai: apiKeys.OPENAI_API_KEY ? 'present' : 'missing',
       mistral: apiKeys.MISTRAL_API_KEY ? 'present' : 'missing',
       anthropic: apiKeys.ANTHROPIC_API_KEY ? 'present' : 'missing'
     });
 
-    // Chunk the text
-    const chunks = chunkText(text, 1000, 200);
-    console.log(`Created ${chunks.length} chunks`);
+    // Chunk the text using enhanced chunking strategies
+    const chunks = chunkText(text, {
+      strategy: chunkingStrategy as any,
+      chunkSize,
+      chunkOverlap,
+      respectParagraphs: true,
+      respectSections: true,
+      preserveCodeBlocks: true,
+      preserveTables: true
+    });
+    
+    const stats = getChunkingStats(chunks);
+    console.log(`✅ Created ${chunks.length} chunks using ${chunkingStrategy} strategy:`, stats);
     
     if (chunks.length === 0) {
       throw new Error('No chunks created from text');
@@ -324,7 +326,13 @@ serve(async (req) => {
       metadata: {
         offset: chunk.offset,
         length: chunk.text.length,
-        provider: provider
+        provider: provider,
+        chunkingStrategy: chunk.metadata?.strategy || chunkingStrategy,
+        sectionTitle: chunk.metadata?.sectionTitle,
+        semanticBoundary: chunk.metadata?.semanticBoundary,
+        hasCodeBlock: chunk.metadata?.hasCodeBlock,
+        hasTable: chunk.metadata?.hasTable,
+        structureDepth: chunk.metadata?.structureDepth
       }
     }));
 
@@ -363,7 +371,9 @@ serve(async (req) => {
         chunkCount: chunks.length,
         documentId: documentId || 'no-id',
         filename,
-        provider
+        provider,
+        chunkingStrategy,
+        chunkingStats: stats
       }),
       {
         headers: { ...headers, 'Content-Type': 'application/json' }

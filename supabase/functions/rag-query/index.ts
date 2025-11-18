@@ -1,10 +1,18 @@
 /**
- * Supabase Edge Function: RAG Query with pgvector
+ * Supabase Edge Function: RAG Query with pgvector and Hybrid Search
  * 
- * Performs RAG query: generates question embedding, retrieves similar chunks from Supabase pgvector, generates answer
+ * Performs RAG query with hybrid search support (vector + keyword + fusion re-ranking)
  * 
- * Input: { question: string, documentId?: string, filename?: string, model?: string, provider?: string }
- * Output: { answer: string, sources: Array<{text, score}>, model: string }
+ * Input: { 
+ *   question: string, 
+ *   documentId?: string, 
+ *   filename?: string, 
+ *   model?: string, 
+ *   provider?: string,
+ *   searchStrategy?: 'vector' | 'keyword' | 'hybrid',
+ *   fusionAlpha?: number
+ * }
+ * Output: { answer: string, sources: Array<{text, score}>, model: string, searchStrategy?: string }
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -13,6 +21,13 @@ import { getCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { getSecurityHeaders, mergeSecurityHeaders } from '../_shared/security-headers.ts';
 import { validateRequestId, validateRequestHeaders, detectSuspiciousPattern } from '../_shared/request-validation.ts';
 import { logSecurityEvent, getClientIP, getUserAgent } from '../_shared/security-events.ts';
+import { 
+  performHybridSearch, 
+  selectSearchStrategy, 
+  getSearchStats,
+  type SearchStrategy,
+  type SearchResult 
+} from '../_shared/hybrid-search.ts';
 
 // =============================================================================
 // Embedding Generation
@@ -140,7 +155,10 @@ async function querySupabase(
   embedding: number[],
   filename?: string,
   documentId?: string,
-  topK: number = 5
+  topK: number = 5,
+  query: string = '',
+  searchStrategy: SearchStrategy = 'vector',
+  fusionAlpha: number = 0.5
 ): Promise<any[]> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -151,7 +169,7 @@ async function querySupabase(
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    console.log('🗄️ Querying Supabase pgvector:', {
+    console.log('🗄️ Querying Supabase with hybrid search:', {
       topK,
       filename: filename || 'all',
       embeddingLength: embedding.length,
@@ -322,104 +340,53 @@ async function querySupabase(
       }
     }
 
-    // Calculate similarities for the filtered results
-    console.log('🔍 Calculating similarities:', {
+    // Apply hybrid search to calculate relevance scores
+    console.log('🔍 Applying hybrid search:', {
       filteredChunksCount: filteredChunks.length,
-      embeddingLength: embedding.length,
+      searchStrategy,
+      fusionAlpha,
       topK
     });
     
-    const matches = filteredChunks.map((chunk: any) => {
-      const chunkEmbedding = chunk.embedding;
-      
-      console.log('🔍 Chunk embedding analysis:', {
-        chunkId: chunk.id,
-        chunkDocumentId: chunk.document_id,
-        requestedDocumentId: documentId,
-        matchesDocument: documentId ? chunk.document_id === documentId : 'N/A',
-        hasEmbedding: !!chunkEmbedding,
-        embeddingType: typeof chunkEmbedding,
-        isArray: Array.isArray(chunkEmbedding),
-        embeddingLength: chunkEmbedding?.length,
-        embeddingPreview: JSON.stringify(chunkEmbedding).substring(0, 200) + '...',
-        chunkTextPreview: chunk.chunk_text?.substring(0, 100) + '...'
-      });
-      
-      if (!chunkEmbedding) {
-        console.log('⚠️ Chunk has no embedding');
-        return null;
-      }
-      
-      // Try to parse embedding if it's a string
-      let parsedEmbedding = chunkEmbedding;
-      if (typeof chunkEmbedding === 'string') {
-        try {
-          parsedEmbedding = JSON.parse(chunkEmbedding);
-          console.log('✅ Successfully parsed string embedding');
-        } catch (e) {
-          console.log('❌ Failed to parse string embedding:', e.message);
-          return null;
-        }
-      }
-      
-      if (!Array.isArray(parsedEmbedding)) {
-        console.log('⚠️ Chunk embedding is not an array after parsing');
-        return null;
-      }
-      
-      // Calculate cosine similarity
-      let similarity = calculateCosineSimilarity(embedding, parsedEmbedding);
-      
-      // Ensure similarity is a valid number (not NaN or undefined)
-      if (typeof similarity !== 'number' || isNaN(similarity)) {
-        console.warn('⚠️ Invalid similarity value, defaulting to 0:', similarity);
-        similarity = 0;
-      }
-      
-      console.log('🔍 Similarity calculation:', {
-        chunkId: chunk.id,
-        similarity: similarity,
-        queryEmbeddingLength: embedding.length,
-        chunkEmbeddingLength: parsedEmbedding.length,
-        chunkTextPreview: chunk.chunk_text?.substring(0, 100) + '...'
-      });
-      
-      return {
-        id: chunk.id,
-        chunk_text: chunk.chunk_text,
-        chunk_index: chunk.chunk_index,
-        filename: chunk.filename,
-        document_id: chunk.document_id,
-        similarity: similarity,
-        metadata: chunk.metadata
-      };
-    }).filter(Boolean).sort((a: any, b: any) => b.similarity - a.similarity).slice(0, topK);
-
-    // Apply no similarity threshold to see all results
-    const filteredMatches = matches;
+    // Use hybrid search module to score and rank chunks
+    const searchResults: SearchResult[] = performHybridSearch(filteredChunks, {
+      query,
+      vectorEmbedding: embedding,
+      useVectorSearch: searchStrategy !== 'keyword',
+      useKeywordSearch: searchStrategy !== 'vector',
+      fusionAlpha,
+      topK,
+      minSimilarity: 0.0
+    });
     
-    console.log('🔍 Similarity filtering:', {
+    // Get search statistics
+    const searchStats = getSearchStats(searchResults);
+    console.log('✅ Hybrid search complete:', searchStats);
+    
+    // Convert SearchResult back to match format
+    const matches = searchResults.map((result) => ({
+      id: result.id,
+      chunk_text: result.chunk_text,
+      chunk_index: result.chunk_index,
+      filename: result.filename,
+      document_id: result.document_id,
+      similarity: result.similarity || result.fusionScore || result.bm25Score || 0,
+      bm25Score: result.bm25Score,
+      fusionScore: result.fusionScore,
+      metadata: result.metadata
+    }));
+
+    console.log('🔍 Search results:', {
       totalMatches: matches.length,
-      filteredMatches: filteredMatches.length,
-      similarities: matches.map((m: any) => m.similarity),
-      threshold: 'none'
+      searchStrategy,
+      topScores: matches.slice(0, 3).map(m => ({
+        similarity: m.similarity,
+        bm25Score: m.bm25Score,
+        fusionScore: m.fusionScore
+      }))
     });
 
-    console.log('✅ Supabase query successful:', {
-      matches: matches?.length || 0,
-      filteredMatches: filteredMatches?.length || 0,
-      withFilenameFilter: !!filename,
-      withDocumentIdFilter: !!documentId,
-      filters: { filename, documentId },
-      firstMatch: filteredMatches?.[0] ? {
-        filename: filteredMatches[0].filename,
-        document_id: filteredMatches[0].document_id,
-        similarity: filteredMatches[0].similarity,
-        textPreview: filteredMatches[0].chunk_text?.substring(0, 100) + '...'
-      } : null
-    });
-
-    return filteredMatches || [];
+    return matches || [];
 
   } catch (error) {
     console.error('❌ Supabase query error:', error);
@@ -685,7 +652,9 @@ serve(async (req) => {
       filename,
       model = 'gpt-4o-mini',
       provider = 'openai',
-      topK = 5
+      topK = 5,
+      searchStrategy,
+      fusionAlpha = 0.5
     } = JSON.parse(requestText);
 
     // SECURITY: Validate input
@@ -704,6 +673,9 @@ serve(async (req) => {
       );
     }
 
+    // Determine search strategy (auto-select if not provided)
+    const effectiveSearchStrategy: SearchStrategy = searchStrategy || selectSearchStrategy(question);
+    console.log('🔍 Search strategy:', effectiveSearchStrategy, searchStrategy ? '(manual)' : '(auto-selected)');
 
     // Get API keys from environment
     const apiKeys = {
@@ -716,6 +688,7 @@ serve(async (req) => {
 
     console.log(`🔍 RAG query: "${question}" (${provider}/${model})`);
     console.log('📋 Filters:', { filename, documentId, topK });
+    console.log('🔍 Search config:', { strategy: effectiveSearchStrategy, fusionAlpha });
     console.log('🔑 API Keys status:', {
       openai: apiKeys.OPENAI_API_KEY ? 'present' : 'missing',
       mistral: apiKeys.MISTRAL_API_KEY ? 'present' : 'missing',
@@ -723,14 +696,17 @@ serve(async (req) => {
       kimi: apiKeys.KIMI_API_KEY ? 'present' : 'missing'
     });
 
-    // Step 1: Generate question embedding
-    console.log('🧠 Generating question embedding...');
-    const questionEmbedding = await generateQueryEmbedding(question, provider, apiKeys);
-    console.log('✅ Generated question embedding, length:', questionEmbedding.length);
+    // Step 1: Generate question embedding (always needed for vector/hybrid search)
+    let questionEmbedding: number[] = [];
+    if (effectiveSearchStrategy === 'vector' || effectiveSearchStrategy === 'hybrid') {
+      console.log('🧠 Generating question embedding...');
+      questionEmbedding = await generateQueryEmbedding(question, provider, apiKeys);
+      console.log('✅ Generated question embedding, length:', questionEmbedding.length);
+    }
 
-    // Step 2: Query Supabase for similar chunks
-    console.log('🗄️ Querying Supabase pgvector...');
-    let matches = await querySupabase(questionEmbedding, filename, documentId, topK);
+    // Step 2: Query Supabase for chunks and apply hybrid search
+    console.log('🗄️ Querying Supabase with hybrid search...');
+    let matches = await querySupabase(questionEmbedding, filename, documentId, topK, question, effectiveSearchStrategy, fusionAlpha);
     
     console.log('✅ Supabase search completed, found chunks:', matches.length);
     
@@ -854,16 +830,38 @@ serve(async (req) => {
     const answer = await generateAnswer(question, context, provider, model, apiKeys);
     console.log('✅ Generated answer');
 
-    // Step 5: Prepare sources
-    const sources = matches.map((match: any) => {
+    // Step 5: Prepare sources with enhanced citation metadata (Phase 3: Grounded Citations)
+    const sources = matches.map((match: any, index: number) => {
       const chunkText = match.chunk_text || '';
       const decodedText = decodeIfBase64(chunkText);
+      
+      // Extract enhanced metadata for grounded citations
+      const metadata = match.metadata || {};
+      const chunkOffset = metadata.offset || (match.chunk_index * 1000); // Approximate if not available
+      const chunkLength = decodedText.length;
       
       return {
         text: decodedText,
         score: typeof match.similarity === 'number' && !isNaN(match.similarity) ? match.similarity : 0,
         chunkIndex: match.chunk_index,
-        filename: match.filename
+        filename: match.filename,
+        // Enhanced citation metadata
+        metadata: {
+          ...metadata,
+          documentId: match.document_id,
+          chunkOffset: chunkOffset,
+          chunkLength: chunkLength,
+          chunkEndOffset: chunkOffset + chunkLength,
+          retrievalRank: index + 1,
+          retrievalMethod: metadata.chunkingStrategy || 'fixed',
+          sectionTitle: metadata.sectionTitle,
+          semanticBoundary: metadata.semanticBoundary,
+          hasCodeBlock: metadata.hasCodeBlock,
+          hasTable: metadata.hasTable,
+          // Citation verification data
+          citationId: `${match.document_id}-${match.chunk_index}`,
+          citationTimestamp: new Date().toISOString()
+        }
       };
     });
 
@@ -922,6 +920,7 @@ serve(async (req) => {
         model,
         provider,
         retrievedChunks: matches.length,
+        searchStrategy: effectiveSearchStrategy,
         warning: warning || diagnosticWarning || undefined,
         ...(isProduction ? {} : { debug: debugInfo })
       }),
