@@ -13,12 +13,10 @@
 
 import { supabase } from '../lib/supabase';
 import {
-  generateSnippet,
   generateContextualSnippet,
   extractSearchTerms,
   calculateSearchMetrics,
   validateSearchQuery,
-  parseSearchQuery,
   type SearchMetrics
 } from '../utils/searchUtils';
 
@@ -81,7 +79,6 @@ export async function performUnifiedSearch(
 
   const sanitizedQuery = validation.sanitized!;
   const searchTerms = extractSearchTerms(sanitizedQuery);
-  const parsed = parseSearchQuery(sanitizedQuery);
 
   let results: UnifiedSearchResult[] = [];
 
@@ -309,12 +306,10 @@ async function searchPacks(
  * Get search suggestions based on recent searches and popular queries
  * 
  * @param partialQuery - Partial query to get suggestions for
- * @param userId - Optional user ID to personalize suggestions
  * @returns Array of suggested queries
  */
 export async function getSearchSuggestions(
-  partialQuery: string,
-  userId?: string
+  partialQuery: string
 ): Promise<string[]> {
   if (!partialQuery || partialQuery.length < 2) {
     return [];
