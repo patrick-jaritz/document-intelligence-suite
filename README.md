@@ -16,6 +16,7 @@ A comprehensive platform for analyzing GitHub repositories with AI-powered insig
 
 - **🤖 AI-Powered Analysis** - Multi-LLM repository analysis (GPT-4, Claude, Gemini, Mistral)
 - **🔒 Security Scanning** - Vulnerability detection and dependency analysis
+- **🕸️ Web Scraping** - Advanced HeadlessX integration for web content extraction
 - **📊 Advanced Analytics** - Statistics dashboard and trend analysis
 - **🔗 Webhooks** - Automated triggers and integrations
 - **🤝 Team Collaboration** - Shareable analysis links
@@ -46,6 +47,8 @@ npm run dev
 - **[PROJECT_COMPLETE.md](PROJECT_COMPLETE.md)** - Complete overview
 - **[CURRENT_STATUS.md](CURRENT_STATUS.md)** - Current status
 - **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** - Roadmap
+- **[HeadlessX Integration](docs/HEADLESSX_INTEGRATION.md)** - Web scraping integration guide
+- **[HeadlessX Quick Start](docs/HEADLESSX_QUICK_START.md)** - Setup instructions
 
 ---
 
