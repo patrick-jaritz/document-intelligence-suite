@@ -1,8 +1,8 @@
 # RAGFlow Implementation Progress
 
-**Status**: Phase 1, 2 & 3 Complete ✅  
+**Status**: All 4 Phases Complete! ✅  
 **Date**: 2025-11-18  
-**Implementation**: Enhanced Chunking, Hybrid Search & Grounded Citations
+**Implementation**: Enhanced Chunking, Hybrid Search, Grounded Citations & Workflow Templates
 
 ---
 
@@ -288,6 +288,129 @@ const stats = getSearchStats(results);
 
 ---
 
+### Phase 4: Workflow Templates
+
+**Modules**: `supabase/functions/_shared/workflow-templates.ts`, `supabase/functions/execute-workflow/`
+
+#### Features Implemented
+
+1. **Workflow Template Schema**
+   - Structured workflow definitions with steps
+   - Support for multiple step types (rag_query, compare, summarize, filter, aggregate, conditional)
+   - Input/output specifications
+   - Conditional logic and branching
+   - Step chaining and sequencing
+
+2. **Workflow Execution Engine**
+   - Variable resolution with template syntax (`${input.name}`, `${results.stepId.field}`)
+   - Dot notation path traversal
+   - Array indexing support
+   - Condition evaluation
+   - Execution logging and tracking
+   - Error handling and failure paths
+
+3. **Pre-defined Workflow Templates**
+   - **Simple Q&A**: Single RAG query workflow
+   - **Document Comparison**: Compare information across multiple documents
+   - **Progressive Refinement**: Iterative querying with different strategies
+   - **Extract & Summarize**: Extract and summarize relevant information
+
+4. **Workflow Execution API**
+   - `GET /execute-workflow`: List available workflow templates
+   - `POST /execute-workflow`: Execute a workflow with inputs
+   - Integration with rag-query function
+   - Execution statistics and logging
+   - Error handling and recovery
+
+#### API Usage
+
+**List Available Workflows**:
+```bash
+GET /functions/v1/execute-workflow
+```
+
+Response:
+```json
+{
+  "workflows": [{
+    "id": "simple-qa",
+    "name": "Simple Q&A",
+    "description": "Answer a question using RAG retrieval",
+    "category": "qa",
+    "inputs": [...],
+    "outputs": [...]
+  }]
+}
+```
+
+**Execute a Workflow**:
+```bash
+POST /functions/v1/execute-workflow
+{
+  "workflowId": "doc-comparison",
+  "inputs": {
+    "question": "Compare the pricing models",
+    "documentIds": ["doc1-uuid", "doc2-uuid"]
+  }
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "workflowId": "doc-comparison",
+  "workflowName": "Document Comparison",
+  "outputs": {
+    "comparison": "...",
+    "sourcesByDocument": {...}
+  },
+  "executionLog": ["Starting workflow...", "✅ Completed..."],
+  "stats": {
+    "stepsExecuted": 3,
+    "executionTime": 2847,
+    "success": true
+  }
+}
+```
+
+#### Workflow Templates
+
+**1. Simple Q&A Workflow**
+- Single RAG query with hybrid search
+- Best for straightforward question answering
+- Inputs: question, documentId (optional)
+- Outputs: answer, sources
+
+**2. Document Comparison Workflow**
+- Queries multiple documents in parallel
+- Compares and synthesizes findings
+- Inputs: question, documentIds (array)
+- Outputs: comparison, sourcesByDocument
+
+**3. Progressive Refinement Workflow**
+- Iterative querying with different search strategies
+- Starts broad (vector), then specific (keyword)
+- Synthesizes results for comprehensive answer
+- Inputs: question, documentId
+- Outputs: finalAnswer, allSources
+
+**4. Extract & Summarize Workflow**
+- Extracts relevant information about a topic
+- Generates summary with key points
+- Inputs: topic, documentId
+- Outputs: summary, keyPoints
+
+#### Benefits
+
+✅ **Multi-step Reasoning**: Enable complex document analysis tasks  
+✅ **Flexible Orchestration**: Chain RAG queries and processing steps  
+✅ **Serverless Architecture**: Runs in Edge Functions, no infrastructure needed  
+✅ **Extensible**: Easy to add new workflow templates  
+✅ **Traceable**: Complete execution logs for debugging  
+
+---
+
 ## 📊 Integration Status
 
 ### ✅ Integrated
@@ -296,29 +419,33 @@ const stats = getSearchStats(results);
 - [x] Chunking metadata stored in database
 - [x] Chunking statistics returned to clients
 - [x] Multiple chunking strategies available
-- [x] **Grounded citations in `rag-query` function** ✨ NEW
-- [x] **Citation metadata in source responses** ✨ NEW
-- [x] **Enhanced citation display in `SourceViewer`** ✨ NEW
+- [x] **Grounded citations in `rag-query` function** ✨
+- [x] **Citation metadata in source responses** ✨
+- [x] **Enhanced citation display in `SourceViewer`** ✨
+- [x] **Hybrid search integrated into `rag-query` function** ✅ NEW
+- [x] **Workflow templates module created** ✅ NEW
+- [x] **Workflow execution Edge Function deployed** ✅ NEW
+- [x] **4 pre-defined workflow templates available** ✅ NEW
 
-### 🔄 Ready for Integration (Safe to Defer)
+### 🎨 Optional UI Enhancements (Future)
 
-- [ ] Hybrid search in `rag-query` function
-  - **Module ready**: `hybrid-search.ts` is complete and tested
-  - **Integration point**: Replace similarity calculation in `rag-query`
-  - **Reason for deferral**: Existing `rag-query` is complex; integration needs careful testing
-  - **Recommendation**: Test hybrid-search module separately before integrating
+- [ ] Workflow selector UI component (frontend)
+- [ ] Visual workflow builder (complex, future consideration)
+- [ ] Workflow execution history viewer
+- [ ] Workflow template editor
 
-### 📝 Integration Guide (For Future Work)
+### 📝 Hybrid Search Integration - COMPLETED!
 
-To integrate hybrid search into `rag-query`:
+The hybrid search module is now fully integrated into `rag-query`:
 
-1. Import the hybrid search module
-2. Get all chunks from database (not just top-K)
-3. Call `performHybridSearch` instead of manual similarity calculation
-4. Add search strategy options to request params
-5. Return search statistics in response
+✅ Import hybrid search module  
+✅ Add search strategy parameters to API  
+✅ Replace similarity calculation with `performHybridSearch`  
+✅ Support vector, keyword, and hybrid strategies  
+✅ Auto-select optimal strategy based on query  
+✅ Return search statistics in response  
 
-**Example Integration** (pseudo-code):
+**Example Usage**:
 
 ```typescript
 // In rag-query/index.ts
@@ -365,19 +492,23 @@ const matches = performHybridSearch(allChunks, {
 **Effort**: Completed in 1 session  
 **Impact**: ✅ Increased user trust, better transparency, complete traceability
 
-### Phase 4: Simple Workflow Templates (Optional Future Enhancement)
+### ✅ Phase 4: Workflow Templates - COMPLETE!
 
 **Goal**: Add basic multi-step reasoning capabilities
 
-**Tasks**:
-- [ ] Create pre-defined workflow templates
-- [ ] Implement sequential document processing
-- [ ] Add simple conditional logic
-- [ ] Build workflow selector UI
+**Completed Tasks**:
+- [x] Create workflow-templates.ts module with schema
+- [x] Implement workflow execution engine
+- [x] Add 4 pre-defined workflow templates (simple Q&A, doc comparison, progressive refinement, extract & summarize)
+- [x] Create execute-workflow Edge Function (API endpoint)
+- [x] Support conditional logic and step chaining
+- [x] Add execution logging and statistics
+- [ ] Build workflow selector UI (future enhancement)
+- [ ] Add visual workflow builder (future enhancement)
 
-**Estimated Effort**: 3-4 weeks  
-**Impact**: Enables more sophisticated use cases  
-**Priority**: Low (evaluate based on user feedback)
+**Effort**: Completed in 1 session  
+**Impact**: ✅ Enables multi-step reasoning, document comparison, iterative refinement  
+**Status**: Core functionality complete, UI enhancements optional
 
 ---
 
@@ -471,6 +602,12 @@ const matches = performHybridSearch(allChunks, {
 
 ---
 
-**Implementation Status**: ✅ Phase 1, 2 & 3 Complete  
-**Next Priority**: Phase 4 (Workflow Templates - Optional) or Hybrid Search Integration  
-**Overall Progress**: ~75% of evaluation recommendations implemented (3 of 4 phases complete)
+**Implementation Status**: ✅ ALL 4 PHASES COMPLETE!  
+**Completion**: 100% of core evaluation recommendations implemented  
+**Overall Progress**: 
+- ✅ Phase 1: Enhanced Chunking (commit caaa26c)
+- ✅ Phase 2: Hybrid Search (commit 4c2006c - fully integrated)
+- ✅ Phase 3: Grounded Citations (commit 1cebed8)
+- ✅ Phase 4: Workflow Templates (commits bec2e94, 6e8ee95)
+
+**Optional Future Enhancements**: Workflow UI components, visual workflow builder
