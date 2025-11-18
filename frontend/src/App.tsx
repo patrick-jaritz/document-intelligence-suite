@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
 const Admin = lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
 const Health = lazy(() => import('./pages/Health'));
+const UnifiedSearch = lazy(() => import('./pages/UnifiedSearch').then(module => ({ default: module.UnifiedSearch })));
 const PromptLibrary = lazy(() => import('./pages/PromptLibrary').then(module => ({ default: module.PromptLibrary })));
 const PromptEditor = lazy(() => import('./pages/PromptEditor').then(module => ({ default: module.PromptEditor })));
 const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ default: module.Analytics })));
@@ -43,6 +44,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/health" element={<Health />} />
+            <Route path="/search" element={<UnifiedSearch />} />
             <Route path="/prompts" element={<PromptLibrary />} />
             <Route path="/prompts/edit" element={<PromptEditor />} />
             <Route path="/analytics" element={<Analytics />} />
