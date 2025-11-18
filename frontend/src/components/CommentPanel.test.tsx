@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import '@testing-library/jest-dom';
 import { CommentPanel } from './CommentPanel';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,6 +21,23 @@ describe('CommentPanel', () => {
       clear: vi.fn(),
     };
     Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+    // Mock global.fetch used by CommentPanel to load thread and comments
+    (global as any).fetch = vi.fn((input: RequestInfo) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (url.includes('/comment-thread')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, data: { id: 'thread-1', repository_url: mockRepositoryUrl } }) });
+      }
+      if (url.includes('/comments')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, data: [] }) });
+      }
+      // default
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+  });
+
+  afterAll(() => {
+    // restore fetch
+    (global as any).fetch = undefined;
   });
 
   describe('rendering', () => {
@@ -73,7 +91,7 @@ describe('CommentPanel', () => {
       expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
     });
 
-    it('should have post button', () => {
+    it('should have post button', async () => {
       render(
         <CommentPanel
           repositoryUrl={mockRepositoryUrl}
@@ -82,7 +100,7 @@ describe('CommentPanel', () => {
           currentUserId={mockUserId}
         />
       );
-      expect(screen.getByText('Post Comment')).toBeInTheDocument();
+      expect(await screen.findByText('Post Comment')).toBeInTheDocument();
     });
 
     it('should disable post button when textarea is empty', async () => {
@@ -94,7 +112,7 @@ describe('CommentPanel', () => {
           currentUserId={mockUserId}
         />
       );
-      const button = screen.getByText('Post Comment');
+      const button = await screen.findByRole('button', { name: /post comment/i });
       expect(button).toBeDisabled();
     });
 
@@ -109,10 +127,10 @@ describe('CommentPanel', () => {
         />
       );
       
-      const textarea = screen.getByPlaceholderText('Add a comment...');
+      const textarea = await screen.findByPlaceholderText('Add a comment...');
       await user.type(textarea, 'Test comment');
       
-      const button = screen.getByText('Post Comment');
+      const button = await screen.findByRole('button', { name: /post comment/i });
       expect(button).not.toBeDisabled();
     });
   });
@@ -217,7 +235,7 @@ describe('CommentPanel', () => {
       expect(screen.getByText('Discussions')).toBeInTheDocument();
     });
 
-    it('should have descriptive button titles', () => {
+    it('should have descriptive button titles', async () => {
       render(
         <CommentPanel
           repositoryUrl={mockRepositoryUrl}
@@ -226,7 +244,7 @@ describe('CommentPanel', () => {
           currentUserId={mockUserId}
         />
       );
-      expect(screen.getByText('Post Comment')).toBeInTheDocument();
+      expect(await screen.findByText('Post Comment')).toBeInTheDocument();
     });
   });
 });

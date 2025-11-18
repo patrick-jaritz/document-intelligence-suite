@@ -33,6 +33,8 @@ interface VisionRAGRequest {
   documentId: string;
   filename?: string;
   vlmModel?: string; // 'gpt-4o', 'gpt-4.1', 'claude-3.5-sonnet'
+  includeGoogle?: boolean;
+  userId?: string;
 }
 
 interface VisionRAGResponse {
@@ -48,6 +50,7 @@ interface VisionRAGResponse {
     title: string;
     pageRange: string;
     summary?: string;
+    metadata?: Record<string, any>;
   }>;
   model: string;
   processingTime: number;
@@ -255,18 +258,52 @@ async function extractPdfPageImages(
   documentId: string,
   pageNumbers: number[]
 ): Promise<Map<number, string>> {
-  // TODO: Implement actual PDF page extraction
-  // Options:
-  // 1. Use PyMuPDF via external service
-  // 2. Use pdf2pic service
-  // 3. Extract pages client-side and pass as base64
-  
-  console.log(`⚠️  PDF page extraction not yet implemented`);
-  console.log(`   Pages needed: ${pageNumbers.join(', ')}`);
-  
-  // Placeholder - return empty map
-  // In production, implement actual extraction
-  return new Map();
+  // Fetch PDF file URL from Supabase storage
+  const { data, error } = await supabase
+    .from('documents')
+    .select('pdf_url')
+    .eq('id', documentId)
+    .single();
+
+  if (error || !data || !data.pdf_url) {
+    console.error('Failed to fetch PDF URL for document:', documentId);
+    return new Map();
+  }
+
+  const pdfUrl = data.pdf_url;
+  // External microservice endpoint for PDF page rendering
+  const pdfServiceUrl = Deno.env.get('PDF_PAGE_RENDER_URL') || 'https://pdf-render.example.com/render';
+
+  try {
+    const response = await fetch(pdfServiceUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pdf_url: pdfUrl,
+        pages: pageNumbers
+      })
+    });
+
+    if (!response.ok) {
+      console.error('PDF render service error:', response.status, await response.text());
+      return new Map();
+    }
+
+    const result = await response.json();
+    // result should be: { images: { [pageNumber]: base64string } }
+    const imagesMap = new Map<number, string>();
+    if (result.images) {
+      for (const [page, base64] of Object.entries(result.images)) {
+        imagesMap.set(Number(page), base64);
+      }
+    }
+    return imagesMap;
+  } catch (err) {
+    console.error('PDF page extraction failed:', err);
+    return new Map();
+  }
 }
 
 // =============================================================================
@@ -491,13 +528,51 @@ serve(async (req) => {
     });
 
     // Extract PDF page images
-    // TODO: Implement actual extraction
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const pageImages = await extractPdfPageImages(supabase, documentId, pageNumbers);
+
+    // Build initial sources from retrieved nodes
+    const sources: VisionRAGResponse['sources'] = [...retrievedNodes];
+
+    // Optionally include Google Drive search results as additional sources
+    // Requires `includeGoogle` and `userId` in the request body and a reachable google-connector function
+    const includeGoogle = (request as any).includeGoogle === true;
+    const requestUserId = (request as any).userId;
+
+    if (includeGoogle && requestUserId) {
+      try {
+        const googleConnectorUrl = Deno.env.get('GOOGLE_CONNECTOR_URL') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-connector`;
+        const connectorRes = await fetch(googleConnectorUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Use service-role key for server-to-server calls
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`,
+            'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          },
+          body: JSON.stringify({ userId: requestUserId, query: question, pageSize: 5 })
+        });
+
+        if (connectorRes.ok) {
+          const connectorData = await connectorRes.json();
+          const googleResults = connectorData.results || [];
+
+          for (const g of googleResults) {
+            sources.push({
+              nodeId: `google:${g.id}`,
+              title: g.title,
+              pageRange: 'N/A',
+              summary: g.owner || undefined,
+              metadata: { webViewLink: g.webViewLink, mimeType: g.mimeType }
+            });
+          }
+        } else {
+          const text = await connectorRes.text().catch(() => '');
+          console.error('google-connector failed', connectorRes.status, text);
+        }
+      } catch (err) {
+        console.error('google-connector error', err);
+      }
+    }
 
     // Generate answer using VLM
     // For now, use tree summaries if page images not available
@@ -541,7 +616,7 @@ Provide a clear, concise answer based only on the provided context.
       answer,
       reasoning: retrievalResult.thinking,
       retrievedNodes,
-      sources: retrievedNodes,
+      sources,
       model: vlmModel,
       processingTime
     };

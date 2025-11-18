@@ -107,8 +107,8 @@ export async function executePrompt(
         system_message: request.system_message || null,
         response: response,
         latency_ms: latency,
-        tokens_in: null, // TODO: Calculate from actual API response
-        tokens_out: null, // TODO: Calculate from actual API response
+        tokens_in: tokensIn, // captured from LLM API response when available
+        tokens_out: tokensOut, // captured from LLM API response when available
       })
       .select()
       .single();

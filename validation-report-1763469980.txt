@@ -1,0 +1,154 @@
+Google Drive Integration - Pre-Deployment Validation Report
+Timestamp: Tue Nov 18 13:46:20 CET 2025
+System: Darwin
+================================================================
+
+[0;35m━━━ Git Repository Status ━━━[0m
+[0;34m[CHECK][0m Checking git repository...
+[0;32m✓ PASS[0m Valid git repository
+[0;34m[CHECK][0m Checking for uncommitted changes...
+[1;33m⚠ WARN[0m Uncommitted changes detected:
+ M COMPLETION_SUMMARY.md
+ M PROMPT_BUILDER_IMPLEMENTATION_STATUS.md
+ M frontend/src/components/CommentPanel.test.tsx
+ M frontend/src/components/PromptBuilder/DocumentSelector.tsx
+ M frontend/src/components/RAGView.tsx
+ M frontend/src/lib/supabase-integration.test.ts
+ M frontend/src/services/executionService.ts
+ M supabase/functions/vision-rag-query/index.ts
+?? .deployment-logs/
+?? .env.example
+?? ARCHITECTURE_DIAGRAMS_GOOGLE_INTEGRATION.md
+?? DEPLOYMENT_CHECKLIST_GOOGLE_INTEGRATION.md
+?? DEPLOYMENT_READINESS_REPORT.md
+?? GOOGLE_DRIVE_INTEGRATION.md
+?? IMPLEMENTATION_SUMMARY.md
+?? MASTER_INDEX_GOOGLE_INTEGRATION.md
+?? MONITORING_SETUP_GOOGLE_INTEGRATION.md
+?? ON_CALL_RUNBOOK_GOOGLE_INTEGRATION.md
+?? PROJECT_COMPLETION_CHECKLIST.md
+?? QA_REPORT_20250117.md
+?? QUICK_REFERENCE_GOOGLE_INTEGRATION.md
+?? SESSION_COMPLETION_SUMMARY.md
+?? SESSION_SUMMARY_GOOGLE_INTEGRATION.md
+?? deploy-google-integration-production.sh
+?? deploy-google-integration-rollback.sh
+?? deploy-google-integration-staging.sh
+?? frontend/src/components/GoogleConnect.tsx
+?? frontend/src/pages/__tests__/
+?? supabase/functions/google-connector/
+?? supabase/functions/google-oauth-callback/
+?? supabase/functions/google-oauth-start/
+?? supabase/functions/pageindex-webhook/
+?? supabase/functions/vision-rag-query/__tests__/
+?? supabase/migrations/20251117000000_create_external_integrations.sql
+?? validate-google-integration.sh
+?? validation-report-1763469399.txt
+?? validation-report-1763469801.txt
+?? validation-report-1763469980.txt
+  [0;34m→[0m Run: git add -A && git commit -m 'Pre-deployment commit'
+[0;34m[CHECK][0m Checking branch...
+[0;32m✓ PASS[0m On branch: main
+  [0;34m→[0m Latest commits:
+    59c5b18 docs: add deployment execution verification ✅
+    c3cbf8f feat: add collaboration features - comment threads, saved views, thepipe-service
+    16fef7e fix: add logWarning export to Rollbar shim
+
+[0;35m━━━ File Structure ━━━[0m
+[0;32m✓ PASS[0m supabase/functions/google-oauth-start/index.ts (4.0K)
+[0;32m✓ PASS[0m supabase/functions/google-oauth-callback/index.ts (4.0K)
+[0;32m✓ PASS[0m supabase/functions/google-connector/index.ts (8.0K)
+[0;32m✓ PASS[0m supabase/functions/vision-rag-query/index.ts ( 20K)
+[0;32m✓ PASS[0m supabase/migrations/20251117000000_create_external_integrations.sql (4.0K)
+[0;32m✓ PASS[0m frontend/src/components/RAGView.tsx ( 44K)
+[0;32m✓ PASS[0m frontend/src/components/GoogleConnect.tsx (4.0K)
+[0;32m✓ PASS[0m GOOGLE_DRIVE_INTEGRATION.md ( 20K)
+[0;32m✓ PASS[0m DEPLOYMENT_CHECKLIST_GOOGLE_INTEGRATION.md ( 12K)
+[0;32m✓ PASS[0m SESSION_SUMMARY_GOOGLE_INTEGRATION.md ( 12K)
+[0;32m✓ PASS[0m QUICK_REFERENCE_GOOGLE_INTEGRATION.md ( 12K)
+[0;32m✓ PASS[0m ARCHITECTURE_DIAGRAMS_GOOGLE_INTEGRATION.md ( 36K)
+[0;32m✓ PASS[0m MASTER_INDEX_GOOGLE_INTEGRATION.md ( 16K)
+
+[0;35m━━━ Code Syntax ━━━[0m
+[0;34m[CHECK][0m Checking TypeScript files...
+  [0;34m→[0m index.ts: Has debug logging
+[0;32m✓ PASS[0m index.ts (      39 lines)
+  [0;34m→[0m index.ts: Has debug logging
+[0;32m✓ PASS[0m index.ts (     104 lines)
+  [0;34m→[0m index.ts: Has debug logging
+[0;32m✓ PASS[0m index.ts (      98 lines)
+  [0;34m→[0m index.ts: Has debug logging
+[0;32m✓ PASS[0m index.ts (     653 lines)
+  [0;34m→[0m RAGView.tsx: Has debug logging
+[0;32m✓ PASS[0m RAGView.tsx (    1125 lines)
+[0;32m✓ PASS[0m GoogleConnect.tsx (      23 lines)
+[0;34m[CHECK][0m Checking SQL files...
+
+[0;35m━━━ Test Files ━━━[0m
+[0;32m✓ PASS[0m __tests__: 31 test cases
+[0;32m✓ PASS[0m __tests__: 47 test cases
+
+[0;35m━━━ Dependencies ━━━[0m
+[0;34m[CHECK][0m Checking npm packages...
+[0;32m✓ PASS[0m package.json exists
+[0;34m[CHECK][0m Checking Supabase configuration...
+[1;33m⚠ WARN[0m Supabase configuration not found (may be OK for deployed projects)
+
+[0;35m━━━ Environment Configuration ━━━[0m
+[0;34m[CHECK][0m Checking environment variable templates...
+[0;32m✓ PASS[0m .env.example exists
+[0;32m✓ PASS[0m Staging and production placeholders present
+[0;32m✓ PASS[0m Google OAuth variables documented
+[0;34m[CHECK][0m Checking .gitignore...
+[0;32m✓ PASS[0m .gitignore includes environment patterns
+[0;34m[CHECK][0m Checking for exposed secrets...
+[0;32m✓ PASS[0m No exposed secrets detected
+
+[0;35m━━━ Documentation ━━━[0m
+[0;34m[CHECK][0m Checking documentation completeness...
+[0;32m✓ PASS[0m MASTER_INDEX_GOOGLE_INTEGRATION.md (    1973 words)
+[0;32m✓ PASS[0m GOOGLE_DRIVE_INTEGRATION.md (    2226 words)
+[0;32m✓ PASS[0m DEPLOYMENT_CHECKLIST_GOOGLE_INTEGRATION.md (    1572 words)
+[0;32m✓ PASS[0m QUICK_REFERENCE_GOOGLE_INTEGRATION.md (    1526 words)
+[0;32m✓ PASS[0m SESSION_SUMMARY_GOOGLE_INTEGRATION.md (    1424 words)
+[0;32m✓ PASS[0m ARCHITECTURE_DIAGRAMS_GOOGLE_INTEGRATION.md (    2076 words)
+
+[0;35m━━━ Deployment Scripts ━━━[0m
+[0;34m[CHECK][0m Checking deployment automation...
+[0;32m✓ PASS[0m deploy-google-integration-staging.sh (executable)
+[0;32m✓ PASS[0m deploy-google-integration-production.sh (executable)
+[0;32m✓ PASS[0m validate-google-integration.sh (executable)
+
+[0;35m━━━ Integration Points ━━━[0m
+[0;34m[CHECK][0m Checking vision-rag-query includes google-connector...
+[0;32m✓ PASS[0m vision-rag-query references google integration
+[0;34m[CHECK][0m Checking RAGView includes Google toggle...
+[0;32m✓ PASS[0m RAGView has Google toggle state
+[0;34m[CHECK][0m Checking Google connector request handling...
+[0;32m✓ PASS[0m google-connector handles userId and query
+[0;34m[CHECK][0m Checking OAuth callback implementation...
+[0;32m✓ PASS[0m OAuth callback stores tokens
+
+[0;35m━━━ Security ━━━[0m
+[0;34m[CHECK][0m Checking RLS policies...
+[1;33m⚠ WARN[0m RLS policies not evident in migration
+[0;34m[CHECK][0m Checking token security...
+[0;32m✓ PASS[0m Token management implemented
+[0;34m[CHECK][0m Checking CORS configuration...
+[0;32m✓ PASS[0m CORS headers likely configured
+
+[0;35m━━━ Error Handling ━━━[0m
+[0;34m[CHECK][0m Checking error handling in functions...
+[0;32m✓ PASS[0m google-oauth-callback: has error handling
+[0;32m✓ PASS[0m google-connector: has error handling
+[0;32m✓ PASS[0m vision-rag-query: has error handling
+
+[0;35m━━━ Performance ━━━[0m
+[0;34m[CHECK][0m Checking for N+1 queries...
+[0;34m[CHECK][0m Checking for caching...
+[0;32m✓ PASS[0m Token caching implemented
+[0;34m[CHECK][0m Checking response payload sizes...
+  [0;34m→[0m Google Drive result limit: Check DEPLOYMENT_CHECKLIST
+
+
+[0;35m━━━ Validation Summary ━━━[0m

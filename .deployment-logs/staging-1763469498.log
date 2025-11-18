@@ -1,0 +1,10 @@
+[0;34m[13:38:18][0m Deployment log: /Users/patrickjaritz/CODE/document-intelligence-suite-standalone/.deployment-logs/staging-1763469498.log
+[0;34m[13:38:18][0m Starting Google Drive Integration Deployment
+[0;34m[13:38:18][0m Target: Staging
+[0;34m[13:38:18][0m Validate Only: true
+[0;34m[13:38:18][0m Skip Tests: false
+
+[0;34m=== Checking Prerequisites ===[0m
+[0;32m✓[0m All required tools installed
+[0;32m✓[0m Valid git repository
+[0;31m✗[0m Missing required environment variables:

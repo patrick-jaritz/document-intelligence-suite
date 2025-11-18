@@ -9,6 +9,8 @@ const mockSupabase = {
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     match: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: {}, error: null }),
     data: [],
     error: null,

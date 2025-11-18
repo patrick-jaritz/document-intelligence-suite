@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
-import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe } from 'lucide-react';
+import { Upload, FileText, MessageCircle, Send, Loader2, AlertCircle, Globe, Bug } from 'lucide-react';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { useDebounce } from '../utils/debounce';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
@@ -50,6 +50,7 @@ export function RAGView() {
   const [ragProvider, setRagProvider] = useState<'openai' | 'anthropic' | 'mistral' | 'gemini' | 'kimi' | 'pageindex-vision'>('openai');
   const [ragModel, setRagModel] = useState('gpt-4o-mini');
   const [debugMode, setDebugMode] = useState(false);
+  const [includeGoogle, setIncludeGoogle] = useState(false);
 
   // Enhanced error logging helper
   const logError = (context: string, error: unknown, additionalInfo?: Record<string, any>) => {
@@ -505,7 +506,9 @@ export function RAGView() {
             question,
             documentId: documentId!,
             filename: filename || 'document',
-            vlmModel: ragModel || 'gpt-4o'
+            vlmModel: ragModel || 'gpt-4o',
+            includeGoogle: includeGoogle,
+            userId: (await supabase.auth.getUser()).data?.user?.id || undefined
           }
         : {
             question,
@@ -766,6 +769,28 @@ export function RAGView() {
                 </p>
               )}
             </div>
+
+            {/* Include Google Drive Results (Vision RAG only) */}
+            {ragProvider === 'pageindex-vision' && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  <label className="text-xs font-medium text-gray-700">Include Google Drive Results</label>
+                </div>
+                <button
+                  onClick={() => setIncludeGoogle(!includeGoogle)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    includeGoogle ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      includeGoogle ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
             {/* Debug Mode Toggle */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">

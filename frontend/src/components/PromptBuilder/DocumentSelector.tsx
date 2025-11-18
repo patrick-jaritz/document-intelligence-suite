@@ -11,6 +11,9 @@ import {
   linkDocumentToPrompt,
   unlinkDocumentFromPrompt,
 } from '../../services/promptDocumentService';
+import { getAvailableDocuments, DocumentContent } from '../../services/documentPromptService';
+import { supabase, callEdgeFunction } from '../../lib/supabase';
+import { GoogleConnect } from '../GoogleConnect';
 
 interface DocumentSelectorProps {
   promptId: string;
@@ -22,6 +25,10 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [availableDocuments, setAvailableDocuments] = useState<DocumentContent[]>([]);
+  const [availableLoading, setAvailableLoading] = useState(false);
+  const [includeGoogle, setIncludeGoogle] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     loadDocuments();
@@ -32,6 +39,29 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
       onDocumentsChange(documents);
     }
   }, [documents, onDocumentsChange]);
+
+  useEffect(() => {
+    if (showAddModal) {
+      loadAvailableDocuments();
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    // Check if user has Google integration
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('external_account_integrations')
+          .select('id')
+          .eq('provider', 'google')
+          .single();
+
+        setGoogleConnected(!!data && !error);
+      } catch (err) {
+        setGoogleConnected(false);
+      }
+    })();
+  }, []);
 
   const loadDocuments = async () => {
     setLoading(true);
@@ -59,9 +89,43 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
     }
   };
 
-  // TODO: Integrate with actual document service
-  // For now, this is a placeholder that shows the UI structure
-  const availableDocuments: Array<{ id: string; name: string; type: string }> = [];
+  const loadAvailableDocuments = async () => {
+    setAvailableLoading(true);
+    try {
+      const docs = await getAvailableDocuments();
+
+      // If user opted into Google Drive results, call connector and merge
+      if (includeGoogle) {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = (userData as any)?.user?.id;
+          if (userId) {
+            const connectorResp = await callEdgeFunction('google-connector', { userId, query: searchQuery || '', pageSize: 10 });
+            const googleResults = connectorResp?.results || [];
+            const mappedGoogle: DocumentContent[] = googleResults.map((g: any) => ({
+              id: `google:${g.id}`,
+              title: g.title,
+              content: '',
+              type: 'google-drive',
+              metadata: { webViewLink: g.webViewLink, owner: g.owner }
+            }));
+
+            setAvailableDocuments([...mappedGoogle, ...docs]);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to fetch Google Drive results', err);
+        }
+      }
+
+      setAvailableDocuments(docs);
+    } catch (error) {
+      console.error('Failed to load available documents:', error);
+      setAvailableDocuments([]);
+    } finally {
+      setAvailableLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -136,6 +200,20 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
             </div>
 
             <div className="p-6 flex-1 overflow-y-auto">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={includeGoogle} onChange={(e) => setIncludeGoogle(e.target.checked)} />
+                    <span className="text-sm">Include Google Drive results</span>
+                  </label>
+                  {includeGoogle && (
+                    <span className="text-sm text-gray-500">{googleConnected ? 'Google account connected' : 'Not connected'}</span>
+                  )}
+                </div>
+                <div>
+                  {includeGoogle && <GoogleConnect userId={(supabase.auth.user() as any)?.id || ''} />}
+                </div>
+              </div>
               {/* Search */}
               <div className="mb-4">
                 <div className="relative">
@@ -152,7 +230,9 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
 
               {/* Document List */}
               <div className="space-y-2">
-                {availableDocuments.length === 0 ? (
+                {availableLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading documents...</div>
+                ) : availableDocuments.filter(d => d.title || d.id).length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <p>No documents available</p>
                     <p className="text-sm mt-2">
@@ -160,36 +240,46 @@ export function DocumentSelector({ promptId, onDocumentsChange }: DocumentSelect
                     </p>
                   </div>
                 ) : (
-                  availableDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{doc.name}</div>
-                          <div className="text-xs text-gray-500">{doc.type}</div>
-                        </div>
-                      </div>
-                      <select
-                        onChange={(e) => {
-                          handleLink(doc.id, e.target.value as DocumentRelationshipType);
-                          setShowAddModal(false);
-                        }}
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                        defaultValue=""
+                  availableDocuments
+                    .filter((doc) => {
+                      if (!searchQuery) return true;
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        (doc.title || '').toLowerCase().includes(q) ||
+                        (doc.content || '').toLowerCase().includes(q) ||
+                        (doc.id || '').toLowerCase().includes(q)
+                      );
+                    })
+                    .map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
                       >
-                        <option value="" disabled>
-                          Select relationship
-                        </option>
-                        <option value="context">Context</option>
-                        <option value="example">Example</option>
-                        <option value="reference">Reference</option>
-                        <option value="target">Target</option>
-                      </select>
-                    </div>
-                  ))
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{doc.title || doc.id}</div>
+                            <div className="text-xs text-gray-500">{doc.type || 'document'}</div>
+                          </div>
+                        </div>
+                        <select
+                          onChange={(e) => {
+                            handleLink(doc.id, e.target.value as DocumentRelationshipType);
+                            setShowAddModal(false);
+                          }}
+                          className="text-sm border border-gray-300 rounded px-2 py-1"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Select relationship
+                          </option>
+                          <option value="context">Context</option>
+                          <option value="example">Example</option>
+                          <option value="reference">Reference</option>
+                          <option value="target">Target</option>
+                        </select>
+                      </div>
+                    ))
                 )}
               </div>
             </div>
