@@ -1,0 +1,3 @@
+[function.process-pdf-ocr]
+verify_jwt = false
+

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  crawl4ai-service:
+    build: .
+    ports:
+      - "8004:8004"
+    environment:
+      # crawl4ai Configuration
+      CRAWL4AI_HEADLESS: "true"
+      CRAWL4AI_VERBOSE: "false"
+      CRAWL4AI_CACHE_ENABLED: "true"
+      CRAWL4AI_TIMEOUT: "30000"
+      
+      # Browser Configuration
+      BROWSER_TYPE: "chromium"
+      BROWSER_ARGS: "--no-sandbox,--disable-dev-shm-usage,--disable-gpu"
+      
+      # Performance Settings
+      MAX_CONCURRENT_CRAWLS: "10"
+      CRAWL_TIMEOUT: "30"
+      MEMORY_LIMIT: "2G"
+    volumes:
+      # Optional: Mount cache directory for persistence
+      - ./cache:/app/cache
+      # Optional: Mount logs directory
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G

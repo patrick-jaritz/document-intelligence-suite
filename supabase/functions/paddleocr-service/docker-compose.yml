@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  paddleocr-service:
+    build: .
+    container_name: paddleocr-ocr-service
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PADDLEOCR_LANG=en
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "from paddleocr import PaddleOCR; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Optional: HTTP API wrapper
+  paddleocr-api:
+    build: .
+    container_name: paddleocr-api
+    ports:
+      - "8002:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_MODE=true
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    command: python3 -c "
+import http.server
+import socketserver
+import json
+import subprocess
+import sys
+
+class OCRHandler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == '/ocr':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                base64_data = data.get('data', '')
+                
+                # Call OCR service
+                process = subprocess.Popen(
+                    ['python3', 'run_ocr.py'],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                stdout, stderr = process.communicate(input=base64_data)
+                
+                if process.returncode == 0:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(stdout.encode('utf-8'))
+                else:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    error_response = json.dumps({'error': stderr})
+                    self.wfile.write(error_response.encode('utf-8'))
+                    
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                error_response = json.dumps({'error': str(e)})
+                self.wfile.write(error_response.encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+with socketserver.TCPServer(('', 8000), OCRHandler) as httpd:
+    print('OCR API server running on port 8000')
+    httpd.serve_forever()
+"

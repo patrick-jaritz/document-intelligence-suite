@@ -1,0 +1,2 @@
+[functions.github-analyzer]
+entrypoint = "index.ts"
